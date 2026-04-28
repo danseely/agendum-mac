@@ -3,7 +3,7 @@
 Last updated: 2026-04-28
 
 ## Current milestone
-Mac prototype integration branch established.
+Backend helper implementation started.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -23,10 +23,12 @@ Mac prototype integration branch established.
 - Pushed `feature/mac-prototype`.
 - Opened draft parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`.
 - Retargeted backend-helper PR #1 to `feature/mac-prototype`: `https://github.com/danseely/agendum-mac/pull/1`.
+- Added `Backend/agendum_backend/helper.py` with the v0 JSONL request/response envelope.
+- Implemented `workspace.current` and `auth.status` in the helper.
+- Added focused helper tests in `Tests/test_backend_helper.py`.
 
 ## In progress
-- Review and evolve the broad Mac prototype baseline on PR #2.
-- Review backend-helper work as stacked PR #1.
+- Backend helper v0 implementation review on stacked PR #1.
 
 ## Blocked
 - None.
@@ -34,3 +36,4 @@ Mac prototype integration branch established.
 ## Next
 - Continue implementation through stacked feature branches.
 - Keep `main` README-only until the prototype is ready.
+- Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
