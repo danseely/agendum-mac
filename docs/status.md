@@ -3,7 +3,7 @@
 Last updated: 2026-04-28
 
 ## Current milestone
-Testing baseline before next backend/UI implementation.
+Ready for the next backend/UI implementation checkpoint.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -42,9 +42,11 @@ Testing baseline before next backend/UI implementation.
 - Recorded initial backend helper coverage: 193/207 lines, 93.2%.
 - Clarified that the Python coverage script is temporary/helper-only; Swift app coverage should use SwiftPM coverage now and Xcode/`xccov` once an Xcode app project exists.
 - Added `.github/workflows/test.yml` to run backend coverage, Python tests, Swift build, and whitespace checks in CI.
+- PR #3 merged the testing baseline and CI workflow into `feature/mac-prototype`.
+- Cleaned up local topic branches after the merge.
 
 ## In progress
-- Ready to choose the next implementation checkpoint.
+- Choosing between Swift helper-process wiring and `workspace.list` / `workspace.select`.
 
 ## Blocked
 - None.

@@ -1,19 +1,19 @@
 # Handoff
 
 ## Current objective
-Choose the next implementation checkpoint after adding CI for the testing baseline.
+Choose the next implementation checkpoint after merging the testing baseline into `feature/mac-prototype`.
 
 ## Branch
-`codex/test-coverage-reporting`
+`feature/mac-prototype`
 
 ## Repo state
-- HEAD: `codex/test-coverage-reporting`; run `git rev-parse --short HEAD` for the exact local commit.
+- HEAD: `feature/mac-prototype`; run `git rev-parse --short HEAD` for the exact local commit.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
-- PR #3: `https://github.com/danseely/agendum-mac/pull/3`, draft, targeting `feature/mac-prototype`
+- PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
-- Current PR target for this branch: `feature/mac-prototype`
-- Working tree: clean after this handoff update is committed and pushed
+- Local cleanup: deleted local `codex/test-coverage-reporting` and `feature/backend-helper` branches after merge.
+- Working tree: clean after this handoff update is committed and pushed.
 - Last validation date: 2026-04-28
 
 ## Completed
@@ -48,6 +48,9 @@ Choose the next implementation checkpoint after adding CI for the testing baseli
 - Updated the workflow to `actions/checkout@v5` after GitHub warned that `actions/checkout@v4` uses deprecated Node 20.
 - Removed the `codex/**` push trigger so PR branch updates do not run duplicate push and pull-request workflows.
 - Updated the workflow to run on all pull requests, including future stacked feature sub-PRs, while keeping push runs limited to `main` and `feature/mac-prototype`.
+- Merged PR #3 into `feature/mac-prototype`.
+- Pulled `feature/mac-prototype` to merge commit `408d800`.
+- Deleted local topic branches `codex/test-coverage-reporting` and `feature/backend-helper`.
 
 ## Validation
 - `swift build` passes.
@@ -59,6 +62,8 @@ Choose the next implementation checkpoint after adding CI for the testing baseli
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
 - GitHub Actions PR run `25076838730` passed for PR #3 after removing duplicate branch push triggers.
+- GitHub Actions PR run `25077164616` passed for PR #3 after enabling all pull-request targets.
+- GitHub Actions checks for parent PR #2 are passing after PR #3 merged into `feature/mac-prototype`.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files
@@ -90,8 +95,8 @@ Choose the next implementation checkpoint after adding CI for the testing baseli
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Check the latest PR #3 workflow result after removing duplicate branch push triggers.
-2. Choose between Swift helper-process wiring and `workspace.list` / `workspace.select`.
+1. Choose between Swift helper-process wiring and `workspace.list` / `workspace.select`.
+2. Keep new backend command work covered by unit tests plus subprocess tests when process/environment behavior changes.
 3. Keep the GitHub Actions workflow aligned as new test layers are added.
 
 ## After checkpoint
