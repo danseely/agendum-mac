@@ -6,12 +6,13 @@ This is intentionally separate from `../agendum`. The existing terminal app rema
 
 ## Current Shape
 
-- SwiftUI-first macOS app scaffold.
-- Local sample data only.
-- No GitHub remote configured yet.
-- Planning state lives in `docs/`.
+- README-only public base branch.
+- Prototype work happens on feature branches and pull requests.
+- The first implementation branch is `feature/backend-helper`.
 
 ## Run
+
+The runnable app scaffold lives on implementation branches, not on `main`.
 
 ```bash
 swift run AgendumMac
