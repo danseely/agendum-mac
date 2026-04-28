@@ -11,14 +11,16 @@ Evaluate and prototype a proper native macOS GUI for agendum in a new standalone
 
 ## Constraints
 - Do not modify `../agendum` for GUI work unless explicitly requested.
-- Do not push this repo to GitHub yet.
+- Keep public `main` README-only until the prototype is ready to become default-branch content.
+- Use `feature/mac-prototype` as the broad prototype integration branch.
+- Use stacked feature branches, such as `feature/backend-helper`, for reviewable implementation checkpoints.
 - Keep the existing terminal app working during any future backend extraction.
 - Preserve `gh`-based GitHub behavior unless an explicit decision replaces it.
 - Prefer a Mac-native shell, not a generic desktop wrapper.
 - Avoid hand-authoring Xcode project internals unless no better generator/template path exists.
 
 ## Non-goals
-- No GitHub remote or PR yet.
+- Do not merge prototype implementation into `main` until explicitly requested.
 - No full backend implementation in this repo yet.
 - No release/distribution channel has been chosen.
 - No decision has been made to rewrite the Python backend in Swift.
@@ -34,7 +36,7 @@ Start with a SwiftUI-first native macOS shell that talks to the existing Python 
 - `docs/backend-contract.md`: v0 backend bridge contract once drafted.
 
 ## Milestones
-1. Standalone scaffold: local SwiftUI app builds, planning docs are in this repo, and no GitHub remote is configured.
+1. Standalone scaffold: local SwiftUI app builds, planning docs are in this repo, and public `main` remains README-only.
 2. Backend contract: define a versioned helper protocol for task loading, actions, sync, namespace, auth status, and errors.
 3. Python service extraction: expose the required GUI commands from the existing agendum engine without importing Textual.
 4. Live vertical slice: replace sample data with backend-loaded tasks, force sync, show sync status/errors, open task URLs, and mutate task status/remove.
