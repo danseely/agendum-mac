@@ -53,6 +53,24 @@ Revisit once dependency management and CI are in place:
 - switch Python helper reporting to `coverage.py` if subprocess coverage, HTML reports, XML/CI output, or branch coverage becomes useful
 - add minimum coverage thresholds only after backend command and Swift helper-client coverage stabilizes
 
+### CI Pipeline
+Use GitHub Actions to run the current local validation pipeline on macOS.
+
+Current CI shape:
+- check out `danseely/agendum-mac`
+- check out `danseely/agendum` as a sibling directory because the helper currently bootstraps imports from `../agendum/src`
+- run `python3 Scripts/python_coverage.py`
+- run `python3 -m unittest discover -s Tests`
+- run `swift build`
+- run `git diff --check`
+
+CI should stay aligned with the local handoff validation. When new test layers are added, update the workflow in the same checkpoint as the tests.
+
+Later updates:
+- add `swift test --enable-code-coverage` once Swift test targets exist
+- export Xcode coverage with `xccov` once there is an Xcode app project or scheme
+- replace the sibling checkout with package/dependency setup once the backend dependency is formalized
+
 ### Swift Unit Tests
 Add Swift tests once helper-client code is separated from SwiftUI views.
 
@@ -105,6 +123,7 @@ Acceptance:
 - Add subprocess JSONL integration tests for the helper entrypoint.
 - Add missing protocol edge-case tests for bad payloads and unknown commands.
 - Run temporary helper coverage with `python3 Scripts/python_coverage.py` and record the result in `docs/handoff.md`.
+- Keep the GitHub Actions test workflow aligned with these local checks.
 
 ### Before Adding Each New Backend Command
 - Add or update contract examples in `docs/backend-contract.md`.

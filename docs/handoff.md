@@ -1,7 +1,7 @@
 # Handoff
 
 ## Current objective
-Choose the next implementation checkpoint after completing backend coverage reporting.
+Choose the next implementation checkpoint after adding CI for the testing baseline.
 
 ## Branch
 `codex/test-coverage-reporting`
@@ -44,6 +44,7 @@ Choose the next implementation checkpoint after completing backend coverage repo
 - Added `Scripts/python_coverage.py`, a stdlib-based backend helper coverage reporter.
 - Improved helper coverage with unit tests for `run_stdio` and exception envelopes.
 - Clarified coverage strategy: temporary Python helper script now, SwiftPM coverage for Swift tests while package-only, and Xcode/`xccov` coverage after an Xcode app project exists.
+- Added `.github/workflows/test.yml` to run the current test pipeline in GitHub Actions on macOS.
 
 ## Validation
 - `swift build` passes.
@@ -51,10 +52,12 @@ Choose the next implementation checkpoint after completing backend coverage repo
 - `python3 Scripts/python_coverage.py` passes: 193/207 lines, 93.2% for `Backend/agendum_backend/helper.py`.
 - Smoke-tested JSONL helper invocation with `workspace.current` and `auth.status`.
 - `git diff --check` passes.
+- `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files
 - `.gitignore`
+- `.github/workflows/test.yml`
 - `Backend/agendum_backend/__init__.py`
 - `Backend/agendum_backend/helper.py`
 - `Backend/agendum_backend_helper.py`
@@ -81,9 +84,9 @@ Choose the next implementation checkpoint after completing backend coverage repo
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Choose between Swift helper-process wiring and `workspace.list` / `workspace.select`.
-2. Keep new backend command work covered by unit tests plus subprocess tests when process/environment behavior changes.
-3. Add Swift tests and SwiftPM coverage reporting when helper-client code is extracted outside SwiftUI views.
+1. Check the PR #3 workflow result.
+2. Choose between Swift helper-process wiring and `workspace.list` / `workspace.select`.
+3. Keep the GitHub Actions workflow aligned as new test layers are added.
 
 ## After checkpoint
 - Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.

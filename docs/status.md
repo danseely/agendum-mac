@@ -14,6 +14,7 @@ Testing baseline before next backend/UI implementation.
 - Helper subprocess JSONL tests cover the existing process boundary. Done.
 - Missing helper protocol edge-case tests cover existing commands. Done.
 - Backend coverage reporting command exists and has a recorded baseline. Done.
+- GitHub Actions workflow runs the current local test pipeline. Done.
 
 ## Done
 - Created a new local project outside `../agendum`.
@@ -40,6 +41,7 @@ Testing baseline before next backend/UI implementation.
 - Added `Scripts/python_coverage.py` for backend helper coverage reporting.
 - Recorded initial backend helper coverage: 193/207 lines, 93.2%.
 - Clarified that the Python coverage script is temporary/helper-only; Swift app coverage should use SwiftPM coverage now and Xcode/`xccov` once an Xcode app project exists.
+- Added `.github/workflows/test.yml` to run backend coverage, Python tests, Swift build, and whitespace checks in CI.
 
 ## In progress
 - Ready to choose the next implementation checkpoint.
@@ -48,6 +50,7 @@ Testing baseline before next backend/UI implementation.
 - None.
 
 ## Next
+- Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
 - Keep `feature/mac-prototype` as the broad integration branch.

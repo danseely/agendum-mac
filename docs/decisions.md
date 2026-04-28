@@ -59,3 +59,9 @@
 - Reason: The repo does not yet have Python dependency management, and the first reporting need is a lightweight helper coverage summary that runs with the existing toolchain. This is not the long-term Mac app coverage approach.
 - Impact: `python3 Scripts/python_coverage.py` reports in-process line coverage for `Backend/agendum_backend/helper.py`; subprocess entrypoint behavior remains covered by integration tests rather than line-counted. Swift coverage should use `swift test --enable-code-coverage` while the repo is SwiftPM-only, and `xcodebuild test -enableCodeCoverage YES` / `xccov` after an Xcode app project exists.
 - Plan change: yes; this adds coverage reporting as part of the testing baseline.
+
+## 2026-04-28
+- Decision: Add GitHub Actions CI for the current local validation pipeline on macOS.
+- Reason: The testing baseline should run on every PR instead of relying only on local handoff validation.
+- Impact: CI checks out `agendum-mac` and sibling `agendum`, then runs Python helper coverage, Python unit/integration tests, `swift build`, and `git diff --check`. The sibling checkout is temporary until the backend dependency is formalized.
+- Plan change: yes; CI becomes part of the testing baseline.
