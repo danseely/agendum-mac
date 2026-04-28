@@ -47,7 +47,7 @@ Choose the next implementation checkpoint after merging the testing baseline int
 - Added `.github/workflows/test.yml` to run the current test pipeline in GitHub Actions on macOS.
 - Updated the workflow to `actions/checkout@v5` after GitHub warned that `actions/checkout@v4` uses deprecated Node 20.
 - Removed the `codex/**` push trigger so PR branch updates do not run duplicate push and pull-request workflows.
-- Updated the workflow to run on all pull requests, including future stacked feature sub-PRs, while keeping push runs limited to `main` and `feature/mac-prototype`.
+- Updated the workflow to run on all pull requests, including future stacked feature sub-PRs, while keeping push runs limited to `main`.
 - Merged PR #3 into `feature/mac-prototype`.
 - Pulled `feature/mac-prototype` to merge commit `408d800`.
 - Deleted local topic branches `codex/test-coverage-reporting` and `feature/backend-helper`.
@@ -64,6 +64,7 @@ Choose the next implementation checkpoint after merging the testing baseline int
 - GitHub Actions PR run `25076838730` passed for PR #3 after removing duplicate branch push triggers.
 - GitHub Actions PR run `25077164616` passed for PR #3 after enabling all pull-request targets.
 - GitHub Actions checks for parent PR #2 are passing after PR #3 merged into `feature/mac-prototype`.
+- CI push triggers now exclude `feature/mac-prototype`; the parent PR handles validation for that branch.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files

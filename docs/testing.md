@@ -60,7 +60,7 @@ Current CI shape:
 - check out `danseely/agendum-mac`
 - check out `danseely/agendum` as a sibling directory because the helper currently bootstraps imports from `../agendum/src`
 - run for all pull requests
-- run for direct pushes to `main` and `feature/mac-prototype`
+- run for direct pushes to `main`
 - run `python3 Scripts/python_coverage.py`
 - run `python3 -m unittest discover -s Tests`
 - run `swift build`
