@@ -9,7 +9,9 @@ Maintain the broad native macOS prototype baseline on `feature/mac-prototype`, w
 ## Repo state
 - HEAD: based on README-only `main`; run `git rev-parse --short HEAD` for the exact local commit.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
-- Working tree: prototype baseline pending commit
+- PR: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
+- Child PR: `https://github.com/danseely/agendum-mac/pull/1`, targeting `feature/mac-prototype`
+- Working tree: clean after this handoff update is committed
 - Last validation date: 2026-04-28
 
 ## Completed
@@ -24,6 +26,8 @@ Maintain the broad native macOS prototype baseline on `feature/mac-prototype`, w
 - Recorded plan readiness in `docs/status.md` and `docs/decisions.md`.
 - Published README-only `main` to `https://github.com/danseely/agendum-mac`.
 - Created `feature/mac-prototype` as the broad integration branch for prototype work.
+- Pushed `feature/mac-prototype` and opened draft PR #2 against `main`.
+- Retargeted backend-helper PR #1 to `feature/mac-prototype`.
 
 ## Validation
 - `swift build` passes.
@@ -50,9 +54,9 @@ Maintain the broad native macOS prototype baseline on `feature/mac-prototype`, w
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Push `feature/mac-prototype`.
-2. Rebase `feature/backend-helper` onto `feature/mac-prototype`.
-3. Retarget PR #1 to `feature/mac-prototype`.
+1. Review broad prototype baseline on draft PR #2.
+2. Review backend helper checkpoint on stacked PR #1.
+3. Continue implementation through stacked branches off `feature/mac-prototype`.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.

@@ -20,14 +20,17 @@ Mac prototype integration branch established.
 - Re-vetted and accepted `docs/backend-contract.md` as clean for first implementation pass.
 - Published README-only `main` to `https://github.com/danseely/agendum-mac`.
 - Created `feature/mac-prototype` as the broad prototype integration branch.
+- Pushed `feature/mac-prototype`.
+- Opened draft parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`.
+- Retargeted backend-helper PR #1 to `feature/mac-prototype`: `https://github.com/danseely/agendum-mac/pull/1`.
 
 ## In progress
-- Stack backend helper work on `feature/backend-helper` targeting `feature/mac-prototype`.
+- Review and evolve the broad Mac prototype baseline on PR #2.
+- Review backend-helper work as stacked PR #1.
 
 ## Blocked
 - None.
 
 ## Next
-- Push `feature/mac-prototype`.
-- Retarget `feature/backend-helper` onto `feature/mac-prototype`.
 - Continue implementation through stacked feature branches.
+- Keep `main` README-only until the prototype is ready.
