@@ -26,6 +26,7 @@ Backend helper implementation started.
 - Added `Backend/agendum_backend/helper.py` with the v0 JSONL request/response envelope.
 - Implemented `workspace.current` and `auth.status` in the helper.
 - Added focused helper tests in `Tests/test_backend_helper.py`.
+- Pushed `feature/backend-helper`.
 
 ## In progress
 - Backend helper v0 implementation review on stacked PR #1.
@@ -37,3 +38,4 @@ Backend helper implementation started.
 - Continue implementation through stacked feature branches.
 - Keep `main` README-only until the prototype is ready.
 - Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
+- Keep `feature/mac-prototype` as the broad integration branch.

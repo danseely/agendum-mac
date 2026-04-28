@@ -31,6 +31,7 @@ Implement the first backend-helper checkpoint as a stacked branch above `feature
 - Added `Backend/agendum_backend/helper.py`, a JSON-over-stdio helper that handles protocol validation, `workspace.current`, and `auth.status`.
 - Added `Backend/agendum_backend_helper.py` as the helper entrypoint.
 - Added `Tests/test_backend_helper.py` coverage for workspace payloads, missing `gh`, authenticated fake `gh`, and protocol errors.
+- Rebuilt `feature/backend-helper` as a scoped child branch and retargeted PR #1 to `feature/mac-prototype`.
 
 ## Validation
 - `swift build` passes.
