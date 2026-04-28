@@ -46,6 +46,7 @@ Choose the next implementation checkpoint after adding CI for the testing baseli
 - Clarified coverage strategy: temporary Python helper script now, SwiftPM coverage for Swift tests while package-only, and Xcode/`xccov` coverage after an Xcode app project exists.
 - Added `.github/workflows/test.yml` to run the current test pipeline in GitHub Actions on macOS.
 - Updated the workflow to `actions/checkout@v5` after GitHub warned that `actions/checkout@v4` uses deprecated Node 20.
+- Removed the `codex/**` push trigger so PR branch updates do not run duplicate push and pull-request workflows.
 
 ## Validation
 - `swift build` passes.
@@ -55,6 +56,7 @@ Choose the next implementation checkpoint after adding CI for the testing baseli
 - `git diff --check` passes.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
+- GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files
@@ -86,7 +88,7 @@ Choose the next implementation checkpoint after adding CI for the testing baseli
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Check the latest PR #3 workflow result after the checkout v5 update.
+1. Check the latest PR #3 workflow result after removing duplicate branch push triggers.
 2. Choose between Swift helper-process wiring and `workspace.list` / `workspace.select`.
 3. Keep the GitHub Actions workflow aligned as new test layers are added.
 
