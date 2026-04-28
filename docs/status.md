@@ -3,7 +3,7 @@
 Last updated: 2026-04-28
 
 ## Current milestone
-Document branch discipline before the next backend/UI implementation checkpoint.
+Ready for the next backend/UI implementation checkpoint.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -44,10 +44,10 @@ Document branch discipline before the next backend/UI implementation checkpoint.
 - Added `.github/workflows/test.yml` to run backend coverage, Python tests, Swift build, and whitespace checks in CI.
 - PR #3 merged the testing baseline and CI workflow into `feature/mac-prototype`.
 - Cleaned up local topic branches after the merge.
-- Opened PR #4 to record branch discipline: future changes should land on `feature/mac-prototype` only through PRs, not direct pushes.
+- PR #4 recorded branch discipline: future changes should land on `feature/mac-prototype` only through PRs, not direct pushes.
 
 ## In progress
-- PR #4 is open for the branch-discipline documentation update.
+- Choosing between Swift helper-process wiring and `workspace.list` / `workspace.select`.
 
 ## Blocked
 - None.
@@ -56,6 +56,5 @@ Document branch discipline before the next backend/UI implementation checkpoint.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Merge PR #4 before starting the next implementation checkpoint.
 - Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
 - Keep `feature/mac-prototype` as the broad integration branch.
