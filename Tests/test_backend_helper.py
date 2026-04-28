@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from Backend.agendum_backend.helper import HelperState, handle_request
+from Backend.agendum_backend.helper import HelperState, handle_line, handle_request
 
 
 class BackendHelperTests(unittest.TestCase):
@@ -99,6 +99,13 @@ class BackendHelperTests(unittest.TestCase):
 
         self.assertFalse(response["ok"])
         self.assertEqual(response["error"]["code"], "protocol.unsupportedVersion")
+
+    def test_non_object_json_request_is_enveloped(self) -> None:
+        response = handle_line("[]", HelperState(base_dir=Path("/tmp/agendum-test")))
+
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["error"]["code"], "payload.invalid")
+        self.assertEqual(response["error"]["message"], "Request envelope must be an object.")
 
 
 if __name__ == "__main__":

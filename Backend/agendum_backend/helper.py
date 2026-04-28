@@ -72,7 +72,14 @@ def handle_line(line: str, state: HelperState) -> dict[str, Any]:
     return handle_request(request, state)
 
 
-def handle_request(request: dict[str, Any], state: HelperState) -> dict[str, Any]:
+def handle_request(request: Any, state: HelperState) -> dict[str, Any]:
+    if not isinstance(request, dict):
+        return _error_response(
+            request_id=None,
+            code="payload.invalid",
+            message="Request envelope must be an object.",
+        )
+
     request_id = request.get("id")
     if request.get("version") != PROTOCOL_VERSION:
         return _error_response(
@@ -270,4 +277,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

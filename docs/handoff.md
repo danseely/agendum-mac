@@ -32,11 +32,13 @@ Implement the first backend-helper checkpoint as a stacked branch above `feature
 - Added `Backend/agendum_backend_helper.py` as the helper entrypoint.
 - Added `Tests/test_backend_helper.py` coverage for workspace payloads, missing `gh`, authenticated fake `gh`, and protocol errors.
 - Rebuilt `feature/backend-helper` as a scoped child branch and retargeted PR #1 to `feature/mac-prototype`.
+- Fixed PR review finding: valid JSON non-object requests now return `payload.invalid` instead of crashing.
 
 ## Validation
 - `swift build` passes.
 - `python3 -m unittest discover -s Tests` passes.
 - Smoke-tested JSONL helper invocation with `workspace.current` and `auth.status`.
+- `git diff --check` passes.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files

@@ -27,6 +27,7 @@ Backend helper implementation started.
 - Implemented `workspace.current` and `auth.status` in the helper.
 - Added focused helper tests in `Tests/test_backend_helper.py`.
 - Pushed `feature/backend-helper`.
+- Fixed PR review finding: non-object JSON requests now return a `payload.invalid` envelope instead of crashing.
 
 ## In progress
 - Backend helper v0 implementation review on stacked PR #1.
