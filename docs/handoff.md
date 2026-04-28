@@ -47,6 +47,7 @@ Choose the next implementation checkpoint after adding CI for the testing baseli
 - Added `.github/workflows/test.yml` to run the current test pipeline in GitHub Actions on macOS.
 - Updated the workflow to `actions/checkout@v5` after GitHub warned that `actions/checkout@v4` uses deprecated Node 20.
 - Removed the `codex/**` push trigger so PR branch updates do not run duplicate push and pull-request workflows.
+- Updated the workflow to run on all pull requests, including future stacked feature sub-PRs, while keeping push runs limited to `main` and `feature/mac-prototype`.
 
 ## Validation
 - `swift build` passes.
@@ -57,6 +58,7 @@ Choose the next implementation checkpoint after adding CI for the testing baseli
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
+- GitHub Actions PR run `25076838730` passed for PR #3 after removing duplicate branch push triggers.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files
