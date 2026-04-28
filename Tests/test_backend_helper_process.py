@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+import json
+import os
+import stat
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+HELPER = REPO_ROOT / "Backend" / "agendum_backend_helper.py"
+
+
+class BackendHelperProcessTests(unittest.TestCase):
+    def test_workspace_current_uses_jsonl_process_framing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            responses = self.run_helper(
+                [
+                    {
+                        "version": 1,
+                        "id": "process-workspace",
+                        "command": "workspace.current",
+                        "payload": {},
+                    }
+                ],
+                base_dir=Path(tmp),
+            )
+
+            self.assertEqual(len(responses), 1)
+            response = responses[0]
+            self.assertTrue(response["ok"])
+            self.assertEqual(response["id"], "process-workspace")
+            self.assertEqual(response["payload"]["workspace"]["configPath"], str(Path(tmp) / "config.toml"))
+
+    def test_multiple_requests_share_one_helper_process(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            responses = self.run_helper(
+                [
+                    {
+                        "version": 1,
+                        "id": "first",
+                        "command": "workspace.current",
+                        "payload": {},
+                    },
+                    {
+                        "version": 1,
+                        "id": "second",
+                        "command": "auth.status",
+                        "payload": {},
+                    },
+                ],
+                base_dir=Path(tmp),
+                extra_env={"AGENDUM_MAC_GH_PATHS": ""},
+            )
+
+            self.assertEqual([response["id"] for response in responses], ["first", "second"])
+            self.assertTrue(responses[0]["ok"])
+            self.assertTrue(responses[1]["ok"])
+            self.assertIn("auth", responses[1]["payload"])
+
+    def test_malformed_input_returns_error_and_helper_continues(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            responses = self.run_helper(
+                [
+                    "{",
+                    {
+                        "version": 1,
+                        "id": "after-error",
+                        "command": "workspace.current",
+                        "payload": {},
+                    },
+                ],
+                base_dir=Path(tmp),
+            )
+
+            self.assertEqual(len(responses), 2)
+            self.assertFalse(responses[0]["ok"])
+            self.assertEqual(responses[0]["error"]["code"], "payload.invalid")
+            self.assertTrue(responses[1]["ok"])
+            self.assertEqual(responses[1]["id"], "after-error")
+
+    def test_process_honors_base_dir_and_configured_gh_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base_dir = root / "agendum"
+            fake_gh = root / "gh"
+            expected_config_dir = base_dir / "gh"
+            fake_gh.write_text(
+                "#!/bin/sh\n"
+                f"if [ \"$GH_CONFIG_DIR\" != \"{expected_config_dir}\" ]; then exit 2; fi\n"
+                "if [ \"$1 $2\" = \"auth status\" ]; then exit 0; fi\n"
+                "if [ \"$1 $2 $3 $4\" = \"api user --jq .login\" ]; then echo dan; exit 0; fi\n"
+                "exit 1\n"
+            )
+            fake_gh.chmod(fake_gh.stat().st_mode | stat.S_IXUSR)
+
+            responses = self.run_helper(
+                [
+                    {
+                        "version": 1,
+                        "id": "process-auth",
+                        "command": "auth.status",
+                        "payload": {},
+                    }
+                ],
+                base_dir=base_dir,
+                extra_env={"AGENDUM_MAC_GH_PATHS": str(fake_gh), "PATH": ""},
+            )
+
+            auth = responses[0]["payload"]["auth"]
+            self.assertTrue(responses[0]["ok"])
+            self.assertTrue(auth["authenticated"])
+            self.assertEqual(auth["ghPath"], str(fake_gh))
+            self.assertEqual(auth["username"], "dan")
+            self.assertEqual(auth["workspaceGhConfigDir"], str(expected_config_dir))
+
+    def run_helper(
+        self,
+        requests: list[dict[str, Any] | str],
+        *,
+        base_dir: Path,
+        extra_env: dict[str, str] | None = None,
+    ) -> list[dict[str, Any]]:
+        env = os.environ.copy()
+        env["AGENDUM_MAC_BASE_DIR"] = str(base_dir)
+        if extra_env:
+            env.update(extra_env)
+
+        input_text = "\n".join(
+            request if isinstance(request, str) else json.dumps(request)
+            for request in requests
+        )
+        process = subprocess.run(
+            [sys.executable, str(HELPER)],
+            input=input_text + "\n",
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=REPO_ROOT,
+            check=False,
+            timeout=5,
+        )
+
+        self.assertEqual(process.returncode, 0, process.stderr)
+        return [json.loads(line) for line in process.stdout.splitlines()]
+
+
+if __name__ == "__main__":
+    unittest.main()

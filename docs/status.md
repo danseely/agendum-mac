@@ -3,12 +3,18 @@
 Last updated: 2026-04-28
 
 ## Current milestone
-Backend helper implementation started.
+Testing baseline before next backend/UI implementation.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
 - Bridge choice is recorded in `docs/decisions.md`. Done.
 - Next implementation step is precise enough for a fresh session to start without re-planning. Done.
+- `docs/testing.md` records the testing strategy and milestone gates. Done.
+- First follow-up test batch is planned before Swift helper wiring or new backend surface. Done.
+- Helper subprocess JSONL tests cover the existing process boundary. Done.
+- Missing helper protocol edge-case tests cover existing commands. Done.
+- Backend coverage reporting command exists and has a recorded baseline. Done.
+- GitHub Actions workflow runs the current local test pipeline. Done.
 
 ## Done
 - Created a new local project outside `../agendum`.
@@ -28,15 +34,23 @@ Backend helper implementation started.
 - Added focused helper tests in `Tests/test_backend_helper.py`.
 - Pushed `feature/backend-helper`.
 - Fixed PR review finding: non-object JSON requests now return a `payload.invalid` envelope instead of crashing.
+- PR #1 was merged into `feature/mac-prototype`.
+- Added `docs/testing.md` and linked testing gates into the plan.
+- Added helper subprocess integration tests in `Tests/test_backend_helper_process.py`.
+- Expanded helper unit tests in `Tests/test_backend_helper.py`.
+- Added `Scripts/python_coverage.py` for backend helper coverage reporting.
+- Recorded initial backend helper coverage: 193/207 lines, 93.2%.
+- Clarified that the Python coverage script is temporary/helper-only; Swift app coverage should use SwiftPM coverage now and Xcode/`xccov` once an Xcode app project exists.
+- Added `.github/workflows/test.yml` to run backend coverage, Python tests, Swift build, and whitespace checks in CI.
 
 ## In progress
-- Backend helper v0 implementation review on stacked PR #1.
+- Ready to choose the next implementation checkpoint.
 
 ## Blocked
 - None.
 
 ## Next
-- Continue implementation through stacked feature branches.
+- Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
 - Keep `feature/mac-prototype` as the broad integration branch.

@@ -34,6 +34,7 @@ Start with a SwiftUI-first native macOS shell that talks to the existing Python 
 - `docs/handoff.md`: current repo state, validation, changed files, and exact next actions.
 - `docs/mac-gui-port-evaluation.md`: architectural assessment and open product/distribution risks.
 - `docs/backend-contract.md`: v0 backend bridge contract once drafted.
+- `docs/testing.md`: testing strategy, milestone gates, and validation expectations.
 
 ## Milestones
 1. Standalone scaffold: local SwiftUI app builds, planning docs are in this repo, and public `main` remains README-only.
@@ -42,8 +43,21 @@ Start with a SwiftUI-first native macOS shell that talks to the existing Python 
 4. Live vertical slice: replace sample data with backend-loaded tasks, force sync, show sync status/errors, open task URLs, and mutate task status/remove.
 5. Mac polish: add settings, menu coverage, keyboard shortcuts, notifications, state restoration, and packaging decisions.
 
+## Testing Strategy
+Testing should grow with each prototype risk rather than wait for the live slice.
+
+- Backend helper changes require Python unit tests for command behavior, protocol validation, and stable error schemas.
+- Helper process behavior requires subprocess JSONL integration tests against `Backend/agendum_backend_helper.py`.
+- Swift helper-client code requires Swift tests for request/response encoding, model decoding, and error mapping before it is wired deeply into SwiftUI views.
+- UI validation starts as documented manual smoke tests and should become automated once the live vertical slice stabilizes.
+- Each milestone should update `docs/status.md` and `docs/handoff.md` with the exact validation commands and results.
+
+The detailed testing plan lives in `docs/testing.md`.
+
 ## Prototype Acceptance Criteria
 - `swift build` passes.
+- Python backend unit and subprocess integration tests pass.
+- Swift helper-client tests pass once a Swift client exists.
 - `swift run AgendumMac` launches the app.
 - The app can load tasks from the backend helper, not hard-coded sample data.
 - The app can force sync and display sync progress or terminal errors.
