@@ -13,6 +13,7 @@ Evaluate and prototype a proper native macOS GUI for agendum in a new standalone
 - Do not modify `../agendum` for GUI work unless explicitly requested.
 - Keep public `main` README-only until the prototype is ready to become default-branch content.
 - Use `feature/mac-prototype` as the broad prototype integration branch.
+- Do not push directly to `feature/mac-prototype`; keep it clean and update it only through PRs unless explicitly requested otherwise.
 - Use stacked feature branches, such as `feature/backend-helper`, for reviewable implementation checkpoints.
 - Keep the existing terminal app working during any future backend extraction.
 - Preserve `gh`-based GitHub behavior unless an explicit decision replaces it.

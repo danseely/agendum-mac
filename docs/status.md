@@ -44,6 +44,7 @@ Ready for the next backend/UI implementation checkpoint.
 - Added `.github/workflows/test.yml` to run backend coverage, Python tests, Swift build, and whitespace checks in CI.
 - PR #3 merged the testing baseline and CI workflow into `feature/mac-prototype`.
 - Cleaned up local topic branches after the merge.
+- Recorded branch discipline: future changes should land on `feature/mac-prototype` only through PRs, not direct pushes.
 
 ## In progress
 - Choosing between Swift helper-process wiring and `workspace.list` / `workspace.select`.
@@ -54,5 +55,6 @@ Ready for the next backend/UI implementation checkpoint.
 ## Next
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
+- Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
 - Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
 - Keep `feature/mac-prototype` as the broad integration branch.

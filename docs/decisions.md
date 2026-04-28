@@ -65,3 +65,9 @@
 - Reason: The testing baseline should run on every PR instead of relying only on local handoff validation.
 - Impact: CI checks out `agendum-mac` and sibling `agendum`, then runs Python helper coverage, Python unit/integration tests, `swift build`, and `git diff --check`. The sibling checkout is temporary until the backend dependency is formalized.
 - Plan change: yes; CI becomes part of the testing baseline.
+
+## 2026-04-28
+- Decision: Treat `feature/mac-prototype` as a clean integration branch that is updated through PRs, not direct pushes.
+- Reason: The prototype branch is the primary shared integration surface and should stay reviewable through stacked PRs.
+- Impact: Future changes should be made on short-lived branches and opened as PRs targeting `feature/mac-prototype`; direct pushes require explicit user approval.
+- Plan change: yes; this tightens the stacked branch workflow.

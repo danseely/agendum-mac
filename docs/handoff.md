@@ -13,7 +13,8 @@ Choose the next implementation checkpoint after merging the testing baseline int
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting` and `feature/backend-helper` branches after merge.
-- Working tree: clean after this handoff update is committed and pushed.
+- Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
+- Working tree: clean after this handoff update is committed, pushed, and merged through PR.
 - Last validation date: 2026-04-28
 
 ## Completed
@@ -51,6 +52,7 @@ Choose the next implementation checkpoint after merging the testing baseline int
 - Merged PR #3 into `feature/mac-prototype`.
 - Pulled `feature/mac-prototype` to merge commit `408d800`.
 - Deleted local topic branches `codex/test-coverage-reporting` and `feature/backend-helper`.
+- Recorded branch discipline: future updates to `feature/mac-prototype` should land through PRs, not direct pushes.
 
 ## Validation
 - `swift build` passes.
@@ -98,7 +100,7 @@ Choose the next implementation checkpoint after merging the testing baseline int
 ## Next actions
 1. Choose between Swift helper-process wiring and `workspace.list` / `workspace.select`.
 2. Keep new backend command work covered by unit tests plus subprocess tests when process/environment behavior changes.
-3. Keep the GitHub Actions workflow aligned as new test layers are added.
+3. Create short-lived branches and PRs for all future changes targeting `feature/mac-prototype`.
 
 ## After checkpoint
 - Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
