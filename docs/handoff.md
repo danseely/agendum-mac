@@ -1,20 +1,21 @@
 # Handoff
 
 ## Current objective
-Choose the next implementation checkpoint after merging the testing baseline into `feature/mac-prototype`.
+Merge the branch-discipline documentation update, then choose the next implementation checkpoint.
 
 ## Branch
-`feature/mac-prototype`
+`codex/document-branch-discipline`
 
 ## Repo state
-- HEAD: `feature/mac-prototype`; run `git rev-parse --short HEAD` for the exact local commit.
+- HEAD: `codex/document-branch-discipline`; run `git rev-parse --short HEAD` for the exact local commit.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
+- PR #4: `https://github.com/danseely/agendum-mac/pull/4`, draft, targeting `feature/mac-prototype`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting` and `feature/backend-helper` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: clean after this handoff update is committed, pushed, and merged through PR.
+- Working tree: clean after this handoff update is committed and pushed to PR #4.
 - Last validation date: 2026-04-28
 
 ## Completed
@@ -52,7 +53,7 @@ Choose the next implementation checkpoint after merging the testing baseline int
 - Merged PR #3 into `feature/mac-prototype`.
 - Pulled `feature/mac-prototype` to merge commit `408d800`.
 - Deleted local topic branches `codex/test-coverage-reporting` and `feature/backend-helper`.
-- Recorded branch discipline: future updates to `feature/mac-prototype` should land through PRs, not direct pushes.
+- Opened PR #4 to record branch discipline: future updates to `feature/mac-prototype` should land through PRs, not direct pushes.
 
 ## Validation
 - `swift build` passes.
@@ -67,6 +68,7 @@ Choose the next implementation checkpoint after merging the testing baseline int
 - GitHub Actions PR run `25077164616` passed for PR #3 after enabling all pull-request targets.
 - GitHub Actions checks for parent PR #2 are passing after PR #3 merged into `feature/mac-prototype`.
 - CI push triggers now exclude `feature/mac-prototype`; the parent PR handles validation for that branch.
+- GitHub Actions PR run `25077788303` passed for PR #4.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files
@@ -98,9 +100,9 @@ Choose the next implementation checkpoint after merging the testing baseline int
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Choose between Swift helper-process wiring and `workspace.list` / `workspace.select`.
-2. Keep new backend command work covered by unit tests plus subprocess tests when process/environment behavior changes.
-3. Create short-lived branches and PRs for all future changes targeting `feature/mac-prototype`.
+1. Merge PR #4 when ready, then clean up its local branch.
+2. Choose between Swift helper-process wiring and `workspace.list` / `workspace.select`.
+3. Keep new backend command work covered by unit tests plus subprocess tests when process/environment behavior changes.
 
 ## After checkpoint
 - Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
