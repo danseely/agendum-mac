@@ -21,12 +21,12 @@ jobs:
 
     steps:
       - name: Check out agendum-mac
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: agendum-mac
 
       - name: Check out agendum backend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: danseely/agendum
           path: agendum
