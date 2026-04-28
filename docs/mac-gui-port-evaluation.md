@@ -73,10 +73,10 @@ Settings, notifications, state restoration, and menu bar behavior follow after t
 ## Migration Steps
 1. Extract an app-service layer in Python that wraps DB, config, sync, namespace, and task actions without importing Textual.
 2. Expand tests around that service layer using the existing SQLite fixtures and sync tests.
-3. Add a backend command runner executable with JSON requests/responses.
+3. Add subprocess JSONL tests around the backend command runner executable before relying on it from Swift.
 4. Create an Xcode macOS app from the standard template or a project generator once the prototype shape is clear.
 5. Implement a local-data prototype using seeded/demo data before live GitHub sync.
-6. Connect the Swift app to the backend helper.
+6. Connect the Swift app to the backend helper, with Swift helper-client tests for request/response decoding and error mapping.
 7. Add Mac-native settings, menus, keyboard navigation, notifications, and state restoration.
 8. Decide distribution channel, then harden signing, notarization, sandboxing, and packaging.
 

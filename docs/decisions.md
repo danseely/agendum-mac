@@ -47,3 +47,15 @@
 - Reason: README-only `main` should stay minimal until the prototype is ready, while implementation checkpoints need reviewable branches that do not all target `main` directly.
 - Impact: `feature/mac-prototype` is the broad integration branch off `main`; narrower branches such as `feature/backend-helper` target it.
 - Plan change: yes; this replaces direct implementation PRs against `main` with a stacked PR workflow.
+
+## 2026-04-28
+- Decision: Treat testing as a milestone gate throughout the Mac prototype, starting with backend helper unit and subprocess tests before further feature work.
+- Reason: The riskiest parts of the MVP are the Python helper boundary, workspace/auth behavior, sync lifecycle, and Swift-to-helper integration; adding coverage as each boundary appears keeps regressions cheaper than adding broad tests after the live slice.
+- Impact: `docs/testing.md` is now canonical for test expectations, and future implementation checkpoints should update planning docs with validation commands and results.
+- Plan change: yes; this adds explicit test gates to the prototype plan.
+
+## 2026-04-28
+- Decision: Start backend coverage reporting with a stdlib-based local script instead of adding `coverage.py` immediately.
+- Reason: The repo does not yet have Python dependency management, and the first reporting need is a lightweight helper coverage summary that runs with the existing toolchain. This is not the long-term Mac app coverage approach.
+- Impact: `python3 Scripts/python_coverage.py` reports in-process line coverage for `Backend/agendum_backend/helper.py`; subprocess entrypoint behavior remains covered by integration tests rather than line-counted. Swift coverage should use `swift test --enable-code-coverage` while the repo is SwiftPM-only, and `xcodebuild test -enableCodeCoverage YES` / `xccov` after an Xcode app project exists.
+- Plan change: yes; this adds coverage reporting as part of the testing baseline.

@@ -1,17 +1,18 @@
 # Handoff
 
 ## Current objective
-Implement the first backend-helper checkpoint as a stacked branch above `feature/mac-prototype`.
+Choose the next implementation checkpoint after completing backend coverage reporting.
 
 ## Branch
-`feature/backend-helper`
+`codex/test-coverage-reporting`
 
 ## Repo state
-- HEAD: based on `feature/mac-prototype`; run `git rev-parse --short HEAD` for the exact local commit.
+- HEAD: `codex/test-coverage-reporting`; run `git rev-parse --short HEAD` for the exact local commit.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
-- PR: `https://github.com/danseely/agendum-mac/pull/1`, targeting `feature/mac-prototype`
-- Parent PR: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
-- Working tree: clean after this handoff update is committed
+- PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
+- Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
+- Current PR target for this branch: `feature/mac-prototype`
+- Working tree: contains test and planning-doc updates until committed
 - Last validation date: 2026-04-28
 
 ## Completed
@@ -33,10 +34,20 @@ Implement the first backend-helper checkpoint as a stacked branch above `feature
 - Added `Tests/test_backend_helper.py` coverage for workspace payloads, missing `gh`, authenticated fake `gh`, and protocol errors.
 - Rebuilt `feature/backend-helper` as a scoped child branch and retargeted PR #1 to `feature/mac-prototype`.
 - Fixed PR review finding: valid JSON non-object requests now return `payload.invalid` instead of crashing.
+- Merged PR #1 into `feature/mac-prototype`.
+- Added `docs/testing.md` with backend, integration, Swift, UI, and release testing gates.
+- Updated `docs/plan.md`, `docs/mac-gui-port-evaluation.md`, `docs/decisions.md`, and `docs/status.md` to treat testing as a milestone gate.
+- Planned the immediate test checkpoint around the existing helper commands and process boundary.
+- Added `Tests/test_backend_helper_process.py` with subprocess JSONL coverage for the helper entrypoint.
+- Expanded `Tests/test_backend_helper.py` with protocol and auth edge-case coverage.
+- Added `Scripts/python_coverage.py`, a stdlib-based backend helper coverage reporter.
+- Improved helper coverage with unit tests for `run_stdio` and exception envelopes.
+- Clarified coverage strategy: temporary Python helper script now, SwiftPM coverage for Swift tests while package-only, and Xcode/`xccov` coverage after an Xcode app project exists.
 
 ## Validation
 - `swift build` passes.
-- `python3 -m unittest discover -s Tests` passes.
+- `python3 -m unittest discover -s Tests` passes: 18 tests.
+- `python3 Scripts/python_coverage.py` passes: 193/207 lines, 93.2% for `Backend/agendum_backend/helper.py`.
 - Smoke-tested JSONL helper invocation with `workspace.current` and `auth.status`.
 - `git diff --check` passes.
 - Pending: `swift run AgendumMac`.
@@ -48,12 +59,15 @@ Implement the first backend-helper checkpoint as a stacked branch above `feature
 - `Backend/agendum_backend_helper.py`
 - `Package.swift`
 - `README.md`
+- `Scripts/python_coverage.py`
 - `Sources/AgendumMac/AgendumMacApp.swift`
 - `Tests/test_backend_helper.py`
+- `Tests/test_backend_helper_process.py`
 - `docs/plan.md`
 - `docs/status.md`
 - `docs/decisions.md`
 - `docs/handoff.md`
+- `docs/testing.md`
 - `docs/mac-gui-port-evaluation.md`
 - `docs/backend-contract.md`
 
@@ -66,9 +80,12 @@ Implement the first backend-helper checkpoint as a stacked branch above `feature
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Review backend helper checkpoint on stacked PR #1.
-2. Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
-3. Update planning docs after the next implementation checkpoint.
+1. Choose between Swift helper-process wiring and `workspace.list` / `workspace.select`.
+2. Keep new backend command work covered by unit tests plus subprocess tests when process/environment behavior changes.
+3. Add Swift tests and SwiftPM coverage reporting when helper-client code is extracted outside SwiftUI views.
+
+## After checkpoint
+- Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
