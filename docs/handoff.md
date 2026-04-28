@@ -10,9 +10,10 @@ Choose the next implementation checkpoint after completing backend coverage repo
 - HEAD: `codex/test-coverage-reporting`; run `git rev-parse --short HEAD` for the exact local commit.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
+- PR #3: `https://github.com/danseely/agendum-mac/pull/3`, draft, targeting `feature/mac-prototype`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Current PR target for this branch: `feature/mac-prototype`
-- Working tree: contains test and planning-doc updates until committed
+- Working tree: clean after this handoff update is committed and pushed
 - Last validation date: 2026-04-28
 
 ## Completed
