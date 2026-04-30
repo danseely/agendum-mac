@@ -19,7 +19,7 @@ Implement the workspace selection checkpoint.
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: contains this post-merge handoff update until committed.
+- Working tree: clean after committing the post-merge handoff update.
 - Last validation date: 2026-04-30
 
 ## Completed
