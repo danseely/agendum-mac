@@ -1,9 +1,9 @@
 # Status
 
-Last updated: 2026-04-28
+Last updated: 2026-04-30
 
 ## Current milestone
-Ready for the next backend/UI implementation checkpoint.
+Swift helper-process wiring checkpoint is implemented locally and ready for PR review.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -45,9 +45,13 @@ Ready for the next backend/UI implementation checkpoint.
 - PR #3 merged the testing baseline and CI workflow into `feature/mac-prototype`.
 - Cleaned up local topic branches after the merge.
 - PR #4 recorded branch discipline: future changes should land on `feature/mac-prototype` only through PRs, not direct pushes.
+- Added `AgendumMacCore`, a testable Swift target for backend-helper request/response models and long-lived JSONL process wiring.
+- Wired the SwiftUI sidebar to load `workspace.current` and `auth.status` from the helper and show workspace/auth state.
+- Added Swift tests that exercise multiple requests against one real helper process and verify backend error mapping.
+- Updated CI to run `swift test` in addition to `swift build`.
 
 ## In progress
-- Choosing between Swift helper-process wiring and `workspace.list` / `workspace.select`.
+- Preparing the Swift helper-process wiring checkpoint for PR review.
 
 ## Blocked
 - None.
@@ -56,5 +60,5 @@ Ready for the next backend/UI implementation checkpoint.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
+- Continue with `workspace.list` / `workspace.select` or the first backend-backed task list command after this Swift wiring checkpoint lands.
 - Keep `feature/mac-prototype` as the broad integration branch.

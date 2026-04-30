@@ -71,3 +71,9 @@
 - Reason: The prototype branch is the primary shared integration surface and should stay reviewable through stacked PRs.
 - Impact: Future changes should be made on short-lived branches and opened as PRs targeting `feature/mac-prototype`; direct pushes require explicit user approval.
 - Plan change: yes; this tightens the stacked branch workflow.
+
+## 2026-04-30
+- Decision: Add a testable Swift core target for backend-helper process wiring, and use the checked-out Python helper for SwiftPM development runs.
+- Reason: The Mac app needs a narrow Swift client before task data can replace sample data, and the current prototype is still repo-local rather than packaged.
+- Impact: `AgendumMacCore` owns request/response decoding and the long-lived helper process. Development runs prefer common Homebrew Python paths before `/usr/bin/python3` because the helper depends on Python 3.11+ `tomllib`.
+- Plan change: no; this implements the accepted JSON-over-stdio bridge for the SwiftPM prototype and leaves production packaging unresolved.

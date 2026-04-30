@@ -1,3 +1,4 @@
+import AgendumMacCore
 import SwiftUI
 
 @main
@@ -41,6 +42,7 @@ private enum TaskSource: String, CaseIterable, Identifiable {
 private struct TaskDashboardView: View {
     @State private var selection: TaskSource? = .authored
     @State private var selectedTask: TaskItem.ID?
+    @StateObject private var backendStatus = BackendStatusModel()
 
     private let tasks: [TaskItem] = [
         .init(
@@ -82,6 +84,9 @@ private struct TaskDashboardView: View {
                     .badge(tasks.filter { $0.source == source }.count)
             }
             .navigationTitle("Agendum")
+            .safeAreaInset(edge: .bottom) {
+                BackendStatusPanel(status: backendStatus)
+            }
         } content: {
             List(filteredTasks, selection: $selectedTask) { task in
                 TaskRow(task: task)
@@ -91,9 +96,13 @@ private struct TaskDashboardView: View {
             .toolbar {
                 ToolbarItem {
                     Button {
+                        Task {
+                            await backendStatus.refresh()
+                        }
                     } label: {
                         Label("Sync", systemImage: "arrow.clockwise")
                     }
+                    .disabled(backendStatus.isLoading)
                 }
             }
         } detail: {
@@ -106,6 +115,9 @@ private struct TaskDashboardView: View {
                     description: Text("Select a task from the list.")
                 )
             }
+        }
+        .task {
+            await backendStatus.refresh()
         }
     }
 
@@ -126,6 +138,79 @@ private struct TaskDashboardView: View {
         case .issues:
             "tray.full"
         }
+    }
+}
+
+@MainActor
+private final class BackendStatusModel: ObservableObject {
+    @Published var workspace: Workspace?
+    @Published var auth: AuthStatus?
+    @Published var errorMessage: String?
+    @Published var isLoading = false
+
+    private let client = AgendumBackendClient()
+
+    var workspaceLabel: String {
+        workspace?.displayName ?? "Loading workspace"
+    }
+
+    var authLabel: String {
+        guard let auth else {
+            return "Checking GitHub auth"
+        }
+        if auth.authenticated {
+            return auth.username.map { "GitHub: \($0)" } ?? "GitHub authenticated"
+        }
+        if auth.ghFound {
+            return "GitHub auth needed"
+        }
+        return "GitHub CLI missing"
+    }
+
+    func refresh() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            workspace = try await client.currentWorkspace()
+            auth = try await client.authStatus()
+            errorMessage = nil
+        } catch {
+            errorMessage = String(describing: error)
+        }
+    }
+}
+
+private struct BackendStatusPanel: View {
+    @ObservedObject var status: BackendStatusModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(status.workspaceLabel, systemImage: "folder")
+                    .lineLimit(1)
+                Spacer()
+                if status.isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
+
+            Label(status.authLabel, systemImage: status.auth?.authenticated == true ? "checkmark.seal" : "exclamationmark.triangle")
+                .foregroundStyle(status.auth?.authenticated == true ? Color.secondary : Color.orange)
+                .lineLimit(1)
+
+            if let errorMessage = status.errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(3)
+            }
+        }
+        .font(.caption)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
     }
 }
 
