@@ -77,3 +77,9 @@
 - Reason: The Mac app needs a narrow Swift client before task data can replace sample data, and the current prototype is still repo-local rather than packaged.
 - Impact: `AgendumMacCore` owns request/response decoding and the long-lived helper process. Development runs prefer common Homebrew Python paths before `/usr/bin/python3` because the helper depends on Python 3.11+ `tomllib`.
 - Plan change: no; this implements the accepted JSON-over-stdio bridge for the SwiftPM prototype and leaves production packaging unresolved.
+
+## 2026-04-30
+- Decision: Merge the Swift helper-process client checkpoint through PR #5 after review fixes and passing CI.
+- Reason: The checkpoint establishes the first tested Swift-to-helper boundary, addresses process timeout/lifecycle review findings, and keeps SwiftPM coverage in CI.
+- Impact: `feature/mac-prototype` will contain the Swift helper client and the next short-lived branch can focus on workspace selection or backend-backed task loading.
+- Plan change: no; this advances the accepted JSON-over-stdio bridge implementation.

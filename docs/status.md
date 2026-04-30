@@ -3,7 +3,7 @@
 Last updated: 2026-04-30
 
 ## Current milestone
-Swift helper-process wiring checkpoint is open for PR review.
+Swift helper-process wiring checkpoint is ready to merge through PR #5.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -51,9 +51,10 @@ Swift helper-process wiring checkpoint is open for PR review.
 - Updated CI to run `swift test --enable-code-coverage` in addition to `swift build`.
 - Opened draft PR #5: `https://github.com/danseely/agendum-mac/pull/5`.
 - Sent PR #5 through a separate review pass; addressed helper timeout/lifecycle risk and expanded Swift helper-client coverage.
+- PR #5 latest CI run passed after review fixes: `25193185925`.
 
 ## In progress
-- Draft PR #5 is awaiting review.
+- Merging PR #5 into `feature/mac-prototype`, then starting the next short-lived branch.
 
 ## Blocked
 - None.
@@ -62,5 +63,5 @@ Swift helper-process wiring checkpoint is open for PR review.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Continue with `workspace.list` / `workspace.select` or the first backend-backed task list command after this Swift wiring checkpoint lands.
+- After PR #5 lands, continue with `workspace.list` / `workspace.select` or the first backend-backed task list command on a new short-lived branch.
 - Keep `feature/mac-prototype` as the broad integration branch.
