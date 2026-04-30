@@ -49,6 +49,32 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(auth.workspaceGhConfigDir, expectedConfigDir.path)
     }
 
+    func testClientReusesOneHelperProcess() async throws {
+        let helper = try writePythonHelper(
+            contents: """
+            import json
+            import os
+            import sys
+
+            for line in sys.stdin:
+                request = json.loads(line)
+                print(json.dumps({
+                    "version": 1,
+                    "id": request["id"],
+                    "ok": True,
+                    "payload": {"processID": os.getpid()}
+                }), flush=True)
+            """
+        )
+        let client = AgendumBackendClient(configuration: fakeHelperConfiguration(helperURL: helper))
+
+        let first = try await client.request(command: "first", as: ProcessIDPayload.self)
+        let second = try await client.request(command: "second", as: ProcessIDPayload.self)
+        await client.close()
+
+        XCTAssertEqual(first.processID, second.processID)
+    }
+
     func testClientMapsBackendErrors() async throws {
         let client = AgendumBackendClient(
             configuration: BackendClientConfiguration(
@@ -72,6 +98,140 @@ final class BackendClientTests: XCTestCase {
         await client.close()
     }
 
+    func testClientMapsMalformedJSONResponse() async throws {
+        let helper = try writePythonHelper(
+            contents: """
+            print("not-json", flush=True)
+            """
+        )
+        let client = AgendumBackendClient(configuration: fakeHelperConfiguration(helperURL: helper))
+
+        do {
+            _ = try await client.request(command: "malformed", as: EmptyTestingPayload.self)
+            XCTFail("Expected invalid response error.")
+        } catch BackendClientError.invalidResponse(let message) {
+            XCTAssertEqual(message, "Backend helper response was not valid JSON.")
+        }
+
+        await client.close()
+    }
+
+    func testClientMapsMismatchedResponseID() async throws {
+        let helper = try writePythonHelper(
+            contents: """
+            import json
+            import sys
+
+            for line in sys.stdin:
+                print(json.dumps({
+                    "version": 1,
+                    "id": "wrong-id",
+                    "ok": True,
+                    "payload": {}
+                }), flush=True)
+            """
+        )
+        let client = AgendumBackendClient(configuration: fakeHelperConfiguration(helperURL: helper))
+
+        do {
+            _ = try await client.request(command: "mismatch", as: EmptyTestingPayload.self)
+            XCTFail("Expected mismatched id error.")
+        } catch BackendClientError.unexpectedResponseID(_, let actual) {
+            XCTAssertEqual(actual, "wrong-id")
+        }
+
+        await client.close()
+    }
+
+    func testClientMapsUnsupportedProtocolVersion() async throws {
+        let helper = try writePythonHelper(
+            contents: """
+            import json
+            import sys
+
+            for line in sys.stdin:
+                request = json.loads(line)
+                print(json.dumps({
+                    "version": 2,
+                    "id": request["id"],
+                    "ok": True,
+                    "payload": {}
+                }), flush=True)
+            """
+        )
+        let client = AgendumBackendClient(configuration: fakeHelperConfiguration(helperURL: helper))
+
+        do {
+            _ = try await client.request(command: "unsupported", as: EmptyTestingPayload.self)
+            XCTFail("Expected unsupported version error.")
+        } catch BackendClientError.unsupportedProtocolVersion(let version) {
+            XCTAssertEqual(version, 2)
+        }
+
+        await client.close()
+    }
+
+    func testClientMapsHelperStderrWhenProcessExits() async throws {
+        let helper = try writePythonHelper(
+            contents: """
+            import sys
+
+            print("helper failed loudly", file=sys.stderr, flush=True)
+            sys.exit(7)
+            """
+        )
+        let client = AgendumBackendClient(configuration: fakeHelperConfiguration(helperURL: helper))
+
+        do {
+            _ = try await client.request(command: "crash", as: EmptyTestingPayload.self)
+            XCTFail("Expected helper termination error.")
+        } catch BackendClientError.helperTerminated(let stderr) {
+            XCTAssertEqual(stderr, "helper failed loudly")
+        }
+
+        await client.close()
+    }
+
+    func testClientTimesOutAndCanRestartHelper() async throws {
+        let stateFile = temporaryDirectory().appendingPathComponent("first-run")
+        let helper = try writePythonHelper(
+            contents: """
+            import json
+            import os
+            import sys
+            import time
+
+            state_file = "\(stateFile.path)"
+            if not os.path.exists(state_file):
+                os.makedirs(os.path.dirname(state_file), exist_ok=True)
+                open(state_file, "w").close()
+                time.sleep(10)
+
+            for line in sys.stdin:
+                request = json.loads(line)
+                print(json.dumps({
+                    "version": 1,
+                    "id": request["id"],
+                    "ok": True,
+                    "payload": {}
+                }), flush=True)
+            """
+        )
+        let client = AgendumBackendClient(
+            configuration: fakeHelperConfiguration(helperURL: helper, requestTimeout: 0.1)
+        )
+
+        do {
+            _ = try await client.request(command: "hang", as: EmptyTestingPayload.self)
+            XCTFail("Expected timeout error.")
+        } catch BackendClientError.requestTimedOut(let timeout) {
+            XCTAssertEqual(timeout, 0.1)
+        }
+
+        _ = try await client.request(command: "after-timeout", as: EmptyTestingPayload.self)
+        await client.close()
+    }
+
     private func repositoryRoot() -> URL {
         URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     }
@@ -90,6 +250,32 @@ final class BackendClientTests: XCTestCase {
         try contents.write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
     }
+
+    private func writePythonHelper(contents: String) throws -> URL {
+        let helper = temporaryDirectory().appendingPathComponent("helper.py")
+        try FileManager.default.createDirectory(
+            at: helper.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try contents.write(to: helper, atomically: true, encoding: .utf8)
+        return helper
+    }
+
+    private func fakeHelperConfiguration(
+        helperURL: URL,
+        requestTimeout: TimeInterval = 10
+    ) -> BackendClientConfiguration {
+        BackendClientConfiguration(
+            helperURL: helperURL,
+            workingDirectoryURL: repositoryRoot(),
+            environment: [:],
+            requestTimeout: requestTimeout
+        )
+    }
 }
 
 private struct EmptyTestingPayload: Decodable {}
+
+private struct ProcessIDPayload: Decodable {
+    let processID: Int
+}

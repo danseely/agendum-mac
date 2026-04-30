@@ -38,8 +38,8 @@ jobs:
         run: swift build
         working-directory: agendum-mac
 
-      - name: Run Swift tests
-        run: swift test
+      - name: Run Swift tests with coverage
+        run: swift test --enable-code-coverage
         working-directory: agendum-mac
 
       - name: Check whitespace

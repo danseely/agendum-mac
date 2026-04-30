@@ -29,6 +29,7 @@ public enum BackendClientError: Error, Equatable, Sendable {
     case invalidResponse(String)
     case helperError(BackendErrorPayload)
     case helperTerminated(String)
+    case requestTimedOut(TimeInterval)
     case unexpectedResponseID(expected: String, actual: String?)
     case unsupportedProtocolVersion(Int)
 }
@@ -42,6 +43,8 @@ extension BackendClientError: CustomStringConvertible {
             return error.recovery ?? error.detail ?? error.message
         case .helperTerminated(let stderr):
             return stderr.isEmpty ? "Backend helper terminated unexpectedly." : stderr
+        case .requestTimedOut(let timeout):
+            return "Backend helper did not respond within \(timeout) seconds."
         case .unexpectedResponseID(let expected, let actual):
             return "Expected response id \(expected), received \(actual ?? "none")."
         case .unsupportedProtocolVersion(let version):
@@ -55,23 +58,27 @@ public struct BackendClientConfiguration: Sendable {
     public let pythonExecutableURL: URL
     public let workingDirectoryURL: URL?
     public let environment: [String: String]
+    public let requestTimeout: TimeInterval
 
     public init(
         helperURL: URL,
         pythonExecutableURL: URL = BackendClientConfiguration.defaultPythonExecutableURL(),
         workingDirectoryURL: URL? = nil,
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        requestTimeout: TimeInterval = 10
     ) {
         self.helperURL = helperURL
         self.pythonExecutableURL = pythonExecutableURL
         self.workingDirectoryURL = workingDirectoryURL
         self.environment = environment
+        self.requestTimeout = requestTimeout
     }
 
     public static func development(
-        repositoryRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        repositoryRoot: URL? = nil
     ) -> BackendClientConfiguration {
-        BackendClientConfiguration(
+        let repositoryRoot = repositoryRoot ?? discoverDevelopmentRepositoryRoot()
+        return BackendClientConfiguration(
             helperURL: repositoryRoot.appendingPathComponent("Backend/agendum_backend_helper.py"),
             workingDirectoryURL: repositoryRoot
         )
@@ -86,6 +93,45 @@ public struct BackendClientConfiguration: Sendable {
         }
         return URL(fileURLWithPath: "/usr/bin/python3")
     }
+
+    public static func discoverDevelopmentRepositoryRoot(
+        fileManager: FileManager = .default,
+        currentDirectoryURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath),
+        executableURL: URL? = Bundle.main.executableURL
+    ) -> URL {
+        let candidates = [currentDirectoryURL, executableURL].compactMap { $0 }
+        for candidate in candidates {
+            if let root = firstAncestor(containing: "Backend/agendum_backend_helper.py", from: candidate, fileManager: fileManager) {
+                return root
+            }
+        }
+        return currentDirectoryURL
+    }
+
+    private static func firstAncestor(
+        containing relativePath: String,
+        from url: URL,
+        fileManager: FileManager
+    ) -> URL? {
+        var candidate = url
+        var isDirectory: ObjCBool = false
+        if fileManager.fileExists(atPath: candidate.path, isDirectory: &isDirectory), !isDirectory.boolValue {
+            candidate.deleteLastPathComponent()
+        }
+
+        var seen: Set<String> = []
+        while seen.insert(candidate.path).inserted {
+            if fileManager.fileExists(atPath: candidate.appendingPathComponent(relativePath).path) {
+                return candidate
+            }
+            let parent = candidate.deletingLastPathComponent()
+            if parent.path == candidate.path {
+                return nil
+            }
+            candidate = parent
+        }
+        return nil
+    }
 }
 
 public actor AgendumBackendClient {
@@ -97,7 +143,7 @@ public actor AgendumBackendClient {
     private var input: FileHandle?
     private var output: FileHandle?
     private var errorOutput: FileHandle?
-    private var outputBuffer = Data()
+    private var outputReader: BackendOutputReader?
 
     public init(configuration: BackendClientConfiguration = .development()) {
         self.configuration = configuration
@@ -107,32 +153,35 @@ public actor AgendumBackendClient {
         if let input {
             try? input.close()
         }
+        output?.readabilityHandler = nil
         if let process, process.isRunning {
             process.terminate()
         }
     }
 
-    public func currentWorkspace() throws -> Workspace {
-        let payload: WorkspaceResponsePayload = try send(command: "workspace.current")
+    public func currentWorkspace() async throws -> Workspace {
+        let payload: WorkspaceResponsePayload = try await send(command: "workspace.current")
         return payload.workspace
     }
 
-    public func authStatus() throws -> AuthStatus {
-        let payload: AuthStatusResponsePayload = try send(command: "auth.status")
+    public func authStatus() async throws -> AuthStatus {
+        let payload: AuthStatusResponsePayload = try await send(command: "auth.status")
         return payload.auth
     }
 
     func request<ResponsePayload: Decodable>(
         command: String,
         as responsePayload: ResponsePayload.Type = ResponsePayload.self
-    ) throws -> ResponsePayload {
-        try send(command: command)
+    ) async throws -> ResponsePayload {
+        try await send(command: command)
     }
 
     public func close() {
         if let input {
             try? input.close()
         }
+        output?.readabilityHandler = nil
+        outputReader?.close()
         if let output {
             try? output.close()
         }
@@ -147,13 +196,13 @@ public actor AgendumBackendClient {
         input = nil
         output = nil
         errorOutput = nil
-        outputBuffer.removeAll()
+        outputReader = nil
     }
 
     private func send<ResponsePayload: Decodable>(
         command: String,
         payload: EmptyPayload = EmptyPayload()
-    ) throws -> ResponsePayload {
+    ) async throws -> ResponsePayload {
         try startIfNeeded()
 
         guard let input else {
@@ -168,7 +217,12 @@ public actor AgendumBackendClient {
 
         while true {
             let line = try readLine()
-            let probe = try decoder.decode(ResponseProbe.self, from: line)
+            let probe: ResponseProbe
+            do {
+                probe = try decoder.decode(ResponseProbe.self, from: line)
+            } catch {
+                throw BackendClientError.invalidResponse("Backend helper response was not valid JSON.")
+            }
             if probe.event != nil {
                 continue
             }
@@ -176,7 +230,12 @@ public actor AgendumBackendClient {
                 throw BackendClientError.unexpectedResponseID(expected: requestID, actual: probe.id)
             }
 
-            let response = try decoder.decode(ResponseEnvelope<ResponsePayload>.self, from: line)
+            let response: ResponseEnvelope<ResponsePayload>
+            do {
+                response = try decoder.decode(ResponseEnvelope<ResponsePayload>.self, from: line)
+            } catch {
+                throw BackendClientError.invalidResponse("Backend helper response did not match the expected schema.")
+            }
             guard response.version == 1 else {
                 throw BackendClientError.unsupportedProtocolVersion(response.version)
             }
@@ -217,30 +276,35 @@ public actor AgendumBackendClient {
 
         try process.run()
 
+        let reader = BackendOutputReader()
+        outputPipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            if data.isEmpty {
+                reader.close()
+            } else {
+                reader.append(data)
+            }
+        }
+
         self.process = process
         input = inputPipe.fileHandleForWriting
         output = outputPipe.fileHandleForReading
         errorOutput = errorPipe.fileHandleForReading
-        outputBuffer.removeAll()
+        outputReader = reader
     }
 
     private func readLine() throws -> Data {
-        guard let output else {
+        guard let outputReader else {
             throw BackendClientError.invalidResponse("Backend helper output pipe is unavailable.")
         }
 
-        while true {
-            if let newlineIndex = outputBuffer.firstIndex(of: 0x0A) {
-                let line = outputBuffer[..<newlineIndex]
-                outputBuffer.removeSubrange(...newlineIndex)
-                return Data(line)
-            }
-
-            let chunk = output.availableData
-            if chunk.isEmpty {
-                throw BackendClientError.helperTerminated(readStderr())
-            }
-            outputBuffer.append(chunk)
+        do {
+            return try outputReader.readLine(timeout: configuration.requestTimeout)
+        } catch BackendClientError.requestTimedOut {
+            close()
+            throw BackendClientError.requestTimedOut(configuration.requestTimeout)
+        } catch BackendClientError.helperTerminated {
+            throw BackendClientError.helperTerminated(readStderr())
         }
     }
 
@@ -250,6 +314,47 @@ public actor AgendumBackendClient {
         }
         let data = errorOutput.readDataToEndOfFile()
         return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+}
+
+private final class BackendOutputReader: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var buffer = Data()
+    private var closed = false
+
+    func append(_ data: Data) {
+        condition.lock()
+        buffer.append(data)
+        condition.signal()
+        condition.unlock()
+    }
+
+    func close() {
+        condition.lock()
+        closed = true
+        condition.broadcast()
+        condition.unlock()
+    }
+
+    func readLine(timeout: TimeInterval) throws -> Data {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        condition.lock()
+        defer { condition.unlock() }
+
+        while true {
+            if let newlineIndex = buffer.firstIndex(of: 0x0A) {
+                let line = buffer[..<newlineIndex]
+                buffer.removeSubrange(...newlineIndex)
+                return Data(line)
+            }
+            if closed {
+                throw BackendClientError.helperTerminated("")
+            }
+            if !condition.wait(until: deadline) {
+                throw BackendClientError.requestTimedOut(timeout)
+            }
+        }
     }
 }
 

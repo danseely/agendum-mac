@@ -61,14 +61,16 @@ Review the Swift helper-process wiring checkpoint.
 - Added `AgendumMacCore` in `Sources/AgendumMacCore/BackendClient.swift` with Swift models for `Workspace`, `AuthStatus`, helper error envelopes, and a long-lived JSONL helper process client.
 - Updated `Package.swift` to expose `AgendumMacCore` and add `AgendumMacCoreTests`.
 - Updated `Sources/AgendumMac/AgendumMacApp.swift` so the sidebar loads `workspace.current` and `auth.status` from the helper and displays workspace/auth state.
-- Added `Tests/AgendumMacCoreTests/BackendClientTests.swift` covering real helper process requests and helper error mapping.
-- Updated `.github/workflows/test.yml` so CI runs `swift test`.
+- Added `Tests/AgendumMacCoreTests/BackendClientTests.swift` covering real helper process requests, process reuse, helper error mapping, malformed response JSON, mismatched response IDs, unsupported protocol versions, stderr mapping, and request timeout/restart behavior.
+- Updated `.github/workflows/test.yml` so CI runs `swift test --enable-code-coverage`.
 - Recorded the development runner choice in `docs/decisions.md`: SwiftPM development runs use the checked-out helper and prefer common Homebrew Python paths before `/usr/bin/python3`; production packaging remains undecided.
 - Opened draft PR #5 against `feature/mac-prototype`.
+- Addressed PR #5 review findings: helper requests now have a bounded timeout path, the helper stdout reader no longer blocks directly on `availableData`, and development helper-root discovery no longer assumes the launch cwd is the repo root.
 
 ## Validation
 - `swift build` passes.
-- `swift test` passes: 2 Swift tests.
+- `swift test` passes: 8 Swift tests.
+- `swift test --enable-code-coverage` passes; `BackendClient.swift` line coverage is 72.14% by `xcrun llvm-cov report`.
 - `python3 -m unittest discover -s Tests` passes: 18 tests.
 - `python3 Scripts/python_coverage.py` passes: 193/207 lines, 93.2% for `Backend/agendum_backend/helper.py`.
 - Smoke-tested JSONL helper invocation with `workspace.current` and `auth.status`.

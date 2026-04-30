@@ -64,12 +64,12 @@ Current CI shape:
 - run `python3 Scripts/python_coverage.py`
 - run `python3 -m unittest discover -s Tests`
 - run `swift build`
+- run `swift test --enable-code-coverage`
 - run `git diff --check`
 
 CI should stay aligned with the local handoff validation. When new test layers are added, update the workflow in the same checkpoint as the tests.
 
 Later updates:
-- add `swift test --enable-code-coverage` once Swift test targets exist
 - export Xcode coverage with `xccov` once there is an Xcode app project or scheme
 - replace the sibling checkout with package/dependency setup once the backend dependency is formalized
 
