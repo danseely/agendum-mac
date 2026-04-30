@@ -102,7 +102,7 @@ Finalize and publish the workspace selection checkpoint.
 - GitHub Actions PR run `25194092308` passed for PR #5 after the final planning-doc update before merge.
 - `git pull --ff-only` on `feature/mac-prototype` reported already up to date after merge.
 - `python3 -m unittest discover -s Tests` passes: 25 tests.
-- `python3 Scripts/python_coverage.py` passes: 250/265 lines, 94.3% for `Backend/agendum_backend/helper.py`.
+- `python3 Scripts/python_coverage.py` passes: 252/267 lines, 94.4% for `Backend/agendum_backend/helper.py`.
 - `swift build` passes.
 - `swift test --enable-code-coverage` passes: 9 Swift tests.
 - `git diff --check` passes.

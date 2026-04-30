@@ -144,7 +144,7 @@ class BackendHelperTests(unittest.TestCase):
     def test_workspace_select_rejects_bad_payload_without_changing_workspace(self) -> None:
         state = HelperState(base_dir=Path("/tmp/agendum-test"), namespace="example-org")
 
-        for payload in ({}, {"namespace": 42}):
+        for payload in ({}, {"namespace": 42}, {"namespace": "   "}):
             with self.subTest(payload=payload):
                 response = handle_request(
                     {

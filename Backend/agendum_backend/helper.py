@@ -181,6 +181,8 @@ def select_workspace(state: HelperState, payload: dict[str, Any]) -> dict[str, A
     namespace = payload["namespace"]
     if namespace is not None and not isinstance(namespace, str):
         raise PayloadError("Workspace namespace must be a string or null.")
+    if isinstance(namespace, str) and not namespace.strip():
+        raise PayloadError("Workspace namespace must not be blank; use null for the base workspace.")
 
     normalized = normalize_namespace(namespace)
     paths = workspace_runtime_paths(normalized, state.base_dir)
