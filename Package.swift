@@ -8,11 +8,20 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
+        .library(name: "AgendumMacCore", targets: ["AgendumMacCore"]),
         .executable(name: "AgendumMac", targets: ["AgendumMac"])
     ],
     targets: [
+        .target(
+            name: "AgendumMacCore"
+        ),
         .executableTarget(
-            name: "AgendumMac"
+            name: "AgendumMac",
+            dependencies: ["AgendumMacCore"]
+        ),
+        .testTarget(
+            name: "AgendumMacCoreTests",
+            dependencies: ["AgendumMacCore"]
         )
     ]
 )

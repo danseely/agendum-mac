@@ -1,9 +1,9 @@
 # Status
 
-Last updated: 2026-04-28
+Last updated: 2026-04-30
 
 ## Current milestone
-Ready for the next backend/UI implementation checkpoint.
+Swift helper-process wiring checkpoint is ready to merge through PR #5.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -45,9 +45,16 @@ Ready for the next backend/UI implementation checkpoint.
 - PR #3 merged the testing baseline and CI workflow into `feature/mac-prototype`.
 - Cleaned up local topic branches after the merge.
 - PR #4 recorded branch discipline: future changes should land on `feature/mac-prototype` only through PRs, not direct pushes.
+- Added `AgendumMacCore`, a testable Swift target for backend-helper request/response models and long-lived JSONL process wiring.
+- Wired the SwiftUI sidebar to load `workspace.current` and `auth.status` from the helper and show workspace/auth state.
+- Added Swift tests that exercise multiple requests against one real helper process and verify backend error mapping.
+- Updated CI to run `swift test --enable-code-coverage` in addition to `swift build`.
+- Opened draft PR #5: `https://github.com/danseely/agendum-mac/pull/5`.
+- Sent PR #5 through a separate review pass; addressed helper timeout/lifecycle risk and expanded Swift helper-client coverage.
+- PR #5 latest CI run passed after review fixes: `25193185925`.
 
 ## In progress
-- Choosing between Swift helper-process wiring and `workspace.list` / `workspace.select`.
+- Merging PR #5 into `feature/mac-prototype`, then starting the next short-lived branch.
 
 ## Blocked
 - None.
@@ -56,5 +63,5 @@ Ready for the next backend/UI implementation checkpoint.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
+- After PR #5 lands, continue with `workspace.list` / `workspace.select` or the first backend-backed task list command on a new short-lived branch.
 - Keep `feature/mac-prototype` as the broad integration branch.

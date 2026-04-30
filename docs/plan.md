@@ -29,6 +29,9 @@ Evaluate and prototype a proper native macOS GUI for agendum in a new standalone
 ## Current recommendation
 Start with a SwiftUI-first native macOS shell that talks to the existing Python engine through a narrow backend API. Revisit a Swift rewrite only after the GUI shape and backend contract are proven.
 
+## Current Implementation Checkpoint
+The Swift helper-process client checkpoint is ready to merge into `feature/mac-prototype` through PR #5. It adds a testable Swift core target for the JSON-over-stdio helper, keeps helper requests bounded by timeouts, and makes SwiftPM coverage part of the CI gate.
+
 ## Canonical Supporting Docs
 - `docs/status.md`: current milestone, done/in-progress/blocked/next state, and milestone exit criteria.
 - `docs/decisions.md`: append-only decision log. Record plan changes here before silently changing direction.
@@ -39,7 +42,7 @@ Start with a SwiftUI-first native macOS shell that talks to the existing Python 
 
 ## Milestones
 1. Standalone scaffold: local SwiftUI app builds, planning docs are in this repo, and public `main` remains README-only.
-2. Backend contract: define a versioned helper protocol for task loading, actions, sync, namespace, auth status, and errors.
+2. Backend contract: define a versioned helper protocol for task loading, actions, sync, namespace, auth status, and errors. The accepted v0 bridge now has initial Swift client wiring.
 3. Python service extraction: expose the required GUI commands from the existing agendum engine without importing Textual.
 4. Live vertical slice: replace sample data with backend-loaded tasks, force sync, show sync status/errors, open task URLs, and mutate task status/remove.
 5. Mac polish: add settings, menu coverage, keyboard shortcuts, notifications, state restoration, and packaging decisions.

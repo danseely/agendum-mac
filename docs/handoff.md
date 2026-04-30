@@ -1,25 +1,26 @@
 # Handoff
 
 ## Current objective
-Choose the next implementation checkpoint from `feature/mac-prototype`.
+Merge PR #5 and start the next implementation branch.
 
 ## Branch
-`feature/mac-prototype`
+`codex/swift-helper-client`
 
 ## Repo state
-- HEAD: `feature/mac-prototype`; run `git rev-parse --short HEAD` for the exact local commit.
+- HEAD: `codex/swift-helper-client`; run `git rev-parse --short HEAD` for the exact local commit.
 - Integration branch: `feature/mac-prototype`
-- Current sub-PR: none
-- Current sub-PR target: none
+- Current sub-PR: `https://github.com/danseely/agendum-mac/pull/5`
+- Current sub-PR target: `feature/mac-prototype`
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
 - PR #4: `https://github.com/danseely/agendum-mac/pull/4`, merged into `feature/mac-prototype`
+- PR #5: `https://github.com/danseely/agendum-mac/pull/5`, ready to merge into `feature/mac-prototype`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: clean after PR #4 is merged, pulled, and local topic branch cleanup is complete.
-- Last validation date: 2026-04-28
+- Working tree: docs updated before merging PR #5.
+- Last validation date: 2026-04-30
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -57,9 +58,20 @@ Choose the next implementation checkpoint from `feature/mac-prototype`.
 - Pulled `feature/mac-prototype` to merge commit `408d800`.
 - Deleted local topic branches `codex/test-coverage-reporting` and `feature/backend-helper`.
 - PR #4 recorded branch discipline: future updates to `feature/mac-prototype` should land through PRs, not direct pushes.
+- Added `AgendumMacCore` in `Sources/AgendumMacCore/BackendClient.swift` with Swift models for `Workspace`, `AuthStatus`, helper error envelopes, and a long-lived JSONL helper process client.
+- Updated `Package.swift` to expose `AgendumMacCore` and add `AgendumMacCoreTests`.
+- Updated `Sources/AgendumMac/AgendumMacApp.swift` so the sidebar loads `workspace.current` and `auth.status` from the helper and displays workspace/auth state.
+- Added `Tests/AgendumMacCoreTests/BackendClientTests.swift` covering real helper process requests, process reuse, helper error mapping, malformed response JSON, mismatched response IDs, unsupported protocol versions, stderr mapping, and request timeout/restart behavior.
+- Updated `.github/workflows/test.yml` so CI runs `swift test --enable-code-coverage`.
+- Recorded the development runner choice in `docs/decisions.md`: SwiftPM development runs use the checked-out helper and prefer common Homebrew Python paths before `/usr/bin/python3`; production packaging remains undecided.
+- Opened draft PR #5 against `feature/mac-prototype`.
+- Addressed PR #5 review findings: helper requests now have a bounded timeout path, the helper stdout reader no longer blocks directly on `availableData`, and development helper-root discovery no longer assumes the launch cwd is the repo root.
+- PR #5 latest CI run passed after review fixes: `25193185925`.
 
 ## Validation
 - `swift build` passes.
+- `swift test` passes: 8 Swift tests.
+- `swift test --enable-code-coverage` passes; `BackendClient.swift` line coverage is 72.14% by `xcrun llvm-cov report`.
 - `python3 -m unittest discover -s Tests` passes: 18 tests.
 - `python3 Scripts/python_coverage.py` passes: 193/207 lines, 93.2% for `Backend/agendum_backend/helper.py`.
 - Smoke-tested JSONL helper invocation with `workspace.current` and `auth.status`.
@@ -72,6 +84,8 @@ Choose the next implementation checkpoint from `feature/mac-prototype`.
 - GitHub Actions checks for parent PR #2 are passing after PR #3 merged into `feature/mac-prototype`.
 - CI push triggers now exclude `feature/mac-prototype`; the parent PR handles validation for that branch.
 - GitHub Actions PR run `25077788303` passed for PR #4.
+- GitHub Actions PR run `25192465596` passed for PR #5.
+- GitHub Actions PR run `25193185925` passed for PR #5 after timeout/lifecycle fixes and SwiftPM coverage CI.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files
@@ -83,7 +97,9 @@ Choose the next implementation checkpoint from `feature/mac-prototype`.
 - `Package.swift`
 - `README.md`
 - `Scripts/python_coverage.py`
+- `Sources/AgendumMacCore/BackendClient.swift`
 - `Sources/AgendumMac/AgendumMacApp.swift`
+- `Tests/AgendumMacCoreTests/BackendClientTests.swift`
 - `Tests/test_backend_helper.py`
 - `Tests/test_backend_helper_process.py`
 - `docs/plan.md`
@@ -99,16 +115,17 @@ Choose the next implementation checkpoint from `feature/mac-prototype`.
 - The current agendum MCP/task API is read/create-heavy and does not yet expose all actions the GUI needs.
 - Packaging Python plus dependencies inside a signed app needs explicit design.
 - Finder-launched apps do not inherit shell `PATH`, so `gh` discovery cannot assume the terminal environment.
+- SwiftPM development runs now prefer common Homebrew Python paths, but the production helper runner and bundled Python strategy are still unresolved.
 - Current `gh auth login` flow is terminal-oriented and needs Mac-specific repair UX.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Choose between Swift helper-process wiring and `workspace.list` / `workspace.select`.
-2. Create a short-lived branch from `feature/mac-prototype` for the next checkpoint.
-3. Keep new backend command work covered by unit tests plus subprocess tests when process/environment behavior changes.
+1. Mark PR #5 ready, merge it into `feature/mac-prototype`, then pull `feature/mac-prototype`.
+2. Create the next short-lived branch from updated `feature/mac-prototype`.
+3. Update handoff docs again on the new branch with the post-merge state and exact next implementation target.
 
 ## After checkpoint
-- Continue with Swift helper-process wiring or `workspace.list` / `workspace.select`.
+- Continue with `workspace.list` / `workspace.select` or backend-backed task loading.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
