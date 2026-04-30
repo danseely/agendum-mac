@@ -52,7 +52,7 @@ Swift helper-process wiring checkpoint is open for PR review.
 - Opened draft PR #5: `https://github.com/danseely/agendum-mac/pull/5`.
 
 ## In progress
-- Draft PR #5 is awaiting review/CI.
+- Draft PR #5 is awaiting review.
 
 ## Blocked
 - None.

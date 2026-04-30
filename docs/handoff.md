@@ -19,7 +19,7 @@ Review the Swift helper-process wiring checkpoint.
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: clean after pushing PR #5 docs follow-up.
+- Working tree: clean after pushing PR #5 CI-status handoff.
 - Last validation date: 2026-04-30
 
 ## Completed
@@ -81,6 +81,7 @@ Review the Swift helper-process wiring checkpoint.
 - GitHub Actions checks for parent PR #2 are passing after PR #3 merged into `feature/mac-prototype`.
 - CI push triggers now exclude `feature/mac-prototype`; the parent PR handles validation for that branch.
 - GitHub Actions PR run `25077788303` passed for PR #4.
+- GitHub Actions PR run `25192465596` passed for PR #5.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files
@@ -115,7 +116,7 @@ Review the Swift helper-process wiring checkpoint.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Watch PR #5 CI and address review feedback.
+1. Address PR #5 review feedback, if any.
 2. After PR #5 merges, continue with `workspace.list` / `workspace.select` or the first backend-backed `task.list` implementation.
 3. Keep new backend command work covered by unit tests plus subprocess tests when process/environment behavior changes.
 
