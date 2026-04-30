@@ -3,7 +3,7 @@
 Last updated: 2026-04-30
 
 ## Current milestone
-Swift helper-process wiring checkpoint is implemented locally and ready for PR review.
+Swift helper-process wiring checkpoint is open for PR review.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -49,9 +49,10 @@ Swift helper-process wiring checkpoint is implemented locally and ready for PR r
 - Wired the SwiftUI sidebar to load `workspace.current` and `auth.status` from the helper and show workspace/auth state.
 - Added Swift tests that exercise multiple requests against one real helper process and verify backend error mapping.
 - Updated CI to run `swift test` in addition to `swift build`.
+- Opened draft PR #5: `https://github.com/danseely/agendum-mac/pull/5`.
 
 ## In progress
-- Preparing the Swift helper-process wiring checkpoint for PR review.
+- Draft PR #5 is awaiting review/CI.
 
 ## Blocked
 - None.

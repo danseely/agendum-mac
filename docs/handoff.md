@@ -1,7 +1,7 @@
 # Handoff
 
 ## Current objective
-Publish the Swift helper-process wiring checkpoint for review.
+Review the Swift helper-process wiring checkpoint.
 
 ## Branch
 `codex/swift-helper-client`
@@ -9,16 +9,17 @@ Publish the Swift helper-process wiring checkpoint for review.
 ## Repo state
 - HEAD: `codex/swift-helper-client`; run `git rev-parse --short HEAD` for the exact local commit.
 - Integration branch: `feature/mac-prototype`
-- Current sub-PR: pending
+- Current sub-PR: `https://github.com/danseely/agendum-mac/pull/5`
 - Current sub-PR target: `feature/mac-prototype`
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
 - PR #4: `https://github.com/danseely/agendum-mac/pull/4`, merged into `feature/mac-prototype`
+- PR #5: `https://github.com/danseely/agendum-mac/pull/5`, draft, targeting `feature/mac-prototype`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: contains the Swift helper-client checkpoint until committed/pushed.
+- Working tree: clean after pushing PR #5 docs follow-up.
 - Last validation date: 2026-04-30
 
 ## Completed
@@ -63,6 +64,7 @@ Publish the Swift helper-process wiring checkpoint for review.
 - Added `Tests/AgendumMacCoreTests/BackendClientTests.swift` covering real helper process requests and helper error mapping.
 - Updated `.github/workflows/test.yml` so CI runs `swift test`.
 - Recorded the development runner choice in `docs/decisions.md`: SwiftPM development runs use the checked-out helper and prefer common Homebrew Python paths before `/usr/bin/python3`; production packaging remains undecided.
+- Opened draft PR #5 against `feature/mac-prototype`.
 
 ## Validation
 - `swift build` passes.
@@ -113,8 +115,8 @@ Publish the Swift helper-process wiring checkpoint for review.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Commit this checkpoint and open a draft PR targeting `feature/mac-prototype`.
-2. After review, continue with `workspace.list` / `workspace.select` or the first backend-backed `task.list` implementation.
+1. Watch PR #5 CI and address review feedback.
+2. After PR #5 merges, continue with `workspace.list` / `workspace.select` or the first backend-backed `task.list` implementation.
 3. Keep new backend command work covered by unit tests plus subprocess tests when process/environment behavior changes.
 
 ## After checkpoint
