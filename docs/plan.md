@@ -30,7 +30,7 @@ Evaluate and prototype a proper native macOS GUI for agendum in a new standalone
 Start with a SwiftUI-first native macOS shell that talks to the existing Python engine through a narrow backend API. Revisit a Swift rewrite only after the GUI shape and backend contract are proven.
 
 ## Current Implementation Checkpoint
-The workspace selection checkpoint is implemented locally on `codex/workspace-selection` and is ready for sub-PR preparation. It adds `workspace.list` and `workspace.select` helper commands, Swift client methods/models, tests across the helper and Swift process boundary, and a sidebar workspace menu.
+The workspace selection checkpoint is in draft PR #6 from `codex/workspace-selection` to `feature/mac-prototype`. It adds `workspace.list` and `workspace.select` helper commands, Swift client methods/models, tests across the helper and Swift process boundary, and a sidebar workspace menu.
 
 ## Canonical Supporting Docs
 - `docs/status.md`: current milestone, done/in-progress/blocked/next state, and milestone exit criteria.

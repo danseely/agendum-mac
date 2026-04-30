@@ -3,7 +3,7 @@
 Last updated: 2026-04-30
 
 ## Current milestone
-Workspace selection checkpoint implemented locally on `codex/workspace-selection`.
+Workspace selection checkpoint is in draft PR #6 on `codex/workspace-selection`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -60,9 +60,10 @@ Workspace selection checkpoint implemented locally on `codex/workspace-selection
 - Added Swift client models/methods for workspace listing and selection.
 - Added Swift client coverage for selecting/listing workspaces through one helper process, including explicit `namespace: null` base selection.
 - Wired the sidebar status area to load workspace options and switch workspaces through a menu.
+- Opened draft PR #6: `https://github.com/danseely/agendum-mac/pull/6`.
 
 ## In progress
-- Opening the workspace selection sub-PR.
+- Watching CI/review for draft PR #6.
 
 ## Blocked
 - None.
@@ -71,6 +72,6 @@ Workspace selection checkpoint implemented locally on `codex/workspace-selection
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Open a sub-PR from `codex/workspace-selection` to `feature/mac-prototype`.
+- Watch/fix CI or review findings on PR #6.
 - Continue toward backend-backed task loading after the workspace selection checkpoint lands.
 - Keep `feature/mac-prototype` as the broad integration branch.

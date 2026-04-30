@@ -9,13 +9,14 @@ Finalize and publish the workspace selection checkpoint.
 ## Repo state
 - HEAD: `codex/workspace-selection`; run `git rev-parse --short HEAD` for the exact commit.
 - Integration branch: `feature/mac-prototype`
-- Current sub-PR: none
-- Current sub-PR target: `feature/mac-prototype` once opened
+- Current sub-PR: `https://github.com/danseely/agendum-mac/pull/6`
+- Current sub-PR target: `feature/mac-prototype`
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
 - PR #4: `https://github.com/danseely/agendum-mac/pull/4`, merged into `feature/mac-prototype`
 - PR #5: `https://github.com/danseely/agendum-mac/pull/5`, merged into `feature/mac-prototype`
+- PR #6: `https://github.com/danseely/agendum-mac/pull/6`, draft, targeting `feature/mac-prototype`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
@@ -78,6 +79,7 @@ Finalize and publish the workspace selection checkpoint.
 - Added Swift process-boundary coverage in `Tests/AgendumMacCoreTests/BackendClientTests.swift` for selecting/listing workspaces in one helper process.
 - Wired `Sources/AgendumMac/AgendumMacApp.swift` so the sidebar status area loads workspace options and switches workspaces through a menu.
 - Updated `docs/plan.md`, `docs/status.md`, and `docs/handoff.md` for the workspace selection checkpoint.
+- Opened draft PR #6 against `feature/mac-prototype`.
 
 ## Validation
 - `swift build` passes.
@@ -127,8 +129,8 @@ Finalize and publish the workspace selection checkpoint.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Push `codex/workspace-selection` and open a sub-PR targeting `feature/mac-prototype`.
-2. Watch/fix CI or review findings on the workspace selection PR.
+1. Watch/fix CI or review findings on PR #6.
+2. Mark PR #6 ready after checks/review are clean.
 3. After PR review/CI, continue with backend-backed task loading.
 
 ## After checkpoint
