@@ -18,6 +18,20 @@ public struct AuthStatus: Decodable, Equatable, Sendable {
     public let repairInstructions: String?
 }
 
+public struct SyncStatus: Decodable, Equatable, Sendable {
+    public let state: String
+    public let lastSyncAt: String?
+    public let lastError: String?
+    public let changes: Int
+    public let hasAttentionItems: Bool
+}
+
+public struct WorkspaceSelection: Decodable, Equatable, Sendable {
+    public let workspace: Workspace
+    public let auth: AuthStatus
+    public let sync: SyncStatus
+}
+
 public struct BackendErrorPayload: Decodable, Error, Equatable, Sendable {
     public let code: String
     public let message: String
@@ -164,6 +178,15 @@ public actor AgendumBackendClient {
         return payload.workspace
     }
 
+    public func listWorkspaces() async throws -> [Workspace] {
+        let payload: WorkspaceListResponsePayload = try await send(command: "workspace.list")
+        return payload.workspaces
+    }
+
+    public func selectWorkspace(namespace: String?) async throws -> WorkspaceSelection {
+        try await send(command: "workspace.select", payload: WorkspaceSelectRequestPayload(namespace: namespace))
+    }
+
     public func authStatus() async throws -> AuthStatus {
         let payload: AuthStatusResponsePayload = try await send(command: "auth.status")
         return payload.auth
@@ -199,9 +222,9 @@ public actor AgendumBackendClient {
         outputReader = nil
     }
 
-    private func send<ResponsePayload: Decodable>(
+    private func send<ResponsePayload: Decodable, RequestPayload: Encodable>(
         command: String,
-        payload: EmptyPayload = EmptyPayload()
+        payload: RequestPayload
     ) async throws -> ResponsePayload {
         try startIfNeeded()
 
@@ -254,6 +277,12 @@ public actor AgendumBackendClient {
             }
             return payload
         }
+    }
+
+    private func send<ResponsePayload: Decodable>(
+        command: String
+    ) async throws -> ResponsePayload {
+        try await send(command: command, payload: EmptyPayload())
     }
 
     private func startIfNeeded() throws {
@@ -382,6 +411,27 @@ private struct ResponseEnvelope<Payload: Decodable>: Decodable {
 
 private struct WorkspaceResponsePayload: Decodable {
     let workspace: Workspace
+}
+
+private struct WorkspaceListResponsePayload: Decodable {
+    let workspaces: [Workspace]
+}
+
+private struct WorkspaceSelectRequestPayload: Encodable, Sendable {
+    let namespace: String?
+
+    enum CodingKeys: String, CodingKey {
+        case namespace
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let namespace {
+            try container.encode(namespace, forKey: .namespace)
+        } else {
+            try container.encodeNil(forKey: .namespace)
+        }
+    }
 }
 
 private struct AuthStatusResponsePayload: Decodable {

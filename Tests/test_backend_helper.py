@@ -56,6 +56,128 @@ class BackendHelperTests(unittest.TestCase):
             self.assertTrue(workspace["isCurrent"])
             self.assertTrue((Path(tmp) / "config.toml").exists())
 
+    def test_workspace_list_includes_base_and_existing_namespaces(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "workspaces" / "example-org").mkdir(parents=True)
+            (root / "workspaces" / "z-team").mkdir()
+            (root / "workspaces" / "invalid--name").mkdir()
+            (root / "workspaces" / "not-a-dir").write_text("")
+
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "workspace-list",
+                    "command": "workspace.list",
+                    "payload": {},
+                },
+                HelperState(base_dir=root, namespace="z-team"),
+            )
+
+            self.assertTrue(response["ok"])
+            workspaces = response["payload"]["workspaces"]
+            self.assertEqual([workspace["id"] for workspace in workspaces], ["base", "example-org", "z-team"])
+            self.assertFalse(workspaces[0]["isCurrent"])
+            self.assertFalse(workspaces[1]["isCurrent"])
+            self.assertTrue(workspaces[2]["isCurrent"])
+            self.assertEqual(workspaces[1]["configPath"], str(root / "workspaces" / "example-org" / "config.toml"))
+
+    def test_workspace_select_creates_namespace_config_and_updates_current_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = HelperState(base_dir=root)
+
+            with mock.patch("Backend.agendum_backend.helper._find_gh", return_value=None):
+                response = handle_request(
+                    {
+                        "version": 1,
+                        "id": "workspace-select",
+                        "command": "workspace.select",
+                        "payload": {"namespace": "Example-Org"},
+                    },
+                    state,
+                )
+
+            self.assertTrue(response["ok"])
+            workspace = response["payload"]["workspace"]
+            self.assertEqual(workspace["id"], "example-org")
+            self.assertEqual(workspace["namespace"], "example-org")
+            self.assertTrue(workspace["isCurrent"])
+            self.assertEqual(workspace["configPath"], str(root / "workspaces" / "example-org" / "config.toml"))
+            self.assertEqual(response["payload"]["sync"]["state"], "idle")
+            self.assertIn('orgs = ["Example-Org"]', (root / "workspaces" / "example-org" / "config.toml").read_text())
+            self.assertEqual(state.namespace, "example-org")
+
+            current = handle_request(
+                {
+                    "version": 1,
+                    "id": "workspace-current-after-select",
+                    "command": "workspace.current",
+                    "payload": {},
+                },
+                state,
+            )
+            self.assertEqual(current["payload"]["workspace"]["id"], "example-org")
+
+    def test_workspace_select_null_returns_to_base_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = HelperState(base_dir=root, namespace="example-org")
+
+            with mock.patch("Backend.agendum_backend.helper._find_gh", return_value=None):
+                response = handle_request(
+                    {
+                        "version": 1,
+                        "id": "workspace-select-base",
+                        "command": "workspace.select",
+                        "payload": {"namespace": None},
+                    },
+                    state,
+                )
+
+            self.assertTrue(response["ok"])
+            self.assertEqual(response["payload"]["workspace"]["id"], "base")
+            self.assertIsNone(response["payload"]["workspace"]["namespace"])
+            self.assertIsNone(state.namespace)
+            self.assertTrue((root / "config.toml").exists())
+
+    def test_workspace_select_rejects_bad_payload_without_changing_workspace(self) -> None:
+        state = HelperState(base_dir=Path("/tmp/agendum-test"), namespace="example-org")
+
+        for payload in ({}, {"namespace": 42}):
+            with self.subTest(payload=payload):
+                response = handle_request(
+                    {
+                        "version": 1,
+                        "id": "bad-workspace-select",
+                        "command": "workspace.select",
+                        "payload": payload,
+                    },
+                    state,
+                )
+
+                self.assertFalse(response["ok"])
+                self.assertEqual(response["error"]["code"], "payload.invalid")
+                self.assertEqual(state.namespace, "example-org")
+
+    def test_workspace_select_rejects_invalid_namespace_without_changing_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp), namespace="example-org")
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "invalid-workspace-select",
+                    "command": "workspace.select",
+                    "payload": {"namespace": "owner/repo"},
+                },
+                state,
+            )
+
+            self.assertFalse(response["ok"])
+            self.assertEqual(response["error"]["code"], "workspace.invalid")
+            self.assertEqual(state.namespace, "example-org")
+            self.assertFalse((Path(tmp) / "workspaces").exists())
+
     def test_auth_status_reports_missing_gh(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             state = HelperState(base_dir=Path(tmp))

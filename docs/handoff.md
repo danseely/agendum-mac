@@ -1,13 +1,13 @@
 # Handoff
 
 ## Current objective
-Implement the workspace selection checkpoint.
+Finalize and publish the workspace selection checkpoint.
 
 ## Branch
 `codex/workspace-selection`
 
 ## Repo state
-- HEAD: `codex/workspace-selection`; run `git rev-parse --short HEAD` for the exact local commit.
+- HEAD: `codex/workspace-selection`; run `git rev-parse --short HEAD` for the exact commit.
 - Integration branch: `feature/mac-prototype`
 - Current sub-PR: none
 - Current sub-PR target: `feature/mac-prototype` once opened
@@ -19,7 +19,7 @@ Implement the workspace selection checkpoint.
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: clean after committing the post-merge handoff update.
+- Working tree: clean after committing the workspace selection checkpoint.
 - Last validation date: 2026-04-30
 
 ## Completed
@@ -70,6 +70,14 @@ Implement the workspace selection checkpoint.
 - Marked PR #5 ready and merged it into `feature/mac-prototype` with squash merge commit `a3c17cf`.
 - Pulled `feature/mac-prototype`; it was already up to date after the merge.
 - Created `codex/workspace-selection` from updated `feature/mac-prototype`.
+- Implemented `workspace.list` in `Backend/agendum_backend/helper.py`; it returns base plus valid namespace directories under `<base>/workspaces` and marks the current helper namespace.
+- Implemented `workspace.select` in `Backend/agendum_backend/helper.py`; it validates namespace payloads, creates/loads config with existing agendum config helpers, updates `HelperState.namespace`, returns refreshed auth status, and returns an idle sync status stub without starting sync.
+- Added backend tests in `Tests/test_backend_helper.py` for listing, namespace selection, base selection, invalid payloads, and invalid namespace rollback.
+- Added subprocess tests in `Tests/test_backend_helper_process.py` for shared-process workspace selection/listing and invalid selection preserving base state.
+- Added Swift client types and methods in `Sources/AgendumMacCore/BackendClient.swift` for `listWorkspaces()` and `selectWorkspace(namespace:)`, including explicit `namespace: null` encoding for base selection.
+- Added Swift process-boundary coverage in `Tests/AgendumMacCoreTests/BackendClientTests.swift` for selecting/listing workspaces in one helper process.
+- Wired `Sources/AgendumMac/AgendumMacApp.swift` so the sidebar status area loads workspace options and switches workspaces through a menu.
+- Updated `docs/plan.md`, `docs/status.md`, and `docs/handoff.md` for the workspace selection checkpoint.
 
 ## Validation
 - `swift build` passes.
@@ -91,17 +99,15 @@ Implement the workspace selection checkpoint.
 - GitHub Actions PR run `25193185925` passed for PR #5 after timeout/lifecycle fixes and SwiftPM coverage CI.
 - GitHub Actions PR run `25194092308` passed for PR #5 after the final planning-doc update before merge.
 - `git pull --ff-only` on `feature/mac-prototype` reported already up to date after merge.
+- `python3 -m unittest discover -s Tests` passes: 25 tests.
+- `python3 Scripts/python_coverage.py` passes: 250/265 lines, 94.3% for `Backend/agendum_backend/helper.py`.
+- `swift build` passes.
+- `swift test --enable-code-coverage` passes: 9 Swift tests.
+- `git diff --check` passes.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files
-- `.gitignore`
-- `.github/workflows/test.yml`
-- `Backend/agendum_backend/__init__.py`
 - `Backend/agendum_backend/helper.py`
-- `Backend/agendum_backend_helper.py`
-- `Package.swift`
-- `README.md`
-- `Scripts/python_coverage.py`
 - `Sources/AgendumMacCore/BackendClient.swift`
 - `Sources/AgendumMac/AgendumMacApp.swift`
 - `Tests/AgendumMacCoreTests/BackendClientTests.swift`
@@ -109,11 +115,7 @@ Implement the workspace selection checkpoint.
 - `Tests/test_backend_helper_process.py`
 - `docs/plan.md`
 - `docs/status.md`
-- `docs/decisions.md`
 - `docs/handoff.md`
-- `docs/testing.md`
-- `docs/mac-gui-port-evaluation.md`
-- `docs/backend-contract.md`
 
 ## Risks / blockers
 - A Mac App Store build is likely harder if the app depends on launching external `gh` and sharing `gh` auth files.
@@ -125,12 +127,12 @@ Implement the workspace selection checkpoint.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Implement `workspace.list` in the helper and add backend unit tests.
-2. Implement `workspace.select` state handling and subprocess tests for namespace/base selection.
-3. Wire Swift UI/client affordance only after the backend command behavior is covered.
+1. Push `codex/workspace-selection` and open a sub-PR targeting `feature/mac-prototype`.
+2. Watch/fix CI or review findings on the workspace selection PR.
+3. After PR review/CI, continue with backend-backed task loading.
 
 ## After checkpoint
-- Continue with `workspace.list` / `workspace.select`.
+- Continue with backend-backed `task.list` loading after `workspace.list` / `workspace.select` lands.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.

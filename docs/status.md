@@ -3,7 +3,7 @@
 Last updated: 2026-04-30
 
 ## Current milestone
-Workspace selection checkpoint started on `codex/workspace-selection`.
+Workspace selection checkpoint implemented locally on `codex/workspace-selection`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -54,9 +54,15 @@ Workspace selection checkpoint started on `codex/workspace-selection`.
 - PR #5 latest CI run passed after review fixes: `25193185925`.
 - PR #5 was marked ready and merged into `feature/mac-prototype`: `https://github.com/danseely/agendum-mac/pull/5`.
 - Pulled `feature/mac-prototype` after merge and created `codex/workspace-selection` for the next checkpoint.
+- Implemented `workspace.list` in the helper with base workspace plus discovered namespace directories.
+- Implemented `workspace.select` in the helper with namespace validation, config creation, in-memory helper state update, auth status refresh, and idle sync status stub.
+- Added backend unit and subprocess tests for workspace listing, selection, invalid namespace handling, and shared helper-process state.
+- Added Swift client models/methods for workspace listing and selection.
+- Added Swift client coverage for selecting/listing workspaces through one helper process, including explicit `namespace: null` base selection.
+- Wired the sidebar status area to load workspace options and switch workspaces through a menu.
 
 ## In progress
-- Planning/implementing `workspace.list` / `workspace.select` as the next backend/UI checkpoint.
+- Opening the workspace selection sub-PR.
 
 ## Blocked
 - None.
@@ -65,5 +71,6 @@ Workspace selection checkpoint started on `codex/workspace-selection`.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Implement `workspace.list` / `workspace.select` with backend unit tests and subprocess coverage where process/environment behavior changes.
+- Open a sub-PR from `codex/workspace-selection` to `feature/mac-prototype`.
+- Continue toward backend-backed task loading after the workspace selection checkpoint lands.
 - Keep `feature/mac-prototype` as the broad integration branch.

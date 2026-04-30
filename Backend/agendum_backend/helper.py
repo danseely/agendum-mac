@@ -28,6 +28,7 @@ _bootstrap_agendum_import()
 from agendum.config import (  # noqa: E402
     RuntimePaths,
     ensure_workspace_config,
+    normalize_namespace,
     workspace_runtime_paths,
 )
 
@@ -101,8 +102,18 @@ def handle_request(request: Any, state: HelperState) -> dict[str, Any]:
     try:
         if command == "workspace.current":
             return _success_response(request_id, {"workspace": current_workspace(state)})
+        if command == "workspace.list":
+            return _success_response(request_id, {"workspaces": list_workspaces(state)})
+        if command == "workspace.select":
+            return _success_response(request_id, select_workspace(state, payload))
         if command == "auth.status":
             return _success_response(request_id, {"auth": auth_status(state)})
+    except PayloadError as exc:
+        return _error_response(
+            request_id=request_id,
+            code="payload.invalid",
+            message=str(exc),
+        )
     except ValueError as exc:
         return _error_response(
             request_id=request_id,
@@ -130,6 +141,60 @@ def current_workspace(state: HelperState) -> dict[str, Any]:
     paths = state.runtime
     ensure_workspace_config(paths, namespace=state.namespace)
     return _workspace_payload(paths, state.namespace, is_current=True)
+
+
+def list_workspaces(state: HelperState) -> list[dict[str, Any]]:
+    workspaces = [
+        _workspace_payload(
+            workspace_runtime_paths(None, state.base_dir),
+            None,
+            is_current=state.namespace is None,
+        )
+    ]
+
+    workspaces_dir = state.base_dir / "workspaces"
+    if not workspaces_dir.exists():
+        return workspaces
+
+    for child in sorted(workspaces_dir.iterdir(), key=lambda path: path.name.lower()):
+        if not child.is_dir():
+            continue
+        namespace = child.name
+        try:
+            paths = workspace_runtime_paths(namespace, state.base_dir)
+        except ValueError:
+            continue
+        workspaces.append(
+            _workspace_payload(
+                paths,
+                namespace,
+                is_current=namespace == state.namespace,
+            )
+        )
+    return workspaces
+
+
+def select_workspace(state: HelperState, payload: dict[str, Any]) -> dict[str, Any]:
+    if "namespace" not in payload:
+        raise PayloadError("Workspace selection requires a namespace field.")
+
+    namespace = payload["namespace"]
+    if namespace is not None and not isinstance(namespace, str):
+        raise PayloadError("Workspace namespace must be a string or null.")
+
+    normalized = normalize_namespace(namespace)
+    paths = workspace_runtime_paths(normalized, state.base_dir)
+    effective_namespace = None
+    if normalized is not None:
+        effective_namespace = paths.workspace_root.name
+
+    ensure_workspace_config(paths, namespace=normalized)
+    state.namespace = effective_namespace
+    return {
+        "workspace": _workspace_payload(paths, state.namespace, is_current=True),
+        "auth": auth_status(state),
+        "sync": _sync_status(),
+    }
 
 
 def auth_status(state: HelperState) -> dict[str, Any]:
@@ -230,6 +295,16 @@ def _workspace_payload(
     }
 
 
+def _sync_status() -> dict[str, Any]:
+    return {
+        "state": "idle",
+        "lastSyncAt": None,
+        "lastError": None,
+        "changes": 0,
+        "hasAttentionItems": False,
+    }
+
+
 def _display_path(path: Path) -> str:
     home = Path.home()
     try:
@@ -269,6 +344,10 @@ def _error_response(
         "ok": False,
         "error": error,
     }
+
+
+class PayloadError(ValueError):
+    pass
 
 
 def main() -> int:
