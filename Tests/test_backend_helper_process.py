@@ -12,6 +12,10 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT.parent / "agendum" / "src"))
+
+from agendum.db import add_task, init_db, update_task  # noqa: E402
+
 HELPER = REPO_ROOT / "Backend" / "agendum_backend_helper.py"
 
 
@@ -148,6 +152,43 @@ class BackendHelperProcessTests(unittest.TestCase):
             self.assertTrue(responses[1]["ok"])
             self.assertEqual(responses[1]["payload"]["workspace"]["id"], "base")
             self.assertFalse((root / "workspaces").exists())
+
+    def test_task_list_uses_jsonl_process_framing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "agendum.db"
+            init_db(db_path)
+            task_id = add_task(
+                db_path,
+                title="Process task",
+                source="issue",
+                status="open",
+                project="agendum-mac",
+                gh_repo="danseely/agendum-mac",
+                gh_url="https://github.com/danseely/agendum-mac/issues/8",
+                gh_number=8,
+            )
+            update_task(db_path, task_id, seen=0)
+
+            responses = self.run_helper(
+                [
+                    {
+                        "version": 1,
+                        "id": "process-task-list",
+                        "command": "task.list",
+                        "payload": {"includeSeen": False},
+                    }
+                ],
+                base_dir=root,
+            )
+
+            self.assertEqual(len(responses), 1)
+            response = responses[0]
+            self.assertTrue(response["ok"])
+            self.assertEqual(response["id"], "process-task-list")
+            self.assertEqual(response["payload"]["tasks"][0]["title"], "Process task")
+            self.assertEqual(response["payload"]["tasks"][0]["ghNumber"], 8)
+            self.assertFalse(response["payload"]["tasks"][0]["seen"])
 
     def test_process_honors_base_dir_and_configured_gh_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

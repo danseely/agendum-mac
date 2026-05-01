@@ -95,6 +95,81 @@ final class BackendClientTests: XCTestCase {
         XCTAssertNil(baseSelection.workspace.namespace)
     }
 
+    func testClientListsTasks() async throws {
+        let helper = try writePythonHelper(
+            contents: """
+            import json
+            import sys
+
+            for line in sys.stdin:
+                request = json.loads(line)
+                payload = request["payload"]
+                if (
+                    request["command"] != "task.list"
+                    or payload["source"] != "pr_review"
+                    or payload["status"] != "review requested"
+                    or payload["project"] != "homebrew-tap"
+                    or payload["includeSeen"] != False
+                    or payload["limit"] != 5
+                ):
+                    print(json.dumps({
+                        "version": 1,
+                        "id": request["id"],
+                        "ok": False,
+                        "error": {"code": "test.failed", "message": "unexpected task.list request"}
+                    }), flush=True)
+                    continue
+                print(json.dumps({
+                    "version": 1,
+                    "id": request["id"],
+                    "ok": True,
+                    "payload": {"tasks": [{
+                        "id": 17,
+                        "title": "Review release workflow hardening",
+                        "source": "pr_review",
+                        "status": "review requested",
+                        "project": "homebrew-tap",
+                        "ghRepo": "danseely/homebrew-tap",
+                        "ghUrl": "https://github.com/danseely/homebrew-tap/pull/17",
+                        "ghNumber": 17,
+                        "ghAuthor": "octocat",
+                        "ghAuthorName": "Octo",
+                        "tags": ["review"],
+                        "seen": False,
+                        "lastChangedAt": "2026-04-28T15:00:00+00:00",
+                        "updatedAt": "2026-04-28T15:01:00+00:00"
+                    }]}
+                }), flush=True)
+            """
+        )
+        let client = AgendumBackendClient(configuration: fakeHelperConfiguration(helperURL: helper))
+
+        let tasks = try await client.listTasks(
+            source: "pr_review",
+            status: "review requested",
+            project: "homebrew-tap",
+            includeSeen: false,
+            limit: 5
+        )
+        await client.close()
+
+        XCTAssertEqual(tasks.count, 1)
+        XCTAssertEqual(tasks[0].id, 17)
+        XCTAssertEqual(tasks[0].title, "Review release workflow hardening")
+        XCTAssertEqual(tasks[0].source, "pr_review")
+        XCTAssertEqual(tasks[0].status, "review requested")
+        XCTAssertEqual(tasks[0].project, "homebrew-tap")
+        XCTAssertEqual(tasks[0].ghRepo, "danseely/homebrew-tap")
+        XCTAssertEqual(tasks[0].ghUrl, "https://github.com/danseely/homebrew-tap/pull/17")
+        XCTAssertEqual(tasks[0].ghNumber, 17)
+        XCTAssertEqual(tasks[0].ghAuthor, "octocat")
+        XCTAssertEqual(tasks[0].ghAuthorName, "Octo")
+        XCTAssertEqual(tasks[0].tags, ["review"])
+        XCTAssertFalse(tasks[0].seen)
+        XCTAssertEqual(tasks[0].lastChangedAt, "2026-04-28T15:00:00+00:00")
+        XCTAssertEqual(tasks[0].updatedAt, "2026-04-28T15:01:00+00:00")
+    }
+
     func testClientReusesOneHelperProcess() async throws {
         let helper = try writePythonHelper(
             contents: """
@@ -134,11 +209,11 @@ final class BackendClientTests: XCTestCase {
         )
 
         do {
-            _ = try await client.request(command: "task.list", as: EmptyTestingPayload.self)
+            _ = try await client.request(command: "unknown.command", as: EmptyTestingPayload.self)
             XCTFail("Expected unknown command error.")
         } catch BackendClientError.helperError(let error) {
             XCTAssertEqual(error.code, "protocol.unknownCommand")
-            XCTAssertEqual(error.detail, "task.list")
+            XCTAssertEqual(error.detail, "unknown.command")
         }
 
         await client.close()

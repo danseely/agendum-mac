@@ -1,27 +1,27 @@
 # Handoff
 
 ## Current objective
-Finalize and publish the workspace selection checkpoint.
+Continue the live vertical slice by loading dashboard tasks from the backend helper.
 
 ## Branch
-`codex/workspace-selection`
+`codex/task-list-loading`
 
 ## Repo state
-- HEAD: `codex/workspace-selection`; run `git rev-parse --short HEAD` for the exact commit.
+- HEAD: `codex/task-list-loading` at `f53c62e` before local task-list changes are committed.
 - Integration branch: `feature/mac-prototype`
-- Current sub-PR: `https://github.com/danseely/agendum-mac/pull/6`
-- Current sub-PR target: `feature/mac-prototype`
+- Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
+- Task-list branch state: local only; rebased onto `feature/mac-prototype`; not pushed and no PR opened yet.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
 - PR #4: `https://github.com/danseely/agendum-mac/pull/4`, merged into `feature/mac-prototype`
 - PR #5: `https://github.com/danseely/agendum-mac/pull/5`, merged into `feature/mac-prototype`
-- PR #6: `https://github.com/danseely/agendum-mac/pull/6`, draft, targeting `feature/mac-prototype`
+- PR #6: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: clean after committing the workspace selection checkpoint.
-- Last validation date: 2026-04-30
+- Working tree: dirty with local task-list implementation and planning-doc updates.
+- Last validation date: 2026-05-01
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -80,6 +80,20 @@ Finalize and publish the workspace selection checkpoint.
 - Wired `Sources/AgendumMac/AgendumMacApp.swift` so the sidebar status area loads workspace options and switches workspaces through a menu.
 - Updated `docs/plan.md`, `docs/status.md`, and `docs/handoff.md` for the workspace selection checkpoint.
 - Opened draft PR #6 against `feature/mac-prototype`.
+- Addressed PR #6 review finding: `workspace.select` now rejects blank string namespaces so only explicit `namespace: null` selects the base workspace.
+- Marked PR #6 ready for review.
+- Checked PR #6 on 2026-05-01: open, non-draft, clean merge state, no comments/reviews, and passing `Test` check from run `25194851503`.
+- Merged PR #6 into `feature/mac-prototype` with squash merge `f53c62e`.
+- Fast-forwarded local `feature/mac-prototype` to `f53c62e`.
+- Rebased `codex/task-list-loading` onto `feature/mac-prototype`.
+- Created local branch `codex/task-list-loading` from `codex/workspace-selection`.
+- Implemented `task.list` in `Backend/agendum_backend/helper.py`; it validates optional filters, initializes the selected workspace DB, calls `agendum.task_api.list_tasks`, and maps task fields to the v0 lower-camel-case bridge payload.
+- Added helper error handling for task-storage SQLite failures.
+- Added backend unit tests in `Tests/test_backend_helper.py` for task payload mapping, default empty workspace initialization, optional field mapping, filter handling, selected namespace DB usage, and invalid task-list payloads.
+- Added subprocess JSONL coverage in `Tests/test_backend_helper_process.py` for `task.list`.
+- Added `AgendumTask` plus `listTasks(source:status:project:includeSeen:limit:)` in `Sources/AgendumMacCore/BackendClient.swift`.
+- Added Swift client test coverage in `Tests/AgendumMacCoreTests/BackendClientTests.swift` for full task-list request encoding and response decoding.
+- Updated `Sources/AgendumMac/AgendumMacApp.swift` so the dashboard task lists and badges load from the backend helper instead of hard-coded sample data; workspace selection reloads tasks.
 
 ## Validation
 - `swift build` passes.
@@ -106,6 +120,14 @@ Finalize and publish the workspace selection checkpoint.
 - `swift build` passes.
 - `swift test --enable-code-coverage` passes: 9 Swift tests.
 - `git diff --check` passes.
+- GitHub Actions PR run `25194659243` passed for PR #6.
+- GitHub Actions PR run `25194851503` passed for PR #6 after the blank-namespace review fix.
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 32 tests.
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 305/326 lines, 93.6% for `Backend/agendum_backend/helper.py`.
+- `swift build` passes.
+- `swift test --enable-code-coverage` passes: 10 Swift tests.
+- `git diff --check` passes.
+- `python3 -m unittest discover -s Tests` fails in the current shell because `python3` resolves to pyenv Python 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 - Pending: `swift run AgendumMac`.
 
 ## Changed files
@@ -129,13 +151,14 @@ Finalize and publish the workspace selection checkpoint.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Watch/fix CI or review findings on PR #6.
-2. Mark PR #6 ready after checks/review are clean.
-3. After PR review/CI, continue with backend-backed task loading.
+1. Commit, push, and open a draft PR for `codex/task-list-loading` targeting `feature/mac-prototype`.
+2. Watch CI and address review findings on the task-list PR.
+3. Continue from task list loading to task detail refresh, task actions, and sync wiring.
 
 ## After checkpoint
-- Continue with backend-backed `task.list` loading after `workspace.list` / `workspace.select` lands.
+- Continue from backend-backed `task.list` loading to task detail refresh, task actions, and sync wiring.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
 - Approved deviation: public `main` is README-only; prototype work lives on stacked feature branches.
+- Resolved stack state: `codex/task-list-loading` was temporarily based on PR #6, then rebased onto `feature/mac-prototype` after PR #6 merged.

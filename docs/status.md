@@ -1,9 +1,9 @@
 # Status
 
-Last updated: 2026-04-30
+Last updated: 2026-05-01
 
 ## Current milestone
-Workspace selection checkpoint is in draft PR #6 on `codex/workspace-selection`.
+Backend-backed task list loading is implemented locally on `codex/task-list-loading`, now rebased onto `feature/mac-prototype` after PR #6 merged.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -61,9 +61,22 @@ Workspace selection checkpoint is in draft PR #6 on `codex/workspace-selection`.
 - Added Swift client coverage for selecting/listing workspaces through one helper process, including explicit `namespace: null` base selection.
 - Wired the sidebar status area to load workspace options and switch workspaces through a menu.
 - Opened draft PR #6: `https://github.com/danseely/agendum-mac/pull/6`.
+- Addressed PR #6 review finding: blank string namespaces are rejected; base selection requires `namespace: null`.
+- PR #6 latest CI run passed after the review fix: `25194851503`.
+- PR #6 was marked ready for review.
+- PR #6 was merged into `feature/mac-prototype` on 2026-05-01.
+- Fast-forwarded local `feature/mac-prototype` to PR #6 squash merge `f53c62e`.
+- Rebasing `codex/task-list-loading` onto `feature/mac-prototype` completed after PR #6 merged.
+- Created `codex/task-list-loading` from `codex/workspace-selection` for the next stacked checkpoint.
+- Implemented `task.list` in `Backend/agendum_backend/helper.py` using the selected workspace DB and the existing `agendum.task_api.list_tasks`.
+- Added task-list payload validation and lower-camel-case task bridge payload mapping.
+- Added backend unit and subprocess coverage for `task.list`, selected-workspace DB loading, filters, and invalid payloads.
+- Added `AgendumTask` and `listTasks(...)` to `Sources/AgendumMacCore/BackendClient.swift`.
+- Replaced hard-coded SwiftUI sample tasks with backend-loaded tasks in `Sources/AgendumMac/AgendumMacApp.swift`.
+- Added Swift client coverage for `task.list` request encoding and task decoding.
 
 ## In progress
-- Watching CI/review for draft PR #6.
+- `codex/task-list-loading` has local implementation and validation; it has not been committed, pushed, or opened as a PR.
 
 ## Blocked
 - None.
@@ -72,6 +85,6 @@ Workspace selection checkpoint is in draft PR #6 on `codex/workspace-selection`.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Watch/fix CI or review findings on PR #6.
-- Continue toward backend-backed task loading after the workspace selection checkpoint lands.
+- Continue from backend-backed task loading toward task detail/actions and sync wiring.
+- Commit, push, and open a draft PR for `codex/task-list-loading` targeting `feature/mac-prototype`.
 - Keep `feature/mac-prototype` as the broad integration branch.
