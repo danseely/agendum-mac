@@ -89,9 +89,12 @@ Task detail refresh, task actions, and sync wiring are in progress on `codex/tas
 - Added backend unit and subprocess coverage for task detail/action commands and sync status/force behavior.
 - Added Swift client methods and coverage for task detail/actions and sync commands.
 - Wired the SwiftUI dashboard to show sync status, run force sync, and perform source-aware task actions from the detail pane.
+- Committed and pushed `codex/task-detail-actions-sync` as `0ca0899`.
+- Opened draft PR #9: `https://github.com/danseely/agendum-mac/pull/9`.
+- PR #9 GitHub Actions `Test` check passed for run `25232251020`.
 
 ## In progress
-- Task detail/actions/sync checkpoint is validated locally and ready for draft PR publication.
+- Task detail/actions/sync checkpoint is in draft PR review as #9.
 
 ## Blocked
 - None.
@@ -100,6 +103,6 @@ Task detail refresh, task actions, and sync wiring are in progress on `codex/tas
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Finish validation for `codex/task-detail-actions-sync`.
-- Open a draft PR from `codex/task-detail-actions-sync` to `feature/mac-prototype`.
+- Run a focused review pass on PR #9 and fix any findings before marking ready.
+- Keep the manual `swift run AgendumMac` smoke test in mind before treating the UI slice as fully exercised.
 - Keep `feature/mac-prototype` as the broad integration branch.

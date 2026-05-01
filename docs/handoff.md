@@ -7,12 +7,13 @@ Implement task detail refresh, task actions, and sync wiring.
 `codex/task-detail-actions-sync`
 
 ## Repo state
-- HEAD: `codex/task-detail-actions-sync`; run `git rev-parse --short HEAD` for the exact commit.
+- HEAD: `codex/task-detail-actions-sync` at `0ca0899`.
 - Integration branch: `feature/mac-prototype` at squash merge `42f06aa`.
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
 - Post-merge docs update: PR #8 merged into `feature/mac-prototype` on 2026-05-01.
 - Current checkpoint branch: `codex/task-detail-actions-sync`, targeting `feature/mac-prototype`.
+- Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/9`, draft, targeting `feature/mac-prototype`.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
@@ -22,7 +23,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: implementation in progress.
+- Working tree: implementation committed and pushed; docs contain post-PR status updates.
 - Last validation date: 2026-05-01
 
 ## Completed
@@ -119,6 +120,8 @@ Implement task detail refresh, task actions, and sync wiring.
 - Added Swift client methods and response payload types in `Sources/AgendumMacCore/BackendClient.swift`.
 - Added Swift client coverage in `Tests/AgendumMacCoreTests/BackendClientTests.swift`.
 - Wired `Sources/AgendumMac/AgendumMacApp.swift` so the toolbar can force sync, the status panel shows sync state, and the detail pane performs source-aware backend task actions.
+- Committed and pushed `codex/task-detail-actions-sync` as `0ca0899`.
+- Opened draft PR #9 against `feature/mac-prototype`.
 
 ## Validation
 - `swift build` passes.
@@ -149,6 +152,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - Final checkpoint validation: `swift build` passes.
 - Final checkpoint validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
 - Final checkpoint validation: `git diff --check` passes.
+- PR #9 GitHub Actions `Test` check passed for run `25232251020`.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -196,9 +200,9 @@ Implement task detail refresh, task actions, and sync wiring.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Push `codex/task-detail-actions-sync` and open a draft PR to `feature/mac-prototype`.
-2. Review PR checks and run a focused review pass.
-3. Keep the manual `swift run AgendumMac` smoke test in mind before treating the UI slice as fully exercised.
+1. Run a focused review pass on PR #9 and fix any findings.
+2. Keep the manual `swift run AgendumMac` smoke test in mind before treating the UI slice as fully exercised.
+3. After review fixes, mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
 
 ## After checkpoint
 - Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
