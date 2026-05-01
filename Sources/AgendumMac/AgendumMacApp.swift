@@ -175,6 +175,7 @@ private final class BackendStatusModel: ObservableObject {
             tasks = try await client.listTasks().map(TaskItem.init)
             errorMessage = nil
         } catch {
+            tasks = []
             errorMessage = String(describing: error)
         }
     }
@@ -192,9 +193,11 @@ private final class BackendStatusModel: ObservableObject {
             workspace = selection.workspace
             auth = selection.auth
             workspaces = try await client.listWorkspaces()
+            tasks = []
             tasks = try await client.listTasks().map(TaskItem.init)
             errorMessage = nil
         } catch {
+            tasks = []
             errorMessage = String(describing: error)
         }
     }

@@ -212,10 +212,6 @@ def select_workspace(state: HelperState, payload: dict[str, Any]) -> dict[str, A
 
 
 def list_tasks(state: HelperState, payload: dict[str, Any]) -> list[dict[str, Any]]:
-    paths = state.runtime
-    ensure_workspace_config(paths, namespace=state.namespace)
-    init_db(paths.db_path)
-
     source = _optional_string(payload, "source")
     status = _optional_string(payload, "status")
     project = _optional_string(payload, "project")
@@ -231,6 +227,10 @@ def list_tasks(state: HelperState, payload: dict[str, Any]) -> list[dict[str, An
         raise PayloadError("Task limit must be greater than zero.")
     if limit > 200:
         raise PayloadError("Task limit must be <= 200.")
+
+    paths = state.runtime
+    ensure_workspace_config(paths, namespace=state.namespace)
+    init_db(paths.db_path)
 
     tasks = agendum_list_tasks(
         paths.db_path,

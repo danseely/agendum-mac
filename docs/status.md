@@ -76,9 +76,10 @@ Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading
 - Added Swift client coverage for `task.list` request encoding and task decoding.
 - Committed and pushed `codex/task-list-loading` as `feeee62`.
 - Opened draft PR #7: `https://github.com/danseely/agendum-mac/pull/7`.
+- Reviewed PR #7 locally and fixed the findings in uncommitted changes: stale task state on reload failure, invalid `task.list` payloads touching storage before validation, and stale handoff HEAD metadata.
 
 ## In progress
-- Watching CI/review for draft PR #7.
+- Local PR #7 review fixes are validated and ready for commit/push.
 
 ## Blocked
 - None.
@@ -87,6 +88,6 @@ Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Continue from backend-backed task loading toward task detail/actions and sync wiring.
-- Address CI or review findings on PR #7.
+- Commit and push the local PR #7 review fixes after validation passes.
+- Continue from backend-backed task loading toward task detail/actions and sync wiring after PR #7 is clean.
 - Keep `feature/mac-prototype` as the broad integration branch.

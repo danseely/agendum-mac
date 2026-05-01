@@ -366,30 +366,34 @@ class BackendHelperTests(unittest.TestCase):
             self.assertEqual([task["title"] for task in response["payload"]["tasks"]], ["Namespaced task"])
 
     def test_task_list_rejects_invalid_filters(self) -> None:
-        state = HelperState(base_dir=Path("/tmp/agendum-test"))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = HelperState(base_dir=root)
 
-        for payload in (
-            {"source": 42},
-            {"status": 42},
-            {"project": 42},
-            {"includeSeen": "yes"},
-            {"limit": True},
-            {"limit": 0},
-            {"limit": 201},
-        ):
-            with self.subTest(payload=payload):
-                response = handle_request(
-                    {
-                        "version": 1,
-                        "id": "bad-task-list",
-                        "command": "task.list",
-                        "payload": payload,
-                    },
-                    state,
-                )
+            for payload in (
+                {"source": 42},
+                {"status": 42},
+                {"project": 42},
+                {"includeSeen": "yes"},
+                {"limit": True},
+                {"limit": 0},
+                {"limit": 201},
+            ):
+                with self.subTest(payload=payload):
+                    response = handle_request(
+                        {
+                            "version": 1,
+                            "id": "bad-task-list",
+                            "command": "task.list",
+                            "payload": payload,
+                        },
+                        state,
+                    )
 
-                self.assertFalse(response["ok"])
-                self.assertEqual(response["error"]["code"], "payload.invalid")
+                    self.assertFalse(response["ok"])
+                    self.assertEqual(response["error"]["code"], "payload.invalid")
+                    self.assertFalse((root / "config.toml").exists())
+                    self.assertFalse((root / "agendum.db").exists())
 
     def test_auth_status_reports_missing_gh(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

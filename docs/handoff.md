@@ -7,7 +7,7 @@ Review and land backend-backed task list loading.
 `codex/task-list-loading`
 
 ## Repo state
-- HEAD: `codex/task-list-loading` at `feeee62`.
+- HEAD: `codex/task-list-loading` at `0d4df42`; local review fixes are currently uncommitted.
 - Integration branch: `feature/mac-prototype`
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Current task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, draft, targeting `feature/mac-prototype`.
@@ -98,6 +98,8 @@ Review and land backend-backed task list loading.
 - Committed task-list loading as `feeee62`.
 - Pushed `codex/task-list-loading` to origin.
 - Opened draft PR #7 against `feature/mac-prototype`: `https://github.com/danseely/agendum-mac/pull/7`.
+- Reviewed PR #7 locally and found cleanup items: stale SwiftUI task state after failed reload, invalid `task.list` payloads touching storage before validation, and stale handoff HEAD metadata.
+- Fixed the PR #7 review findings in local uncommitted changes.
 
 ## Validation
 - `swift build` passes.
@@ -107,6 +109,12 @@ Review and land backend-backed task list loading.
 - `python3 Scripts/python_coverage.py` passes: 193/207 lines, 93.2% for `Backend/agendum_backend/helper.py`.
 - Smoke-tested JSONL helper invocation with `workspace.current` and `auth.status`.
 - `git diff --check` passes.
+- PR #7 GitHub check `Test` passed for run `25229556371`.
+- Local review validation before fixes: `git diff --check` passed, `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed, and `swift test --enable-code-coverage` passed.
+- Local review-fix validation: `git diff --check` passed.
+- Local review-fix validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed: 32 tests.
+- Local review-fix validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed: 305/326 lines, 93.6% for `Backend/agendum_backend/helper.py`.
+- Local review-fix validation: `swift test --enable-code-coverage` passed: 10 Swift tests.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -155,9 +163,9 @@ Review and land backend-backed task list loading.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Watch CI and address review findings on PR #7.
-2. Mark PR #7 ready once checks/review are clean.
-3. Continue from task list loading to task detail refresh, task actions, and sync wiring.
+1. Run validation after the local PR #7 review fixes.
+2. Commit and push the review fixes if validation passes.
+3. Mark PR #7 ready once pushed checks/review are clean.
 
 ## After checkpoint
 - Continue from backend-backed `task.list` loading to task detail refresh, task actions, and sync wiring.
