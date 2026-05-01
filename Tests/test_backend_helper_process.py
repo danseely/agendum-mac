@@ -83,6 +83,72 @@ class BackendHelperProcessTests(unittest.TestCase):
             self.assertTrue(responses[1]["ok"])
             self.assertEqual(responses[1]["id"], "after-error")
 
+    def test_workspace_select_updates_shared_process_state_and_list(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            responses = self.run_helper(
+                [
+                    {
+                        "version": 1,
+                        "id": "select-workspace",
+                        "command": "workspace.select",
+                        "payload": {"namespace": "Example-Org"},
+                    },
+                    {
+                        "version": 1,
+                        "id": "current-workspace",
+                        "command": "workspace.current",
+                        "payload": {},
+                    },
+                    {
+                        "version": 1,
+                        "id": "list-workspaces",
+                        "command": "workspace.list",
+                        "payload": {},
+                    },
+                ],
+                base_dir=root,
+            )
+
+            selected = responses[0]["payload"]["workspace"]
+            current = responses[1]["payload"]["workspace"]
+            listed = responses[2]["payload"]["workspaces"]
+
+            self.assertTrue(all(response["ok"] for response in responses))
+            self.assertEqual(selected["id"], "example-org")
+            self.assertEqual(current["id"], "example-org")
+            self.assertTrue((root / "workspaces" / "example-org" / "config.toml").exists())
+            self.assertEqual([workspace["id"] for workspace in listed], ["base", "example-org"])
+            self.assertFalse(listed[0]["isCurrent"])
+            self.assertTrue(listed[1]["isCurrent"])
+
+    def test_workspace_select_invalid_namespace_keeps_shared_process_on_base(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            responses = self.run_helper(
+                [
+                    {
+                        "version": 1,
+                        "id": "bad-select",
+                        "command": "workspace.select",
+                        "payload": {"namespace": "owner/repo"},
+                    },
+                    {
+                        "version": 1,
+                        "id": "current-after-bad-select",
+                        "command": "workspace.current",
+                        "payload": {},
+                    },
+                ],
+                base_dir=root,
+            )
+
+            self.assertFalse(responses[0]["ok"])
+            self.assertEqual(responses[0]["error"]["code"], "workspace.invalid")
+            self.assertTrue(responses[1]["ok"])
+            self.assertEqual(responses[1]["payload"]["workspace"]["id"], "base")
+            self.assertFalse((root / "workspaces").exists())
+
     def test_process_honors_base_dir_and_configured_gh_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -3,7 +3,7 @@
 Last updated: 2026-04-30
 
 ## Current milestone
-Swift helper-process wiring checkpoint is ready to merge through PR #5.
+Workspace selection checkpoint is in draft PR #6 on `codex/workspace-selection`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -52,9 +52,18 @@ Swift helper-process wiring checkpoint is ready to merge through PR #5.
 - Opened draft PR #5: `https://github.com/danseely/agendum-mac/pull/5`.
 - Sent PR #5 through a separate review pass; addressed helper timeout/lifecycle risk and expanded Swift helper-client coverage.
 - PR #5 latest CI run passed after review fixes: `25193185925`.
+- PR #5 was marked ready and merged into `feature/mac-prototype`: `https://github.com/danseely/agendum-mac/pull/5`.
+- Pulled `feature/mac-prototype` after merge and created `codex/workspace-selection` for the next checkpoint.
+- Implemented `workspace.list` in the helper with base workspace plus discovered namespace directories.
+- Implemented `workspace.select` in the helper with namespace validation, config creation, in-memory helper state update, auth status refresh, and idle sync status stub.
+- Added backend unit and subprocess tests for workspace listing, selection, invalid namespace handling, and shared helper-process state.
+- Added Swift client models/methods for workspace listing and selection.
+- Added Swift client coverage for selecting/listing workspaces through one helper process, including explicit `namespace: null` base selection.
+- Wired the sidebar status area to load workspace options and switch workspaces through a menu.
+- Opened draft PR #6: `https://github.com/danseely/agendum-mac/pull/6`.
 
 ## In progress
-- Merging PR #5 into `feature/mac-prototype`, then starting the next short-lived branch.
+- Watching CI/review for draft PR #6.
 
 ## Blocked
 - None.
@@ -63,5 +72,6 @@ Swift helper-process wiring checkpoint is ready to merge through PR #5.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- After PR #5 lands, continue with `workspace.list` / `workspace.select` or the first backend-backed task list command on a new short-lived branch.
+- Watch/fix CI or review findings on PR #6.
+- Continue toward backend-backed task loading after the workspace selection checkpoint lands.
 - Keep `feature/mac-prototype` as the broad integration branch.

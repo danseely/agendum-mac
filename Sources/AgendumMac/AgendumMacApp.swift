@@ -144,6 +144,7 @@ private struct TaskDashboardView: View {
 @MainActor
 private final class BackendStatusModel: ObservableObject {
     @Published var workspace: Workspace?
+    @Published var workspaces: [Workspace] = []
     @Published var auth: AuthStatus?
     @Published var errorMessage: String?
     @Published var isLoading = false
@@ -152,6 +153,10 @@ private final class BackendStatusModel: ObservableObject {
 
     var workspaceLabel: String {
         workspace?.displayName ?? "Loading workspace"
+    }
+
+    var selectedWorkspaceID: String {
+        workspace?.id ?? "base"
     }
 
     var authLabel: String {
@@ -173,7 +178,27 @@ private final class BackendStatusModel: ObservableObject {
 
         do {
             workspace = try await client.currentWorkspace()
+            workspaces = try await client.listWorkspaces()
             auth = try await client.authStatus()
+            errorMessage = nil
+        } catch {
+            errorMessage = String(describing: error)
+        }
+    }
+
+    func selectWorkspace(id: String) async {
+        guard id != selectedWorkspaceID, let target = workspaces.first(where: { $0.id == id }) else {
+            return
+        }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let selection = try await client.selectWorkspace(namespace: target.namespace)
+            workspace = selection.workspace
+            auth = selection.auth
+            workspaces = try await client.listWorkspaces()
             errorMessage = nil
         } catch {
             errorMessage = String(describing: error)
@@ -187,8 +212,26 @@ private struct BackendStatusPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label(status.workspaceLabel, systemImage: "folder")
-                    .lineLimit(1)
+                Menu {
+                    ForEach(status.workspaces, id: \.id) { workspace in
+                        Button {
+                            Task {
+                                await status.selectWorkspace(id: workspace.id)
+                            }
+                        } label: {
+                            Label(
+                                workspace.displayName,
+                                systemImage: workspace.id == status.selectedWorkspaceID ? "checkmark" : "folder"
+                            )
+                        }
+                    }
+                } label: {
+                    Label(status.workspaceLabel, systemImage: "folder")
+                        .lineLimit(1)
+                }
+                .menuStyle(.borderlessButton)
+                .disabled(status.workspaces.isEmpty || status.isLoading)
+
                 Spacer()
                 if status.isLoading {
                     ProgressView()

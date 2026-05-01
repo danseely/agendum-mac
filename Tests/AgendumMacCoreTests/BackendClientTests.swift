@@ -49,6 +49,52 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(auth.workspaceGhConfigDir, expectedConfigDir.path)
     }
 
+    func testClientListsAndSelectsWorkspacesInOneHelperProcess() async throws {
+        let root = temporaryDirectory()
+        let baseDir = root.appendingPathComponent("agendum")
+        let fakeGH = root.appendingPathComponent("gh")
+
+        try writeExecutable(
+            at: fakeGH,
+            contents: """
+            #!/bin/sh
+            if [ "$1 $2" = "auth status" ]; then exit 0; fi
+            if [ "$1 $2 $3 $4" = "api user --jq .login" ]; then echo dan; exit 0; fi
+            exit 1
+            """
+        )
+
+        let client = AgendumBackendClient(
+            configuration: BackendClientConfiguration(
+                helperURL: repositoryRoot().appendingPathComponent("Backend/agendum_backend_helper.py"),
+                workingDirectoryURL: repositoryRoot(),
+                environment: [
+                    "AGENDUM_MAC_BASE_DIR": baseDir.path,
+                    "AGENDUM_MAC_GH_PATHS": fakeGH.path,
+                    "PATH": "",
+                ]
+            )
+        )
+
+        let selection = try await client.selectWorkspace(namespace: "Example-Org")
+        let current = try await client.currentWorkspace()
+        let workspaces = try await client.listWorkspaces()
+        let baseSelection = try await client.selectWorkspace(namespace: nil)
+        await client.close()
+
+        XCTAssertEqual(selection.workspace.id, "example-org")
+        XCTAssertEqual(selection.workspace.namespace, "example-org")
+        XCTAssertEqual(selection.auth.workspaceGhConfigDir, baseDir.appendingPathComponent("workspaces/example-org/gh").path)
+        XCTAssertEqual(selection.sync.state, "idle")
+        XCTAssertEqual(selection.sync.changes, 0)
+        XCTAssertEqual(current.id, "example-org")
+        XCTAssertEqual(workspaces.map(\.id), ["base", "example-org"])
+        XCTAssertFalse(workspaces[0].isCurrent)
+        XCTAssertTrue(workspaces[1].isCurrent)
+        XCTAssertEqual(baseSelection.workspace.id, "base")
+        XCTAssertNil(baseSelection.workspace.namespace)
+    }
+
     func testClientReusesOneHelperProcess() async throws {
         let helper = try writePythonHelper(
             contents: """
