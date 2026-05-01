@@ -3,7 +3,7 @@
 Last updated: 2026-05-01
 
 ## Current milestone
-Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading` to `feature/mac-prototype`.
+Backend-backed task list loading merged in PR #7. The next checkpoint is task detail refresh, task actions, and sync wiring on a new short-lived branch targeting `feature/mac-prototype`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -81,9 +81,11 @@ Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading
 - Ran blind review cycle 1 after `ce6f48c`; it found no code-level bugs/regressions and only stale planning-doc state.
 - Ran blind review cycle 2 after `810f56f`; it found no code-level bugs/regressions and only next-action drift in planning docs.
 - Ran blind review cycle 3 after `4df64c6`; it found no actionable bugs, regressions, missing required tests, or stale project-memory docs.
+- PR #7 was marked ready and merged into `feature/mac-prototype` on 2026-05-01 with squash merge `8e71589`.
+- Local `feature/mac-prototype` was fast-forwarded to `8e71589`.
 
 ## In progress
-- PR #7 review hardening is complete; waiting to mark ready or continue to the next checkpoint.
+- Post-merge planning docs are being updated on `codex/pr7-post-merge-docs` to preserve branch discipline.
 
 ## Blocked
 - None.
@@ -92,7 +94,6 @@ Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Mark PR #7 ready if no further review is requested.
-- After PR #7 lands, continue from task list loading to task detail refresh, task actions, and sync wiring.
-- Continue from backend-backed task loading toward task detail/actions and sync wiring after PR #7 is clean.
+- Merge the post-merge docs update into `feature/mac-prototype`.
+- Start the next short-lived branch for task detail refresh, task actions, and sync wiring.
 - Keep `feature/mac-prototype` as the broad integration branch.
