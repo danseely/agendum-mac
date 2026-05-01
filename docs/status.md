@@ -3,7 +3,7 @@
 Last updated: 2026-05-01
 
 ## Current milestone
-Backend-backed task list loading merged in PR #7. The next checkpoint is task detail refresh, task actions, and sync wiring on a new short-lived branch targeting `feature/mac-prototype`.
+Task detail refresh, task actions, and sync wiring are in progress on `codex/task-detail-actions-sync`, targeting `feature/mac-prototype`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -83,9 +83,15 @@ Backend-backed task list loading merged in PR #7. The next checkpoint is task de
 - Ran blind review cycle 3 after `4df64c6`; it found no actionable bugs, regressions, missing required tests, or stale project-memory docs.
 - PR #7 was marked ready and merged into `feature/mac-prototype` on 2026-05-01 with squash merge `8e71589`.
 - Local `feature/mac-prototype` was fast-forwarded to `8e71589`.
+- PR #8 merged the post-PR #7 planning docs into `feature/mac-prototype` with squash merge `42f06aa`.
+- Created `codex/task-detail-actions-sync` from updated `feature/mac-prototype`.
+- Implemented helper commands for `task.get`, `task.markReviewed`, `task.markInProgress`, `task.moveToBacklog`, `task.markDone`, `task.markSeen`, `task.remove`, `sync.status`, and `sync.force`.
+- Added backend unit and subprocess coverage for task detail/action commands and sync status/force behavior.
+- Added Swift client methods and coverage for task detail/actions and sync commands.
+- Wired the SwiftUI dashboard to show sync status, run force sync, and perform source-aware task actions from the detail pane.
 
 ## In progress
-- Ready to start the next implementation checkpoint.
+- Task detail/actions/sync checkpoint is validated locally and ready for draft PR publication.
 
 ## Blocked
 - None.
@@ -94,5 +100,6 @@ Backend-backed task list loading merged in PR #7. The next checkpoint is task de
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Start the next short-lived branch for task detail refresh, task actions, and sync wiring.
+- Finish validation for `codex/task-detail-actions-sync`.
+- Open a draft PR from `codex/task-detail-actions-sync` to `feature/mac-prototype`.
 - Keep `feature/mac-prototype` as the broad integration branch.

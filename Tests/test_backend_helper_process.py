@@ -190,6 +190,49 @@ class BackendHelperProcessTests(unittest.TestCase):
             self.assertEqual(response["payload"]["tasks"][0]["ghNumber"], 8)
             self.assertFalse(response["payload"]["tasks"][0]["seen"])
 
+    def test_task_actions_use_jsonl_process_framing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "agendum.db"
+            init_db(db_path)
+            task_id = add_task(
+                db_path,
+                title="Process action task",
+                source="manual",
+                status="backlog",
+                project="agendum-mac",
+            )
+
+            responses = self.run_helper(
+                [
+                    {
+                        "version": 1,
+                        "id": "process-task-get",
+                        "command": "task.get",
+                        "payload": {"id": task_id},
+                    },
+                    {
+                        "version": 1,
+                        "id": "process-task-done",
+                        "command": "task.markDone",
+                        "payload": {"id": task_id},
+                    },
+                    {
+                        "version": 1,
+                        "id": "process-task-remove",
+                        "command": "task.remove",
+                        "payload": {"id": task_id},
+                    },
+                ],
+                base_dir=root,
+            )
+
+            self.assertEqual(len(responses), 3)
+            self.assertTrue(all(response["ok"] for response in responses))
+            self.assertEqual(responses[0]["payload"]["task"]["title"], "Process action task")
+            self.assertEqual(responses[1]["payload"]["task"]["status"], "done")
+            self.assertTrue(responses[2]["payload"]["removed"])
+
     def test_process_honors_base_dir_and_configured_gh_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

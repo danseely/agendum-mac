@@ -170,6 +170,121 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(tasks[0].updatedAt, "2026-04-28T15:01:00+00:00")
     }
 
+    func testClientHandlesTaskActionsAndSync() async throws {
+        let helper = try writePythonHelper(
+            contents: """
+            import json
+            import sys
+
+            expected = [
+                ("task.get", 17),
+                ("task.markReviewed", 17),
+                ("task.markInProgress", 18),
+                ("task.moveToBacklog", 18),
+                ("task.markSeen", 18),
+                ("task.markDone", 18),
+                ("task.remove", 18),
+                ("sync.status", None),
+                ("sync.force", None),
+            ]
+
+            def task_payload(task_id, status, seen=False):
+                return {
+                    "id": task_id,
+                    "title": "Task " + str(task_id),
+                    "source": "manual",
+                    "status": status,
+                    "project": "agendum-mac",
+                    "ghRepo": None,
+                    "ghUrl": None,
+                    "ghNumber": None,
+                    "ghAuthor": None,
+                    "ghAuthorName": None,
+                    "tags": [],
+                    "seen": seen,
+                    "lastChangedAt": "2026-04-28T15:00:00+00:00",
+                    "updatedAt": "2026-04-28T15:01:00+00:00",
+                }
+
+            for index, line in enumerate(sys.stdin):
+                request = json.loads(line)
+                command, expected_id = expected[index]
+                payload = request["payload"]
+                if request["command"] != command or (expected_id is not None and payload["id"] != expected_id):
+                    print(json.dumps({
+                        "version": 1,
+                        "id": request["id"],
+                        "ok": False,
+                        "error": {"code": "test.failed", "message": "unexpected request"}
+                    }), flush=True)
+                    continue
+
+                if command == "task.get":
+                    response_payload = {"task": task_payload(17, "review requested")}
+                elif command == "task.markReviewed":
+                    response_payload = {"task": task_payload(17, "reviewed")}
+                elif command == "task.markInProgress":
+                    response_payload = {"task": task_payload(18, "in progress")}
+                elif command == "task.moveToBacklog":
+                    response_payload = {"task": task_payload(18, "backlog")}
+                elif command == "task.markSeen":
+                    response_payload = {"task": task_payload(18, "backlog", seen=True)}
+                elif command == "task.markDone":
+                    response_payload = {"task": task_payload(18, "done", seen=True)}
+                elif command == "task.remove":
+                    response_payload = {"removed": True}
+                elif command == "sync.status":
+                    response_payload = {"status": {
+                        "state": "idle",
+                        "lastSyncAt": None,
+                        "lastError": None,
+                        "changes": 0,
+                        "hasAttentionItems": False
+                    }}
+                else:
+                    response_payload = {"status": {
+                        "state": "idle",
+                        "lastSyncAt": "2026-05-01T20:00:00+00:00",
+                        "lastError": None,
+                        "changes": 2,
+                        "hasAttentionItems": True
+                    }}
+
+                print(json.dumps({
+                    "version": 1,
+                    "id": request["id"],
+                    "ok": True,
+                    "payload": response_payload
+                }), flush=True)
+            """
+        )
+        let client = AgendumBackendClient(configuration: fakeHelperConfiguration(helperURL: helper))
+
+        let loaded = try await client.getTask(id: 17)
+        let reviewed = try await client.markTaskReviewed(id: 17)
+        let inProgress = try await client.markTaskInProgress(id: 18)
+        let backlog = try await client.moveTaskToBacklog(id: 18)
+        let seen = try await client.markTaskSeen(id: 18)
+        let done = try await client.markTaskDone(id: 18)
+        let removed = try await client.removeTask(id: 18)
+        let syncBefore = try await client.syncStatus()
+        let syncAfter = try await client.forceSync()
+        await client.close()
+
+        XCTAssertEqual(loaded?.id, 17)
+        XCTAssertEqual(reviewed.status, "reviewed")
+        XCTAssertEqual(inProgress.status, "in progress")
+        XCTAssertEqual(backlog.status, "backlog")
+        XCTAssertTrue(seen.seen)
+        XCTAssertEqual(done.status, "done")
+        XCTAssertTrue(removed)
+        XCTAssertEqual(syncBefore.state, "idle")
+        XCTAssertEqual(syncBefore.changes, 0)
+        XCTAssertEqual(syncAfter.changes, 2)
+        XCTAssertTrue(syncAfter.hasAttentionItems)
+        XCTAssertEqual(syncAfter.lastSyncAt, "2026-05-01T20:00:00+00:00")
+    }
+
     func testClientReusesOneHelperProcess() async throws {
         let helper = try writePythonHelper(
             contents: """

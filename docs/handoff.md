@@ -1,17 +1,18 @@
 # Handoff
 
 ## Current objective
-Prepare the next live-slice checkpoint after backend-backed task list loading landed.
+Implement task detail refresh, task actions, and sync wiring.
 
 ## Branch
-`feature/mac-prototype`
+`codex/task-detail-actions-sync`
 
 ## Repo state
-- HEAD: `feature/mac-prototype`; run `git rev-parse --short HEAD` for the exact commit.
-- Integration branch: `feature/mac-prototype` at squash merge `8e71589`.
+- HEAD: `codex/task-detail-actions-sync`; run `git rev-parse --short HEAD` for the exact commit.
+- Integration branch: `feature/mac-prototype` at squash merge `42f06aa`.
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
-- Post-merge docs update: PR #8 records the PR #7 merge state.
+- Post-merge docs update: PR #8 merged into `feature/mac-prototype` on 2026-05-01.
+- Current checkpoint branch: `codex/task-detail-actions-sync`, targeting `feature/mac-prototype`.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
@@ -21,7 +22,7 @@ Prepare the next live-slice checkpoint after backend-backed task list loading la
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: should be clean after PR #8 lands.
+- Working tree: implementation in progress.
 - Last validation date: 2026-05-01
 
 ## Completed
@@ -111,6 +112,13 @@ Prepare the next live-slice checkpoint after backend-backed task list loading la
 - Merged PR #7 into `feature/mac-prototype` with squash merge `8e71589`.
 - Fast-forwarded local `feature/mac-prototype` to `8e71589`.
 - The local `codex/task-list-loading` branch was removed by the merge flow; the remote PR branch was deleted.
+- Merged PR #8 into `feature/mac-prototype` with squash merge `42f06aa`.
+- Created `codex/task-detail-actions-sync` from updated `feature/mac-prototype`.
+- Implemented backend helper support in `Backend/agendum_backend/helper.py` for task detail, status actions, per-task mark seen, removal, sync status, and force sync.
+- Added backend tests in `Tests/test_backend_helper.py` and `Tests/test_backend_helper_process.py` for the new commands.
+- Added Swift client methods and response payload types in `Sources/AgendumMacCore/BackendClient.swift`.
+- Added Swift client coverage in `Tests/AgendumMacCoreTests/BackendClientTests.swift`.
+- Wired `Sources/AgendumMac/AgendumMacApp.swift` so the toolbar can force sync, the status panel shows sync state, and the detail pane performs source-aware backend task actions.
 
 ## Validation
 - `swift build` passes.
@@ -133,6 +141,14 @@ Prepare the next live-slice checkpoint after backend-backed task list loading la
 - Second review-fix validation: `swift test --enable-code-coverage` passed: 10 Swift tests.
 - Blind review cycle 3 validation: `gh pr checks 7` passed, `git diff --check origin/feature/mac-prototype...origin/codex/task-list-loading` passed, `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed: 32 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed: 305/326 lines, 93.6%, and `swift test --enable-code-coverage` passed: 10 Swift tests.
 - PR #7 final CI passed: GitHub Actions run `25230767259`.
+- Early checkpoint validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 39 tests.
+- Early checkpoint validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
+- Early checkpoint validation: `git diff --check` passes.
+- Final checkpoint validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 39 tests.
+- Final checkpoint validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 396/419 lines, 94.5% for `Backend/agendum_backend/helper.py`.
+- Final checkpoint validation: `swift build` passes.
+- Final checkpoint validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
+- Final checkpoint validation: `git diff --check` passes.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -167,7 +183,6 @@ Prepare the next live-slice checkpoint after backend-backed task list loading la
 - `Tests/AgendumMacCoreTests/BackendClientTests.swift`
 - `Tests/test_backend_helper.py`
 - `Tests/test_backend_helper_process.py`
-- `docs/plan.md`
 - `docs/status.md`
 - `docs/handoff.md`
 
@@ -181,12 +196,12 @@ Prepare the next live-slice checkpoint after backend-backed task list loading la
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Start a short-lived branch for task detail refresh, task actions, and sync wiring.
-2. Keep `feature/mac-prototype` as the broad integration branch and continue landing work through PRs.
+1. Push `codex/task-detail-actions-sync` and open a draft PR to `feature/mac-prototype`.
+2. Review PR checks and run a focused review pass.
 3. Keep the manual `swift run AgendumMac` smoke test in mind before treating the UI slice as fully exercised.
 
 ## After checkpoint
-- Continue from backend-backed `task.list` loading to task detail refresh, task actions, and sync wiring.
+- Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.

@@ -395,6 +395,262 @@ class BackendHelperTests(unittest.TestCase):
                     self.assertFalse((root / "config.toml").exists())
                     self.assertFalse((root / "agendum.db").exists())
 
+    def test_task_get_returns_task_or_null(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "agendum.db"
+            init_db(db_path)
+            task_id = add_task(
+                db_path,
+                title="Loaded task",
+                source="manual",
+                status="backlog",
+            )
+
+            found = handle_request(
+                {
+                    "version": 1,
+                    "id": "task-get",
+                    "command": "task.get",
+                    "payload": {"id": task_id},
+                },
+                HelperState(base_dir=root),
+            )
+            missing = handle_request(
+                {
+                    "version": 1,
+                    "id": "task-get-missing",
+                    "command": "task.get",
+                    "payload": {"id": task_id + 1},
+                },
+                HelperState(base_dir=root),
+            )
+
+            self.assertTrue(found["ok"])
+            self.assertEqual(found["payload"]["task"]["title"], "Loaded task")
+            self.assertTrue(missing["ok"])
+            self.assertIsNone(missing["payload"]["task"])
+
+    def test_task_actions_update_or_remove_task(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "agendum.db"
+            init_db(db_path)
+            review_id = add_task(
+                db_path,
+                title="Review task",
+                source="pr_review",
+                status="review requested",
+            )
+            manual_id = add_task(
+                db_path,
+                title="Manual task",
+                source="manual",
+                status="backlog",
+            )
+            update_task(db_path, manual_id, seen=0)
+            state = HelperState(base_dir=root)
+
+            reviewed = handle_request(
+                {
+                    "version": 1,
+                    "id": "mark-reviewed",
+                    "command": "task.markReviewed",
+                    "payload": {"id": review_id},
+                },
+                state,
+            )
+            in_progress = handle_request(
+                {
+                    "version": 1,
+                    "id": "mark-in-progress",
+                    "command": "task.markInProgress",
+                    "payload": {"id": manual_id},
+                },
+                state,
+            )
+            backlog = handle_request(
+                {
+                    "version": 1,
+                    "id": "move-backlog",
+                    "command": "task.moveToBacklog",
+                    "payload": {"id": manual_id},
+                },
+                state,
+            )
+            seen = handle_request(
+                {
+                    "version": 1,
+                    "id": "mark-seen",
+                    "command": "task.markSeen",
+                    "payload": {"id": manual_id},
+                },
+                state,
+            )
+            done = handle_request(
+                {
+                    "version": 1,
+                    "id": "mark-done",
+                    "command": "task.markDone",
+                    "payload": {"id": manual_id},
+                },
+                state,
+            )
+            removed = handle_request(
+                {
+                    "version": 1,
+                    "id": "remove-task",
+                    "command": "task.remove",
+                    "payload": {"id": review_id},
+                },
+                state,
+            )
+
+            self.assertTrue(reviewed["ok"])
+            self.assertEqual(reviewed["payload"]["task"]["status"], "reviewed")
+            self.assertTrue(in_progress["ok"])
+            self.assertEqual(in_progress["payload"]["task"]["status"], "in progress")
+            self.assertTrue(backlog["ok"])
+            self.assertEqual(backlog["payload"]["task"]["status"], "backlog")
+            self.assertTrue(seen["ok"])
+            self.assertTrue(seen["payload"]["task"]["seen"])
+            self.assertTrue(done["ok"])
+            self.assertEqual(done["payload"]["task"]["status"], "done")
+            self.assertTrue(removed["ok"])
+            self.assertTrue(removed["payload"]["removed"])
+
+    def test_task_action_errors_are_enveloped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+
+            bad_payload = handle_request(
+                {
+                    "version": 1,
+                    "id": "bad-action",
+                    "command": "task.markDone",
+                    "payload": {"id": 0},
+                },
+                state,
+            )
+            missing = handle_request(
+                {
+                    "version": 1,
+                    "id": "missing-action",
+                    "command": "task.markDone",
+                    "payload": {"id": 99},
+                },
+                state,
+            )
+
+            self.assertFalse(bad_payload["ok"])
+            self.assertEqual(bad_payload["error"]["code"], "payload.invalid")
+            self.assertFalse(missing["ok"])
+            self.assertEqual(missing["error"]["code"], "task.notFound")
+
+    def test_task_action_uses_selected_workspace_database(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base_db = root / "agendum.db"
+            namespace_db = root / "workspaces" / "example-org" / "agendum.db"
+            init_db(base_db)
+            init_db(namespace_db)
+            add_task(
+                base_db,
+                title="Base task",
+                source="manual",
+                status="backlog",
+            )
+            namespace_id = add_task(
+                namespace_db,
+                title="Namespaced task",
+                source="manual",
+                status="backlog",
+            )
+
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "namespace-action",
+                    "command": "task.markDone",
+                    "payload": {"id": namespace_id},
+                },
+                HelperState(base_dir=root, namespace="example-org"),
+            )
+
+            self.assertTrue(response["ok"])
+            self.assertEqual(response["payload"]["task"]["title"], "Namespaced task")
+            self.assertEqual(response["payload"]["task"]["status"], "done")
+
+    def test_sync_status_and_force_sync(self) -> None:
+        async def fake_run_sync(db_path, config):
+            self.assertEqual(db_path, root / "agendum.db")
+            self.assertEqual(config.orgs, [])
+            return 3, True, None
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = HelperState(base_dir=root)
+
+            initial = handle_request(
+                {
+                    "version": 1,
+                    "id": "sync-status-before",
+                    "command": "sync.status",
+                    "payload": {},
+                },
+                state,
+            )
+            with mock.patch("Backend.agendum_backend.helper.run_sync", side_effect=fake_run_sync):
+                forced = handle_request(
+                    {
+                        "version": 1,
+                        "id": "sync-force",
+                        "command": "sync.force",
+                        "payload": {},
+                    },
+                    state,
+                )
+            after = handle_request(
+                {
+                    "version": 1,
+                    "id": "sync-status-after",
+                    "command": "sync.status",
+                    "payload": {},
+                },
+                state,
+            )
+
+            self.assertTrue(initial["ok"])
+            self.assertEqual(initial["payload"]["status"]["state"], "idle")
+            self.assertTrue(forced["ok"])
+            self.assertEqual(forced["payload"]["status"]["state"], "idle")
+            self.assertEqual(forced["payload"]["status"]["changes"], 3)
+            self.assertTrue(forced["payload"]["status"]["hasAttentionItems"])
+            self.assertIsNotNone(forced["payload"]["status"]["lastSyncAt"])
+            self.assertEqual(after["payload"]["status"], forced["payload"]["status"])
+
+    def test_force_sync_reports_error_status(self) -> None:
+        async def fake_run_sync(db_path, config):
+            return 0, False, "gh credentials expired"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+
+            with mock.patch("Backend.agendum_backend.helper.run_sync", side_effect=fake_run_sync):
+                response = handle_request(
+                    {
+                        "version": 1,
+                        "id": "sync-force-error",
+                        "command": "sync.force",
+                        "payload": {},
+                    },
+                    state,
+                )
+
+            self.assertTrue(response["ok"])
+            self.assertEqual(response["payload"]["status"]["state"], "error")
+            self.assertEqual(response["payload"]["status"]["lastError"], "gh credentials expired")
+
     def test_auth_status_reports_missing_gh(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             state = HelperState(base_dir=Path(tmp))

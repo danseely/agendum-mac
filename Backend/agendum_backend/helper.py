@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import shutil
 import sqlite3
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -32,7 +34,9 @@ from agendum.config import (  # noqa: E402
     normalize_namespace,
     workspace_runtime_paths,
 )
-from agendum.db import init_db  # noqa: E402
+from agendum.db import init_db, remove_task, update_task  # noqa: E402
+from agendum.syncer import run_sync  # noqa: E402
+from agendum.task_api import get_task as agendum_get_task  # noqa: E402
 from agendum.task_api import list_tasks as agendum_list_tasks  # noqa: E402
 
 
@@ -40,6 +44,7 @@ from agendum.task_api import list_tasks as agendum_list_tasks  # noqa: E402
 class HelperState:
     base_dir: Path
     namespace: str | None = None
+    sync_status: dict[str, Any] = field(default_factory=lambda: _sync_status())
 
     @classmethod
     def from_environment(cls) -> "HelperState":
@@ -113,11 +118,30 @@ def handle_request(request: Any, state: HelperState) -> dict[str, Any]:
             return _success_response(request_id, {"auth": auth_status(state)})
         if command == "task.list":
             return _success_response(request_id, {"tasks": list_tasks(state, payload)})
+        if command == "task.get":
+            return _success_response(request_id, {"task": get_task(state, payload)})
+        if command in _TASK_STATUS_COMMANDS:
+            return _success_response(request_id, {"task": update_task_status(state, payload, command)})
+        if command == "task.markSeen":
+            return _success_response(request_id, {"task": mark_task_seen(state, payload)})
+        if command == "task.remove":
+            return _success_response(request_id, remove_task_command(state, payload))
+        if command == "sync.status":
+            return _success_response(request_id, {"status": state.sync_status})
+        if command == "sync.force":
+            return _success_response(request_id, {"status": force_sync(state)})
     except PayloadError as exc:
         return _error_response(
             request_id=request_id,
             code="payload.invalid",
             message=str(exc),
+        )
+    except TaskNotFoundError as exc:
+        return _error_response(
+            request_id=request_id,
+            code="task.notFound",
+            message="Task was not found.",
+            detail=str(exc),
         )
     except ValueError as exc:
         return _error_response(
@@ -147,6 +171,14 @@ def handle_request(request: Any, state: HelperState) -> dict[str, Any]:
         message="Unknown command.",
         detail=str(command),
     )
+
+
+_TASK_STATUS_COMMANDS = {
+    "task.markReviewed": "reviewed",
+    "task.markInProgress": "in progress",
+    "task.moveToBacklog": "backlog",
+    "task.markDone": "done",
+}
 
 
 def current_workspace(state: HelperState) -> dict[str, Any]:
@@ -243,6 +275,67 @@ def list_tasks(state: HelperState, payload: dict[str, Any]) -> list[dict[str, An
     return [_task_payload(task) for task in tasks]
 
 
+def get_task(state: HelperState, payload: dict[str, Any]) -> dict[str, Any] | None:
+    task_id = _task_id(payload)
+    paths = _prepare_task_storage(state)
+    task = agendum_get_task(paths.db_path, task_id)
+    return _task_payload(task) if task else None
+
+
+def update_task_status(state: HelperState, payload: dict[str, Any], command: str) -> dict[str, Any]:
+    task_id = _task_id(payload)
+    status = _TASK_STATUS_COMMANDS[command]
+    paths = _prepare_task_storage(state)
+    _require_task(paths.db_path, task_id)
+    update_task(paths.db_path, task_id, status=status)
+    return _task_payload(_require_task(paths.db_path, task_id))
+
+
+def mark_task_seen(state: HelperState, payload: dict[str, Any]) -> dict[str, Any]:
+    task_id = _task_id(payload)
+    paths = _prepare_task_storage(state)
+    _require_task(paths.db_path, task_id)
+    update_task(
+        paths.db_path,
+        task_id,
+        seen=1,
+        last_seen_at=datetime.now(timezone.utc).isoformat(),
+    )
+    return _task_payload(_require_task(paths.db_path, task_id))
+
+
+def remove_task_command(state: HelperState, payload: dict[str, Any]) -> dict[str, bool]:
+    task_id = _task_id(payload)
+    paths = _prepare_task_storage(state)
+    _require_task(paths.db_path, task_id)
+    remove_task(paths.db_path, task_id)
+    return {"removed": True}
+
+
+def force_sync(state: HelperState) -> dict[str, Any]:
+    if state.sync_status["state"] == "running":
+        return state.sync_status
+
+    paths = state.runtime
+    config = ensure_workspace_config(paths, namespace=state.namespace)
+    init_db(paths.db_path)
+    state.sync_status = {
+        **state.sync_status,
+        "state": "running",
+        "lastError": None,
+    }
+
+    changes, has_attention_items, error_message = asyncio.run(run_sync(paths.db_path, config))
+    state.sync_status = {
+        "state": "error" if error_message else "idle",
+        "lastSyncAt": datetime.now(timezone.utc).isoformat(),
+        "lastError": error_message,
+        "changes": changes,
+        "hasAttentionItems": has_attention_items,
+    }
+    return state.sync_status
+
+
 def auth_status(state: HelperState) -> dict[str, Any]:
     paths = state.runtime
     ensure_workspace_config(paths, namespace=state.namespace)
@@ -334,6 +427,29 @@ def _optional_string(payload: dict[str, Any], key: str) -> str | None:
     return value
 
 
+def _task_id(payload: dict[str, Any]) -> int:
+    task_id = payload.get("id")
+    if isinstance(task_id, bool) or not isinstance(task_id, int):
+        raise PayloadError("Task id must be an integer.")
+    if task_id <= 0:
+        raise PayloadError("Task id must be greater than zero.")
+    return task_id
+
+
+def _prepare_task_storage(state: HelperState) -> RuntimePaths:
+    paths = state.runtime
+    ensure_workspace_config(paths, namespace=state.namespace)
+    init_db(paths.db_path)
+    return paths
+
+
+def _require_task(db_path: Path, task_id: int) -> dict[str, Any]:
+    task = agendum_get_task(db_path, task_id)
+    if task is None:
+        raise TaskNotFoundError(f"task {task_id} not found")
+    return task
+
+
 def _task_payload(task: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": task["id"],
@@ -421,6 +537,10 @@ def _error_response(
 
 
 class PayloadError(ValueError):
+    pass
+
+
+class TaskNotFoundError(Exception):
     pass
 
 
