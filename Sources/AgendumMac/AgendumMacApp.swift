@@ -76,7 +76,9 @@ private struct TaskDashboardView: View {
             }
             .navigationTitle("Agendum")
             .safeAreaInset(edge: .bottom) {
-                BackendStatusPanel(status: backendStatus)
+                BackendStatusPanel(status: backendStatus) {
+                    selectedTask = nil
+                }
             }
         } content: {
             List(filteredTasks, selection: $selectedTask) { task in
@@ -87,6 +89,7 @@ private struct TaskDashboardView: View {
             .toolbar {
                 ToolbarItem {
                     Button {
+                        selectedTask = nil
                         Task {
                             await backendStatus.refresh()
                         }
@@ -205,6 +208,7 @@ private final class BackendStatusModel: ObservableObject {
 
 private struct BackendStatusPanel: View {
     @ObservedObject var status: BackendStatusModel
+    let clearSelectedTask: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -212,6 +216,7 @@ private struct BackendStatusPanel: View {
                 Menu {
                     ForEach(status.workspaces, id: \.id) { workspace in
                         Button {
+                            clearSelectedTask()
                             Task {
                                 await status.selectWorkspace(id: workspace.id)
                             }
