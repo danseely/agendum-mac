@@ -77,10 +77,11 @@ Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading
 - Committed and pushed `codex/task-list-loading` as `feeee62`.
 - Opened draft PR #7: `https://github.com/danseely/agendum-mac/pull/7`.
 - Reviewed PR #7 locally and fixed/pushed the first findings in commit `fbe2e57`: stale task state on reload failure, invalid `task.list` payloads touching storage before validation, and stale handoff HEAD metadata.
-- Ran a fresh blind review of PR #7 and fixed the next findings in local uncommitted changes: selected task ID carryover across workspace reloads and stale planning-doc state.
+- Ran a fresh blind review of PR #7 and fixed/pushed the next findings in commit `ce6f48c`: selected task ID carryover across workspace reloads and stale planning-doc state.
+- Ran blind review cycle 1 after `ce6f48c`; it found no code-level bugs/regressions and only stale planning-doc state.
 
 ## In progress
-- Second local PR #7 review fixes are validated and ready for commit/push.
+- Fixing blind review cycle 1 planning-doc state before cycle 2.
 
 ## Blocked
 - None.
@@ -89,7 +90,7 @@ Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Commit and push the second local PR #7 review fixes after validation passes.
-- Run up to three more blind-review cycles and address actionable findings.
+- Commit and push the blind review cycle 1 planning-doc fix.
+- Run blind review cycles 2 and 3, addressing actionable findings.
 - Continue from backend-backed task loading toward task detail/actions and sync wiring after PR #7 is clean.
 - Keep `feature/mac-prototype` as the broad integration branch.

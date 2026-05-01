@@ -7,7 +7,7 @@ Review and land backend-backed task list loading.
 `codex/task-list-loading`
 
 ## Repo state
-- HEAD: `codex/task-list-loading` at `fbe2e57`.
+- HEAD: `codex/task-list-loading`; run `git rev-parse --short HEAD` for the exact commit.
 - Integration branch: `feature/mac-prototype`
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Current task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, draft, targeting `feature/mac-prototype`.
@@ -101,7 +101,9 @@ Review and land backend-backed task list loading.
 - Reviewed PR #7 locally and found cleanup items: stale SwiftUI task state after failed reload, invalid `task.list` payloads touching storage before validation, and stale handoff HEAD metadata.
 - Fixed and pushed the first PR #7 review findings in commit `fbe2e57`.
 - Ran a fresh blind review of PR #7; it found selected task ID carryover across workspace reloads plus stale planning-doc state.
-- Fixed the second PR #7 review findings in local uncommitted changes.
+- Fixed and pushed the second PR #7 review findings in commit `ce6f48c`.
+- Ran blind review cycle 1 after `ce6f48c`; it found no code-level bugs/regressions and only stale planning-doc state.
+- Updated this handoff to avoid hard-coded HEAD hashes that become stale on every docs-only commit.
 
 ## Validation
 - `swift build` passes.
@@ -170,9 +172,9 @@ Review and land backend-backed task list loading.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Run validation after the second local PR #7 review fixes.
-2. Commit and push the second review fixes if validation passes.
-3. Run up to three additional blind-review cycles and address actionable findings.
+1. Commit and push the blind review cycle 1 planning-doc fix.
+2. Run blind review cycle 2 and address actionable findings.
+3. Run blind review cycle 3 if cycle 2 is clean or after its fixes land.
 
 ## After checkpoint
 - Continue from backend-backed `task.list` loading to task detail refresh, task actions, and sync wiring.
