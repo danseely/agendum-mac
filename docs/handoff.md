@@ -104,6 +104,8 @@ Review and land backend-backed task list loading.
 - Fixed and pushed the second PR #7 review findings in commit `ce6f48c`.
 - Ran blind review cycle 1 after `ce6f48c`; it found no code-level bugs/regressions and only stale planning-doc state.
 - Updated this handoff to avoid hard-coded HEAD hashes that become stale on every docs-only commit.
+- Ran blind review cycle 2 after `810f56f`; it found no code-level bugs/regressions and only next-action drift in planning docs.
+- Updated planning next-action wording to describe the active blind-review loop without naming a docs-only commit that becomes stale after push.
 
 ## Validation
 - `swift build` passes.
@@ -172,9 +174,9 @@ Review and land backend-backed task list loading.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Commit and push the blind review cycle 1 planning-doc fix.
-2. Run blind review cycle 2 and address actionable findings.
-3. Run blind review cycle 3 if cycle 2 is clean or after its fixes land.
+1. Continue blind-review hardening until no actionable findings remain or the requested three-cycle limit is reached.
+2. Address any actionable findings with focused fixes and validation.
+3. Mark PR #7 ready once review hardening and checks are clean.
 
 ## After checkpoint
 - Continue from backend-backed `task.list` loading to task detail refresh, task actions, and sync wiring.

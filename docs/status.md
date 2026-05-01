@@ -79,9 +79,10 @@ Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading
 - Reviewed PR #7 locally and fixed/pushed the first findings in commit `fbe2e57`: stale task state on reload failure, invalid `task.list` payloads touching storage before validation, and stale handoff HEAD metadata.
 - Ran a fresh blind review of PR #7 and fixed/pushed the next findings in commit `ce6f48c`: selected task ID carryover across workspace reloads and stale planning-doc state.
 - Ran blind review cycle 1 after `ce6f48c`; it found no code-level bugs/regressions and only stale planning-doc state.
+- Ran blind review cycle 2 after `810f56f`; it found no code-level bugs/regressions and only next-action drift in planning docs.
 
 ## In progress
-- Fixing blind review cycle 1 planning-doc state before cycle 2.
+- Running blind-review hardening for PR #7.
 
 ## Blocked
 - None.
@@ -90,7 +91,7 @@ Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Commit and push the blind review cycle 1 planning-doc fix.
-- Run blind review cycles 2 and 3, addressing actionable findings.
+- Continue blind-review hardening until no actionable findings remain or the requested three-cycle limit is reached.
+- Address any actionable findings with focused fixes and validation.
 - Continue from backend-backed task loading toward task detail/actions and sync wiring after PR #7 is clean.
 - Keep `feature/mac-prototype` as the broad integration branch.
