@@ -1,17 +1,17 @@
 # Handoff
 
 ## Current objective
-Review and land backend-backed task list loading.
+Prepare the next live-slice checkpoint after backend-backed task list loading landed.
 
 ## Branch
-`codex/task-list-loading`
+`feature/mac-prototype`
 
 ## Repo state
-- HEAD: `codex/task-list-loading`; run `git rev-parse --short HEAD` for the exact commit.
-- Integration branch: `feature/mac-prototype`
+- HEAD: `feature/mac-prototype`; run `git rev-parse --short HEAD` for the exact commit.
+- Integration branch: `feature/mac-prototype` at squash merge `8e71589`.
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
-- Current task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, draft, targeting `feature/mac-prototype`.
-- Task-list branch state: pushed to `origin/codex/task-list-loading`.
+- Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
+- Post-merge docs update: PR #8 records the PR #7 merge state.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
@@ -21,7 +21,7 @@ Review and land backend-backed task list loading.
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: clean after opening PR #7, before this handoff-doc refresh.
+- Working tree: should be clean after PR #8 lands.
 - Last validation date: 2026-05-01
 
 ## Completed
@@ -107,6 +107,10 @@ Review and land backend-backed task list loading.
 - Ran blind review cycle 2 after `810f56f`; it found no code-level bugs/regressions and only next-action drift in planning docs.
 - Updated planning next-action wording to describe the active blind-review loop without naming a docs-only commit that becomes stale after push.
 - Ran blind review cycle 3 after `4df64c6`; it found no actionable bugs, regressions, missing required tests, or stale project-memory docs.
+- Marked PR #7 ready for review.
+- Merged PR #7 into `feature/mac-prototype` with squash merge `8e71589`.
+- Fast-forwarded local `feature/mac-prototype` to `8e71589`.
+- The local `codex/task-list-loading` branch was removed by the merge flow; the remote PR branch was deleted.
 
 ## Validation
 - `swift build` passes.
@@ -128,6 +132,7 @@ Review and land backend-backed task list loading.
 - Second review-fix validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed: 305/326 lines, 93.6% for `Backend/agendum_backend/helper.py`.
 - Second review-fix validation: `swift test --enable-code-coverage` passed: 10 Swift tests.
 - Blind review cycle 3 validation: `gh pr checks 7` passed, `git diff --check origin/feature/mac-prototype...origin/codex/task-list-loading` passed, `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed: 32 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed: 305/326 lines, 93.6%, and `swift test --enable-code-coverage` passed: 10 Swift tests.
+- PR #7 final CI passed: GitHub Actions run `25230767259`.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -176,8 +181,8 @@ Review and land backend-backed task list loading.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Mark PR #7 ready if no further review is requested.
-2. After PR #7 lands, continue from task list loading to task detail refresh, task actions, and sync wiring.
+1. Start a short-lived branch for task detail refresh, task actions, and sync wiring.
+2. Keep `feature/mac-prototype` as the broad integration branch and continue landing work through PRs.
 3. Keep the manual `swift run AgendumMac` smoke test in mind before treating the UI slice as fully exercised.
 
 ## After checkpoint
