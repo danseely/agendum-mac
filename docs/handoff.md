@@ -7,7 +7,7 @@ Implement task detail refresh, task actions, and sync wiring.
 `codex/task-detail-actions-sync`
 
 ## Repo state
-- HEAD: `codex/task-detail-actions-sync` at `0ca0899`.
+- HEAD: `codex/task-detail-actions-sync`; run `git rev-parse --short HEAD` for the current commit.
 - Integration branch: `feature/mac-prototype` at squash merge `42f06aa`.
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
@@ -152,7 +152,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - Final checkpoint validation: `swift build` passes.
 - Final checkpoint validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
 - Final checkpoint validation: `git diff --check` passes.
-- PR #9 GitHub Actions `Test` check passed for run `25232251020`.
+- PR #9 GitHub Actions `Test` check is passing; use `gh pr checks 9 --repo danseely/agendum-mac` for the current head run.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
