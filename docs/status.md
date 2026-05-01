@@ -3,7 +3,7 @@
 Last updated: 2026-05-01
 
 ## Current milestone
-Backend-backed task list loading is implemented locally on `codex/task-list-loading`, now rebased onto `feature/mac-prototype` after PR #6 merged.
+Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading` to `feature/mac-prototype`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -74,9 +74,11 @@ Backend-backed task list loading is implemented locally on `codex/task-list-load
 - Added `AgendumTask` and `listTasks(...)` to `Sources/AgendumMacCore/BackendClient.swift`.
 - Replaced hard-coded SwiftUI sample tasks with backend-loaded tasks in `Sources/AgendumMac/AgendumMacApp.swift`.
 - Added Swift client coverage for `task.list` request encoding and task decoding.
+- Committed and pushed `codex/task-list-loading` as `feeee62`.
+- Opened draft PR #7: `https://github.com/danseely/agendum-mac/pull/7`.
 
 ## In progress
-- `codex/task-list-loading` has local implementation and validation; it has not been committed, pushed, or opened as a PR.
+- Watching CI/review for draft PR #7.
 
 ## Blocked
 - None.
@@ -86,5 +88,5 @@ Backend-backed task list loading is implemented locally on `codex/task-list-load
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
 - Continue from backend-backed task loading toward task detail/actions and sync wiring.
-- Commit, push, and open a draft PR for `codex/task-list-loading` targeting `feature/mac-prototype`.
+- Address CI or review findings on PR #7.
 - Keep `feature/mac-prototype` as the broad integration branch.

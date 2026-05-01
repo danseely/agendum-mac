@@ -1,16 +1,17 @@
 # Handoff
 
 ## Current objective
-Continue the live vertical slice by loading dashboard tasks from the backend helper.
+Review and land backend-backed task list loading.
 
 ## Branch
 `codex/task-list-loading`
 
 ## Repo state
-- HEAD: `codex/task-list-loading` at `f53c62e` before local task-list changes are committed.
+- HEAD: `codex/task-list-loading` at `feeee62`.
 - Integration branch: `feature/mac-prototype`
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
-- Task-list branch state: local only; rebased onto `feature/mac-prototype`; not pushed and no PR opened yet.
+- Current task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, draft, targeting `feature/mac-prototype`.
+- Task-list branch state: pushed to `origin/codex/task-list-loading`.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
@@ -20,7 +21,7 @@ Continue the live vertical slice by loading dashboard tasks from the backend hel
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: dirty with local task-list implementation and planning-doc updates.
+- Working tree: clean after opening PR #7, before this handoff-doc refresh.
 - Last validation date: 2026-05-01
 
 ## Completed
@@ -94,6 +95,9 @@ Continue the live vertical slice by loading dashboard tasks from the backend hel
 - Added `AgendumTask` plus `listTasks(source:status:project:includeSeen:limit:)` in `Sources/AgendumMacCore/BackendClient.swift`.
 - Added Swift client test coverage in `Tests/AgendumMacCoreTests/BackendClientTests.swift` for full task-list request encoding and response decoding.
 - Updated `Sources/AgendumMac/AgendumMacApp.swift` so the dashboard task lists and badges load from the backend helper instead of hard-coded sample data; workspace selection reloads tasks.
+- Committed task-list loading as `feeee62`.
+- Pushed `codex/task-list-loading` to origin.
+- Opened draft PR #7 against `feature/mac-prototype`: `https://github.com/danseely/agendum-mac/pull/7`.
 
 ## Validation
 - `swift build` passes.
@@ -151,8 +155,8 @@ Continue the live vertical slice by loading dashboard tasks from the backend hel
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Commit, push, and open a draft PR for `codex/task-list-loading` targeting `feature/mac-prototype`.
-2. Watch CI and address review findings on the task-list PR.
+1. Watch CI and address review findings on PR #7.
+2. Mark PR #7 ready once checks/review are clean.
 3. Continue from task list loading to task detail refresh, task actions, and sync wiring.
 
 ## After checkpoint
