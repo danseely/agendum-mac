@@ -1,17 +1,17 @@
 # Handoff
 
 ## Current objective
-Capture the PR #7 merge and prepare the next live-slice checkpoint.
+Prepare the next live-slice checkpoint after backend-backed task list loading landed.
 
 ## Branch
-`codex/pr7-post-merge-docs`
+`feature/mac-prototype`
 
 ## Repo state
-- HEAD: post-merge docs update branch; run `git rev-parse --short HEAD` for the exact commit.
+- HEAD: `feature/mac-prototype`; run `git rev-parse --short HEAD` for the exact commit.
 - Integration branch: `feature/mac-prototype` at squash merge `8e71589`.
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
-- Post-merge docs branch: `codex/pr7-post-merge-docs`, targeting `feature/mac-prototype`.
+- Post-merge docs update: PR #8 records the PR #7 merge state.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
@@ -21,7 +21,7 @@ Capture the PR #7 merge and prepare the next live-slice checkpoint.
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: post-merge docs update in progress.
+- Working tree: should be clean after PR #8 lands.
 - Last validation date: 2026-05-01
 
 ## Completed
@@ -181,8 +181,8 @@ Capture the PR #7 merge and prepare the next live-slice checkpoint.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Merge the post-merge docs update into `feature/mac-prototype`.
-2. Start a short-lived branch for task detail refresh, task actions, and sync wiring.
+1. Start a short-lived branch for task detail refresh, task actions, and sync wiring.
+2. Keep `feature/mac-prototype` as the broad integration branch and continue landing work through PRs.
 3. Keep the manual `swift run AgendumMac` smoke test in mind before treating the UI slice as fully exercised.
 
 ## After checkpoint

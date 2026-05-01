@@ -85,7 +85,7 @@ Backend-backed task list loading merged in PR #7. The next checkpoint is task de
 - Local `feature/mac-prototype` was fast-forwarded to `8e71589`.
 
 ## In progress
-- Post-merge planning docs are being updated on `codex/pr7-post-merge-docs` to preserve branch discipline.
+- Ready to start the next implementation checkpoint.
 
 ## Blocked
 - None.
@@ -94,6 +94,5 @@ Backend-backed task list loading merged in PR #7. The next checkpoint is task de
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Merge the post-merge docs update into `feature/mac-prototype`.
 - Start the next short-lived branch for task detail refresh, task actions, and sync wiring.
 - Keep `feature/mac-prototype` as the broad integration branch.
