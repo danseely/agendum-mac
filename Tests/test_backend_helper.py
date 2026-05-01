@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from Backend.agendum_backend.helper import HelperState, handle_line, handle_request, run_stdio
+from agendum.db import add_task, init_db, update_task
 
 
 class BackendHelperTests(unittest.TestCase):
@@ -177,6 +178,222 @@ class BackendHelperTests(unittest.TestCase):
             self.assertEqual(response["error"]["code"], "workspace.invalid")
             self.assertEqual(state.namespace, "example-org")
             self.assertFalse((Path(tmp) / "workspaces").exists())
+
+    def test_task_list_returns_contract_payload_and_filters(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "agendum.db"
+            init_db(db_path)
+            review_id = add_task(
+                db_path,
+                title="Review release workflow hardening",
+                source="pr_review",
+                status="review requested",
+                project="homebrew-tap",
+                gh_repo="danseely/homebrew-tap",
+                gh_url="https://github.com/danseely/homebrew-tap/pull/17",
+                gh_number=17,
+                gh_author="octocat",
+                gh_author_name="Octo",
+                tags=json.dumps(["review", "release"]),
+            )
+            update_task(db_path, review_id, seen=0)
+            add_task(
+                db_path,
+                title="Hidden authored PR",
+                source="pr_authored",
+                status="open",
+                project="agendum",
+            )
+
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "task-list",
+                    "command": "task.list",
+                    "payload": {"source": "pr_review", "includeSeen": False, "limit": 5},
+                },
+                HelperState(base_dir=root),
+            )
+
+            self.assertTrue(response["ok"])
+            tasks = response["payload"]["tasks"]
+            self.assertEqual(len(tasks), 1)
+            task = tasks[0]
+            self.assertEqual(task["id"], review_id)
+            self.assertEqual(task["title"], "Review release workflow hardening")
+            self.assertEqual(task["source"], "pr_review")
+            self.assertEqual(task["status"], "review requested")
+            self.assertEqual(task["project"], "homebrew-tap")
+            self.assertEqual(task["ghRepo"], "danseely/homebrew-tap")
+            self.assertEqual(task["ghUrl"], "https://github.com/danseely/homebrew-tap/pull/17")
+            self.assertEqual(task["ghNumber"], 17)
+            self.assertEqual(task["ghAuthor"], "octocat")
+            self.assertEqual(task["ghAuthorName"], "Octo")
+            self.assertEqual(task["tags"], ["review", "release"])
+            self.assertFalse(task["seen"])
+            self.assertIsNotNone(task["lastChangedAt"])
+            self.assertIsNotNone(task["updatedAt"])
+
+    def test_task_list_default_payload_initializes_empty_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "task-list-defaults",
+                    "command": "task.list",
+                    "payload": {},
+                },
+                HelperState(base_dir=root),
+            )
+
+            self.assertTrue(response["ok"])
+            self.assertEqual(response["payload"]["tasks"], [])
+            self.assertTrue((root / "config.toml").exists())
+            self.assertTrue((root / "agendum.db").exists())
+
+    def test_task_list_maps_optional_task_fields_to_nulls_and_empty_tags(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "agendum.db"
+            init_db(db_path)
+            task_id = add_task(
+                db_path,
+                title="Manual backlog task",
+                source="manual",
+                status="backlog",
+            )
+
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "task-list-null-fields",
+                    "command": "task.list",
+                    "payload": {},
+                },
+                HelperState(base_dir=root),
+            )
+
+            self.assertTrue(response["ok"])
+            task = response["payload"]["tasks"][0]
+            self.assertEqual(task["id"], task_id)
+            self.assertIsNone(task["project"])
+            self.assertIsNone(task["ghRepo"])
+            self.assertIsNone(task["ghUrl"])
+            self.assertIsNone(task["ghNumber"])
+            self.assertIsNone(task["ghAuthor"])
+            self.assertIsNone(task["ghAuthorName"])
+            self.assertEqual(task["tags"], [])
+            self.assertTrue(task["seen"])
+
+    def test_task_list_applies_status_project_and_limit_filters(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "agendum.db"
+            init_db(db_path)
+            first_id = add_task(
+                db_path,
+                title="First matching task",
+                source="issue",
+                status="open",
+                project="agendum-mac",
+            )
+            second_id = add_task(
+                db_path,
+                title="Second matching task",
+                source="issue",
+                status="open",
+                project="agendum-mac",
+            )
+            add_task(
+                db_path,
+                title="Different project task",
+                source="issue",
+                status="open",
+                project="other",
+            )
+            add_task(
+                db_path,
+                title="Different status task",
+                source="issue",
+                status="in progress",
+                project="agendum-mac",
+            )
+
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "task-list-filtered",
+                    "command": "task.list",
+                    "payload": {"status": "open", "project": "agendum-mac", "limit": 1},
+                },
+                HelperState(base_dir=root),
+            )
+
+            self.assertTrue(response["ok"])
+            tasks = response["payload"]["tasks"]
+            self.assertEqual(len(tasks), 1)
+            self.assertIn(tasks[0]["id"], {first_id, second_id})
+            self.assertEqual(tasks[0]["status"], "open")
+            self.assertEqual(tasks[0]["project"], "agendum-mac")
+
+    def test_task_list_uses_selected_workspace_database(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            namespace_db = root / "workspaces" / "example-org" / "agendum.db"
+            init_db(namespace_db)
+            add_task(
+                namespace_db,
+                title="Namespaced task",
+                source="manual",
+                status="backlog",
+                project="example-org",
+            )
+
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "task-list-namespace",
+                    "command": "task.list",
+                    "payload": {},
+                },
+                HelperState(base_dir=root, namespace="example-org"),
+            )
+
+            self.assertTrue(response["ok"])
+            self.assertEqual([task["title"] for task in response["payload"]["tasks"]], ["Namespaced task"])
+
+    def test_task_list_rejects_invalid_filters(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = HelperState(base_dir=root)
+
+            for payload in (
+                {"source": 42},
+                {"status": 42},
+                {"project": 42},
+                {"includeSeen": "yes"},
+                {"limit": True},
+                {"limit": 0},
+                {"limit": 201},
+            ):
+                with self.subTest(payload=payload):
+                    response = handle_request(
+                        {
+                            "version": 1,
+                            "id": "bad-task-list",
+                            "command": "task.list",
+                            "payload": payload,
+                        },
+                        state,
+                    )
+
+                    self.assertFalse(response["ok"])
+                    self.assertEqual(response["error"]["code"], "payload.invalid")
+                    self.assertFalse((root / "config.toml").exists())
+                    self.assertFalse((root / "agendum.db").exists())
 
     def test_auth_status_reports_missing_gh(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -389,7 +606,7 @@ class BackendHelperTests(unittest.TestCase):
             {
                 "version": 1,
                 "id": "unknown",
-                "command": "task.list",
+                "command": "unknown.command",
                 "payload": {},
             },
             HelperState(base_dir=Path("/tmp/agendum-test")),
@@ -398,7 +615,7 @@ class BackendHelperTests(unittest.TestCase):
         self.assertFalse(response["ok"])
         self.assertEqual(response["id"], "unknown")
         self.assertEqual(response["error"]["code"], "protocol.unknownCommand")
-        self.assertEqual(response["error"]["detail"], "task.list")
+        self.assertEqual(response["error"]["detail"], "unknown.command")
 
 
 if __name__ == "__main__":

@@ -28,7 +28,20 @@ private struct TaskItem: Identifiable, Hashable {
     let project: String
     let author: String?
     let number: Int?
+    let url: URL?
     let isUnseen: Bool
+
+    init(task: AgendumTask) {
+        id = task.id
+        title = task.title
+        source = TaskSource(backendSource: task.source)
+        status = task.status
+        project = task.project ?? "No project"
+        author = task.ghAuthorName ?? task.ghAuthor
+        number = task.ghNumber
+        url = task.ghUrl.flatMap(URL.init(string:))
+        isUnseen = !task.seen
+    }
 }
 
 private enum TaskSource: String, CaseIterable, Identifiable {
@@ -37,6 +50,17 @@ private enum TaskSource: String, CaseIterable, Identifiable {
     case issues = "Issues & Manual"
 
     var id: String { rawValue }
+
+    init(backendSource: String) {
+        switch backendSource {
+        case "pr_authored":
+            self = .authored
+        case "pr_review":
+            self = .review
+        default:
+            self = .issues
+        }
+    }
 }
 
 private struct TaskDashboardView: View {
@@ -44,48 +68,17 @@ private struct TaskDashboardView: View {
     @State private var selectedTask: TaskItem.ID?
     @StateObject private var backendStatus = BackendStatusModel()
 
-    private let tasks: [TaskItem] = [
-        .init(
-            id: 1,
-            title: "Add review-thread resolution tracking",
-            source: .authored,
-            status: "review received",
-            project: "agendum",
-            author: nil,
-            number: 42,
-            isUnseen: true
-        ),
-        .init(
-            id: 2,
-            title: "Review release workflow hardening",
-            source: .review,
-            status: "review requested",
-            project: "homebrew-tap",
-            author: "Morgan",
-            number: 17,
-            isUnseen: true
-        ),
-        .init(
-            id: 3,
-            title: "Sketch Mac backend contract",
-            source: .issues,
-            status: "backlog",
-            project: "agendum-mac",
-            author: nil,
-            number: nil,
-            isUnseen: false
-        ),
-    ]
-
     var body: some View {
         NavigationSplitView {
             List(TaskSource.allCases, selection: $selection) { source in
                 Label(source.rawValue, systemImage: icon(for: source))
-                    .badge(tasks.filter { $0.source == source }.count)
+                    .badge(backendStatus.tasks.filter { $0.source == source }.count)
             }
             .navigationTitle("Agendum")
             .safeAreaInset(edge: .bottom) {
-                BackendStatusPanel(status: backendStatus)
+                BackendStatusPanel(status: backendStatus) {
+                    selectedTask = nil
+                }
             }
         } content: {
             List(filteredTasks, selection: $selectedTask) { task in
@@ -96,11 +89,12 @@ private struct TaskDashboardView: View {
             .toolbar {
                 ToolbarItem {
                     Button {
+                        selectedTask = nil
                         Task {
                             await backendStatus.refresh()
                         }
                     } label: {
-                        Label("Sync", systemImage: "arrow.clockwise")
+                        Label("Refresh", systemImage: "arrow.clockwise")
                     }
                     .disabled(backendStatus.isLoading)
                 }
@@ -122,11 +116,11 @@ private struct TaskDashboardView: View {
     }
 
     private var filteredTasks: [TaskItem] {
-        tasks.filter { $0.source == selection }
+        backendStatus.tasks.filter { $0.source == selection }
     }
 
     private func taskByID(_ id: TaskItem.ID) -> TaskItem? {
-        tasks.first { $0.id == id }
+        backendStatus.tasks.first { $0.id == id }
     }
 
     private func icon(for source: TaskSource) -> String {
@@ -146,6 +140,7 @@ private final class BackendStatusModel: ObservableObject {
     @Published var workspace: Workspace?
     @Published var workspaces: [Workspace] = []
     @Published var auth: AuthStatus?
+    @Published var tasks: [TaskItem] = []
     @Published var errorMessage: String?
     @Published var isLoading = false
 
@@ -180,8 +175,10 @@ private final class BackendStatusModel: ObservableObject {
             workspace = try await client.currentWorkspace()
             workspaces = try await client.listWorkspaces()
             auth = try await client.authStatus()
+            tasks = try await client.listTasks().map(TaskItem.init)
             errorMessage = nil
         } catch {
+            tasks = []
             errorMessage = String(describing: error)
         }
     }
@@ -199,8 +196,11 @@ private final class BackendStatusModel: ObservableObject {
             workspace = selection.workspace
             auth = selection.auth
             workspaces = try await client.listWorkspaces()
+            tasks = []
+            tasks = try await client.listTasks().map(TaskItem.init)
             errorMessage = nil
         } catch {
+            tasks = []
             errorMessage = String(describing: error)
         }
     }
@@ -208,6 +208,7 @@ private final class BackendStatusModel: ObservableObject {
 
 private struct BackendStatusPanel: View {
     @ObservedObject var status: BackendStatusModel
+    let clearSelectedTask: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -215,6 +216,7 @@ private struct BackendStatusPanel: View {
                 Menu {
                     ForEach(status.workspaces, id: \.id) { workspace in
                         Button {
+                            clearSelectedTask()
                             Task {
                                 await status.selectWorkspace(id: workspace.id)
                             }
@@ -286,6 +288,8 @@ private struct TaskRow: View {
 }
 
 private struct TaskDetail: View {
+    @Environment(\.openURL) private var openURL
+
     let task: TaskItem
 
     var body: some View {
@@ -312,7 +316,12 @@ private struct TaskDetail: View {
             }
 
             HStack {
-                Button("Open in Browser") {}
+                Button("Open in Browser") {
+                    if let url = task.url {
+                        openURL(url)
+                    }
+                }
+                .disabled(task.url == nil)
                 Button("Mark Done") {}
                 Button("Remove") {}
             }

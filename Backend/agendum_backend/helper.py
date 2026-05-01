@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -31,6 +32,8 @@ from agendum.config import (  # noqa: E402
     normalize_namespace,
     workspace_runtime_paths,
 )
+from agendum.db import init_db  # noqa: E402
+from agendum.task_api import list_tasks as agendum_list_tasks  # noqa: E402
 
 
 @dataclass
@@ -108,6 +111,8 @@ def handle_request(request: Any, state: HelperState) -> dict[str, Any]:
             return _success_response(request_id, select_workspace(state, payload))
         if command == "auth.status":
             return _success_response(request_id, {"auth": auth_status(state)})
+        if command == "task.list":
+            return _success_response(request_id, {"tasks": list_tasks(state, payload)})
     except PayloadError as exc:
         return _error_response(
             request_id=request_id,
@@ -126,6 +131,13 @@ def handle_request(request: Any, state: HelperState) -> dict[str, Any]:
             request_id=request_id,
             code="storage.failed",
             message="Workspace storage could not be prepared.",
+            detail=str(exc),
+        )
+    except sqlite3.Error as exc:
+        return _error_response(
+            request_id=request_id,
+            code="storage.failed",
+            message="Task storage could not be read.",
             detail=str(exc),
         )
 
@@ -197,6 +209,38 @@ def select_workspace(state: HelperState, payload: dict[str, Any]) -> dict[str, A
         "auth": auth_status(state),
         "sync": _sync_status(),
     }
+
+
+def list_tasks(state: HelperState, payload: dict[str, Any]) -> list[dict[str, Any]]:
+    source = _optional_string(payload, "source")
+    status = _optional_string(payload, "status")
+    project = _optional_string(payload, "project")
+
+    include_seen = payload.get("includeSeen", True)
+    if not isinstance(include_seen, bool):
+        raise PayloadError("Task includeSeen filter must be a boolean.")
+
+    limit = payload.get("limit", 50)
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise PayloadError("Task limit must be an integer.")
+    if limit <= 0:
+        raise PayloadError("Task limit must be greater than zero.")
+    if limit > 200:
+        raise PayloadError("Task limit must be <= 200.")
+
+    paths = state.runtime
+    ensure_workspace_config(paths, namespace=state.namespace)
+    init_db(paths.db_path)
+
+    tasks = agendum_list_tasks(
+        paths.db_path,
+        source=source,
+        status=status,
+        project=project,
+        include_seen=include_seen,
+        limit=limit,
+    )
+    return [_task_payload(task) for task in tasks]
 
 
 def auth_status(state: HelperState) -> dict[str, Any]:
@@ -279,6 +323,34 @@ def _gh_username(gh_path: Path, env: dict[str, str]) -> str | None:
         return None
     username = result.stdout.strip()
     return username or None
+
+
+def _optional_string(payload: dict[str, Any], key: str) -> str | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise PayloadError(f"Task {key} filter must be a string or null.")
+    return value
+
+
+def _task_payload(task: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": task["id"],
+        "title": task["title"],
+        "source": task["source"],
+        "status": task["status"],
+        "project": task.get("project"),
+        "ghRepo": task.get("gh_repo"),
+        "ghUrl": task.get("gh_url"),
+        "ghNumber": task.get("gh_number"),
+        "ghAuthor": task.get("gh_author"),
+        "ghAuthorName": task.get("gh_author_name"),
+        "tags": task.get("tags") or [],
+        "seen": bool(task.get("seen", True)),
+        "lastChangedAt": task.get("last_changed_at"),
+        "updatedAt": task.get("updated_at"),
+    }
 
 
 def _workspace_payload(

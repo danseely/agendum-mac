@@ -1,9 +1,9 @@
 # Status
 
-Last updated: 2026-04-30
+Last updated: 2026-05-01
 
 ## Current milestone
-Workspace selection checkpoint is in draft PR #6 on `codex/workspace-selection`.
+Backend-backed task list loading is in draft PR #7 from `codex/task-list-loading` to `feature/mac-prototype`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -61,9 +61,29 @@ Workspace selection checkpoint is in draft PR #6 on `codex/workspace-selection`.
 - Added Swift client coverage for selecting/listing workspaces through one helper process, including explicit `namespace: null` base selection.
 - Wired the sidebar status area to load workspace options and switch workspaces through a menu.
 - Opened draft PR #6: `https://github.com/danseely/agendum-mac/pull/6`.
+- Addressed PR #6 review finding: blank string namespaces are rejected; base selection requires `namespace: null`.
+- PR #6 latest CI run passed after the review fix: `25194851503`.
+- PR #6 was marked ready for review.
+- PR #6 was merged into `feature/mac-prototype` on 2026-05-01.
+- Fast-forwarded local `feature/mac-prototype` to PR #6 squash merge `f53c62e`.
+- Rebasing `codex/task-list-loading` onto `feature/mac-prototype` completed after PR #6 merged.
+- Created `codex/task-list-loading` from `codex/workspace-selection` for the next stacked checkpoint.
+- Implemented `task.list` in `Backend/agendum_backend/helper.py` using the selected workspace DB and the existing `agendum.task_api.list_tasks`.
+- Added task-list payload validation and lower-camel-case task bridge payload mapping.
+- Added backend unit and subprocess coverage for `task.list`, selected-workspace DB loading, filters, and invalid payloads.
+- Added `AgendumTask` and `listTasks(...)` to `Sources/AgendumMacCore/BackendClient.swift`.
+- Replaced hard-coded SwiftUI sample tasks with backend-loaded tasks in `Sources/AgendumMac/AgendumMacApp.swift`.
+- Added Swift client coverage for `task.list` request encoding and task decoding.
+- Committed and pushed `codex/task-list-loading` as `feeee62`.
+- Opened draft PR #7: `https://github.com/danseely/agendum-mac/pull/7`.
+- Reviewed PR #7 locally and fixed/pushed the first findings in commit `fbe2e57`: stale task state on reload failure, invalid `task.list` payloads touching storage before validation, and stale handoff HEAD metadata.
+- Ran a fresh blind review of PR #7 and fixed/pushed the next findings in commit `ce6f48c`: selected task ID carryover across workspace reloads and stale planning-doc state.
+- Ran blind review cycle 1 after `ce6f48c`; it found no code-level bugs/regressions and only stale planning-doc state.
+- Ran blind review cycle 2 after `810f56f`; it found no code-level bugs/regressions and only next-action drift in planning docs.
+- Ran blind review cycle 3 after `4df64c6`; it found no actionable bugs, regressions, missing required tests, or stale project-memory docs.
 
 ## In progress
-- Watching CI/review for draft PR #6.
+- PR #7 review hardening is complete; waiting to mark ready or continue to the next checkpoint.
 
 ## Blocked
 - None.
@@ -72,6 +92,7 @@ Workspace selection checkpoint is in draft PR #6 on `codex/workspace-selection`.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Watch/fix CI or review findings on PR #6.
-- Continue toward backend-backed task loading after the workspace selection checkpoint lands.
+- Mark PR #7 ready if no further review is requested.
+- After PR #7 lands, continue from task list loading to task detail refresh, task actions, and sync wiring.
+- Continue from backend-backed task loading toward task detail/actions and sync wiring after PR #7 is clean.
 - Keep `feature/mac-prototype` as the broad integration branch.

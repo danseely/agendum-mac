@@ -26,6 +26,23 @@ public struct SyncStatus: Decodable, Equatable, Sendable {
     public let hasAttentionItems: Bool
 }
 
+public struct AgendumTask: Decodable, Identifiable, Equatable, Sendable {
+    public let id: Int
+    public let title: String
+    public let source: String
+    public let status: String
+    public let project: String?
+    public let ghRepo: String?
+    public let ghUrl: String?
+    public let ghNumber: Int?
+    public let ghAuthor: String?
+    public let ghAuthorName: String?
+    public let tags: [String]
+    public let seen: Bool
+    public let lastChangedAt: String?
+    public let updatedAt: String?
+}
+
 public struct WorkspaceSelection: Decodable, Equatable, Sendable {
     public let workspace: Workspace
     public let auth: AuthStatus
@@ -185,6 +202,26 @@ public actor AgendumBackendClient {
 
     public func selectWorkspace(namespace: String?) async throws -> WorkspaceSelection {
         try await send(command: "workspace.select", payload: WorkspaceSelectRequestPayload(namespace: namespace))
+    }
+
+    public func listTasks(
+        source: String? = nil,
+        status: String? = nil,
+        project: String? = nil,
+        includeSeen: Bool = true,
+        limit: Int = 50
+    ) async throws -> [AgendumTask] {
+        let payload: TaskListResponsePayload = try await send(
+            command: "task.list",
+            payload: TaskListRequestPayload(
+                source: source,
+                status: status,
+                project: project,
+                includeSeen: includeSeen,
+                limit: limit
+            )
+        )
+        return payload.tasks
     }
 
     public func authStatus() async throws -> AuthStatus {
@@ -436,4 +473,16 @@ private struct WorkspaceSelectRequestPayload: Encodable, Sendable {
 
 private struct AuthStatusResponsePayload: Decodable {
     let auth: AuthStatus
+}
+
+private struct TaskListRequestPayload: Encodable, Sendable {
+    let source: String?
+    let status: String?
+    let project: String?
+    let includeSeen: Bool
+    let limit: Int
+}
+
+private struct TaskListResponsePayload: Decodable {
+    let tasks: [AgendumTask]
 }
