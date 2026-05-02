@@ -197,6 +197,7 @@ Surface richer sync lifecycle and structured error presentation on `codex/sync-l
 - `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 464/505 lines (91.9%) for `Backend/agendum_backend/helper.py` (no backend changes in this checkpoint).
 - `git diff --check` passes.
 - `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~5s before SIGTERM, exit code 143).
+- Blind review fix landed (locale seam injected on `BackendStatusModel.init` so `RelativeDateTimeFormatter` follows the user's macOS locale in production while tests pin `en_US_POSIX`; `testLastSyncLabelFormatsIso8601Timestamp` now also asserts the `"ago"` direction): `swift build` passed, `swift test --enable-code-coverage` passed (36 Swift tests), `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed (48 tests), and `git diff --check` passed.
 
 ### Per-task error surfacing checkpoint (on `codex/per-task-error-surfacing`, after the changes listed under Completed)
 - `swift build` passes.

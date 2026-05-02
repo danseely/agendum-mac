@@ -176,7 +176,8 @@ public final class BackendStatusModel: ObservableObject {
         syncPollIntervalNanoseconds: UInt64 = 500_000_000,
         maxSyncPollAttempts: Int = 120,
         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) },
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        locale: Locale = .autoupdatingCurrent
     ) {
         self.client = client
         self.syncPollIntervalNanoseconds = syncPollIntervalNanoseconds
@@ -184,7 +185,7 @@ public final class BackendStatusModel: ObservableObject {
         self.sleep = sleep
         self.now = now
         let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.locale = locale
         formatter.unitsStyle = .short
         self.relativeFormatter = formatter
         let iso = ISO8601DateFormatter()

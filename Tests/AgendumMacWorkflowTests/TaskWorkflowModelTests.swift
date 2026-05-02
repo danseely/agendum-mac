@@ -371,7 +371,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let model = BackendStatusModel(
             client: backend,
             sleep: immediateSleep,
-            now: { fixedNow }
+            now: { fixedNow },
+            locale: Locale(identifier: "en_US_POSIX")
         )
 
         await model.refresh()
@@ -380,12 +381,17 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertNotNil(label)
         XCTAssertTrue(label?.hasPrefix("Last synced ") ?? false, "expected prefix, got \(label ?? "nil")")
         XCTAssertTrue(label?.contains("min") ?? false, "expected 'min' in \(label ?? "nil")")
+        XCTAssertTrue(label?.contains("ago") ?? false, "expected 'ago' in \(label ?? "nil")")
     }
 
     func testLastSyncLabelNilWhenNoTimestamp() async throws {
         let backend = FakeBackend()
         await backend.setTasks([])
-        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
 
         await model.refresh()
 
