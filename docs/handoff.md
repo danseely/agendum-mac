@@ -7,7 +7,7 @@ Monitor PR #10 review/CI for the SwiftUI workflow coverage checkpoint.
 `codex/swiftui-workflow-coverage`, branched from updated `feature/mac-prototype`.
 
 ## Repo state
-- HEAD: `codex/swiftui-workflow-coverage`; latest pushed commit is `6d3ea1d`.
+- HEAD: `codex/swiftui-workflow-coverage`; local branch tracks `origin/codex/swiftui-workflow-coverage`.
 - Integration branch: `feature/mac-prototype`; PR #9 is merged.
 - Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/10`, targeting `feature/mac-prototype`.
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
@@ -147,7 +147,7 @@ Monitor PR #10 review/CI for the SwiftUI workflow coverage checkpoint.
 - PR #10 GitHub Actions `Test` passed on run `25254571906`.
 - Marked PR #10 ready for review.
 - PR #10 GitHub Actions `Test` passed on run `25254607730` after the PR-readiness docs follow-up.
-- PR #10 GitHub Actions `Test` passed on run `25254640541` after the final handoff-doc update.
+- PR #10 GitHub Actions `Test` is passing at the time of this update.
 
 ## Validation
 - `swift build` passes.
