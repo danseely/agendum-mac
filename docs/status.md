@@ -3,7 +3,7 @@
 Last updated: 2026-05-02
 
 ## Current milestone
-SwiftUI workflow coverage is in draft PR #10 from `codex/swiftui-workflow-coverage` to `feature/mac-prototype`.
+SwiftUI workflow coverage is in PR #10 from `codex/swiftui-workflow-coverage` to `feature/mac-prototype`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -113,9 +113,10 @@ SwiftUI workflow coverage is in draft PR #10 from `codex/swiftui-workflow-covera
 - Wired the app menu `Sync Now` command and toolbar sync button through the same shared `BackendStatusModel.forceSync()` path.
 - Local validation for the workflow checkpoint currently passes: `swift build`, `swift test --enable-code-coverage` with 22 Swift tests, `/opt/homebrew/bin/python3 -m unittest discover -s Tests` with 43 Python tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` at 416/455 lines (91.4%), and `git diff --check`.
 - Opened draft PR #10: `https://github.com/danseely/agendum-mac/pull/10`.
+- GitHub Actions `Test` passed on PR #10 run `25254571906`.
 
 ## In progress
-- SwiftUI workflow coverage checkpoint is in draft PR #10 and needs CI/review before being marked ready.
+- SwiftUI workflow coverage checkpoint is in PR #10 and ready for review once the final docs-follow-up CI run is green.
 
 ## Blocked
 - None.
@@ -124,7 +125,7 @@ SwiftUI workflow coverage is in draft PR #10 from `codex/swiftui-workflow-covera
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Monitor PR #10 CI.
+- Monitor the final PR #10 CI run after the docs-follow-up push.
 - Review PR #10 for workflow-target boundaries and app command wiring.
-- Mark PR #10 ready once CI and review are clean.
+- Do not merge PR #10 unless explicitly requested.
 - Keep `feature/mac-prototype` as the broad integration branch.

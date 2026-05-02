@@ -1,15 +1,15 @@
 # Handoff
 
 ## Current objective
-Monitor and review draft PR #10 for the SwiftUI workflow coverage checkpoint.
+Monitor PR #10 review/CI for the SwiftUI workflow coverage checkpoint.
 
 ## Branch
 `codex/swiftui-workflow-coverage`, branched from updated `feature/mac-prototype`.
 
 ## Repo state
-- HEAD: `codex/swiftui-workflow-coverage`; latest pushed code commit is `2b78794`, with a docs follow-up pending locally.
+- HEAD: `codex/swiftui-workflow-coverage`; latest pushed docs commit is `49db0c1`, with this PR-readiness docs follow-up pending locally.
 - Integration branch: `feature/mac-prototype`; PR #9 is merged.
-- Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/10`, draft, targeting `feature/mac-prototype`.
+- Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/10`, targeting `feature/mac-prototype`.
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
 - Post-merge docs update: PR #8 merged into `feature/mac-prototype` on 2026-05-01.
@@ -144,6 +144,7 @@ Monitor and review draft PR #10 for the SwiftUI workflow coverage checkpoint.
 - Added `TaskDashboardCommands` so toolbar sync and menu sync share the same workflow command path, with fake-backed test coverage.
 - Committed the checkpoint as `2b78794` and pushed `codex/swiftui-workflow-coverage`.
 - Opened draft PR #10: `https://github.com/danseely/agendum-mac/pull/10`.
+- PR #10 GitHub Actions `Test` passed on run `25254571906`.
 
 ## Validation
 - `swift build` passes.
@@ -252,9 +253,9 @@ Monitor and review draft PR #10 for the SwiftUI workflow coverage checkpoint.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Commit and push this docs follow-up to `codex/swiftui-workflow-coverage`.
-2. Monitor PR #10 CI.
-3. Mark PR #10 ready once CI and review are clean.
+1. Commit and push this PR-readiness docs follow-up to `codex/swiftui-workflow-coverage`.
+2. Mark PR #10 ready for review and monitor the final CI run.
+3. Do not merge PR #10 unless explicitly requested.
 
 ## After checkpoint
 - Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
