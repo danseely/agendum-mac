@@ -9,19 +9,28 @@ let package = Package(
     ],
     products: [
         .library(name: "AgendumMacCore", targets: ["AgendumMacCore"]),
+        .library(name: "AgendumMacWorkflow", targets: ["AgendumMacWorkflow"]),
         .executable(name: "AgendumMac", targets: ["AgendumMac"])
     ],
     targets: [
         .target(
             name: "AgendumMacCore"
         ),
+        .target(
+            name: "AgendumMacWorkflow",
+            dependencies: ["AgendumMacCore"]
+        ),
         .executableTarget(
             name: "AgendumMac",
-            dependencies: ["AgendumMacCore"]
+            dependencies: ["AgendumMacCore", "AgendumMacWorkflow"]
         ),
         .testTarget(
             name: "AgendumMacCoreTests",
             dependencies: ["AgendumMacCore"]
+        ),
+        .testTarget(
+            name: "AgendumMacWorkflowTests",
+            dependencies: ["AgendumMacWorkflow"]
         )
     ]
 )

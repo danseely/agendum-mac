@@ -1,0 +1,461 @@
+@testable import AgendumMacWorkflow
+import AgendumMacCore
+import XCTest
+
+@MainActor
+final class TaskWorkflowModelTests: XCTestCase {
+    func testRefreshLoadsWorkspaceAuthSyncAndTasks() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, title: "Review release workflow", source: "pr_review", seen: false)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refresh()
+
+        XCTAssertEqual(model.workspace?.id, "base")
+        XCTAssertEqual(model.workspaces.map(\.id), ["base", "example-org"])
+        XCTAssertEqual(model.auth?.username, "dan")
+        XCTAssertEqual(model.sync?.state, "idle")
+        XCTAssertEqual(model.tasks.map(\.id), [17])
+        XCTAssertEqual(model.tasks[0].source, .review)
+        XCTAssertNil(model.errorMessage)
+        XCTAssertFalse(model.isLoading)
+        let calls = await backend.calls
+        XCTAssertEqual(calls, ["currentWorkspace", "listWorkspaces", "authStatus", "syncStatus", "listTasks"])
+    }
+
+    func testRefreshFailureClearsTasksAndSurfacesError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        await backend.failNext("currentWorkspace", message: "workspace failed")
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refresh()
+
+        XCTAssertTrue(model.tasks.isEmpty)
+        XCTAssertEqual(model.errorMessage, "workspace failed")
+        XCTAssertFalse(model.isLoading)
+    }
+
+    func testSelectWorkspaceNoOpsForCurrentWorkspaceAndLoadsSelectedWorkspace() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+
+        await model.selectWorkspace(id: "base")
+
+        let noOpCalls = await backend.calls
+        XCTAssertEqual(noOpCalls, [])
+
+        await backend.setTasks([task(id: 22, title: "Org task", source: "manual")])
+        await model.selectWorkspace(id: "example-org")
+
+        XCTAssertEqual(model.workspace?.id, "example-org")
+        XCTAssertEqual(model.auth?.workspaceGhConfigDir, "/tmp/agendum/workspaces/example-org/gh")
+        XCTAssertEqual(model.sync?.state, "idle")
+        XCTAssertEqual(model.tasks.map(\.id), [22])
+        XCTAssertNil(model.errorMessage)
+        let calls = await backend.calls
+        XCTAssertEqual(calls, ["selectWorkspace:example-org", "listWorkspaces", "listTasks"])
+    }
+
+    func testSelectWorkspaceFailureClearsTasksAndSurfacesError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        await backend.failNext("selectWorkspace", message: "select failed")
+
+        await model.selectWorkspace(id: "example-org")
+
+        XCTAssertTrue(model.tasks.isEmpty)
+        XCTAssertEqual(model.errorMessage, "select failed")
+        let calls = await backend.calls
+        XCTAssertEqual(calls, ["selectWorkspace:example-org"])
+    }
+
+    func testForceSyncPollsUntilTerminalStateAndReloadsTasks() async throws {
+        let backend = FakeBackend()
+        await backend.setForceSyncStatus(sync(state: "running"))
+        await backend.setSyncStatusQueue([sync(state: "running"), sync(state: "idle", changes: 3)])
+        await backend.setTasks([task(id: 31, title: "Synced task")])
+        let sleepRecorder = SleepRecorder()
+        let model = BackendStatusModel(
+            client: backend,
+            syncPollIntervalNanoseconds: 10,
+            maxSyncPollAttempts: 5,
+            sleep: { nanoseconds in await sleepRecorder.record(nanoseconds) }
+        )
+
+        await model.forceSync()
+
+        XCTAssertEqual(model.sync, sync(state: "idle", changes: 3))
+        XCTAssertEqual(model.tasks.map(\.id), [31])
+        XCTAssertNil(model.errorMessage)
+        let sleeps = await sleepRecorder.values
+        let calls = await backend.calls
+        XCTAssertEqual(sleeps, [10, 10])
+        XCTAssertEqual(calls, ["forceSync", "syncStatus", "syncStatus", "listTasks"])
+    }
+
+    func testForceSyncPollingFailureKeepsTasksAndSurfacesError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, title: "Existing")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        await backend.setForceSyncStatus(sync(state: "running"))
+        await backend.failNext("syncStatus", message: "poll failed")
+
+        await model.forceSync()
+
+        XCTAssertEqual(model.tasks.map(\.id), [17])
+        XCTAssertEqual(model.sync?.state, "running")
+        XCTAssertEqual(model.errorMessage, "poll failed")
+        let calls = await backend.calls
+        XCTAssertEqual(calls, ["forceSync", "syncStatus"])
+    }
+
+    func testDashboardCommandsShareSyncPath() async throws {
+        let commands = TaskDashboardCommands.standard
+        XCTAssertEqual(commands.menuSync, .sync)
+        XCTAssertEqual(commands.toolbarSync, .sync)
+
+        let backend = FakeBackend()
+        await backend.setForceSyncStatus(sync(state: "idle", changes: 1))
+        await backend.setTasks([task(id: 42)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await commands.menuSync.perform(on: model)
+        await commands.toolbarSync.perform(on: model)
+
+        XCTAssertEqual(model.sync, sync(state: "idle", changes: 1))
+        let calls = await backend.calls
+        XCTAssertEqual(calls, ["forceSync", "listTasks", "forceSync", "listTasks"])
+    }
+
+    func testDashboardRefreshCommandUsesRefreshPath() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await TaskDashboardCommands.standard.toolbarRefresh.perform(on: model)
+
+        XCTAssertEqual(model.tasks.map(\.id), [17])
+        let calls = await backend.calls
+        XCTAssertEqual(calls, ["currentWorkspace", "listWorkspaces", "authStatus", "syncStatus", "listTasks"])
+    }
+
+    func testTaskActionsCallBackendAndReloadTasks() async throws {
+        let cases: [(String, (BackendStatusModel) async -> Void)] = [
+            ("markTaskSeen:17", { await $0.markSeen(id: 17) }),
+            ("markTaskReviewed:17", { await $0.markReviewed(id: 17) }),
+            ("markTaskInProgress:17", { await $0.markInProgress(id: 17) }),
+            ("moveTaskToBacklog:17", { await $0.moveToBacklog(id: 17) }),
+            ("markTaskDone:17", { await $0.markDone(id: 17) }),
+            ("removeTask:17", { await $0.removeTask(id: 17) }),
+        ]
+
+        for (expectedCall, action) in cases {
+            let backend = FakeBackend()
+            await backend.setTasks([task(id: 99, title: "Reloaded")])
+            let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+            await action(model)
+
+            XCTAssertEqual(model.tasks.map(\.id), [99], expectedCall)
+            let calls = await backend.calls
+            XCTAssertEqual(calls, [expectedCall, "listTasks"], expectedCall)
+            XCTAssertNil(model.errorMessage, expectedCall)
+        }
+    }
+
+    func testTaskActionFailureLeavesExistingTasksUntouched() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, title: "Existing")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        await backend.failNext("markTaskDone", message: "done failed")
+
+        await model.markDone(id: 17)
+
+        XCTAssertEqual(model.tasks.map(\.id), [17])
+        XCTAssertEqual(model.errorMessage, "done failed")
+        let calls = await backend.calls
+        XCTAssertEqual(calls, ["markTaskDone:17"])
+    }
+
+    func testDetailActionAvailability() {
+        let review = TaskItem(task: task(id: 1, source: "pr_review", url: "https://github.com/danseely/agendum-mac/pull/1", seen: false))
+        XCTAssertEqual(review.availableDetailActions, [.openBrowser, .markSeen, .markReviewed, .remove])
+
+        let manualBacklog = TaskItem(task: task(id: 2, source: "manual", status: "backlog", url: nil))
+        XCTAssertEqual(manualBacklog.availableDetailActions, [.markInProgress, .markDone, .remove])
+
+        let manualInProgress = TaskItem(task: task(id: 3, source: "manual", status: "in progress", url: nil))
+        XCTAssertEqual(manualInProgress.availableDetailActions, [.moveToBacklog, .markDone, .remove])
+
+        let issue = TaskItem(task: task(id: 4, source: "issue", url: nil))
+        XCTAssertEqual(issue.availableDetailActions, [.remove])
+    }
+}
+
+private actor SleepRecorder {
+    private(set) var values: [UInt64] = []
+
+    func record(_ value: UInt64) {
+        values.append(value)
+    }
+}
+
+private actor FakeBackend: AgendumBackendServicing {
+    private(set) var calls: [String] = []
+    private var failures: [String: TestError] = [:]
+    private var current = workspace(id: "base", namespace: nil, isCurrent: true)
+    private var workspaceOptions = [
+        workspace(id: "base", namespace: nil, isCurrent: true),
+        workspace(id: "example-org", namespace: "example-org", isCurrent: false),
+    ]
+    private var currentAuth = auth(namespace: nil)
+    private var currentSync = sync(state: "idle")
+    private var forceSyncResult = sync(state: "idle")
+    private var syncStatusQueue: [SyncStatus] = []
+    private var currentTasks: [AgendumTask] = []
+
+    func resetCalls() {
+        calls = []
+    }
+
+    func setTasks(_ tasks: [AgendumTask]) {
+        currentTasks = tasks
+    }
+
+    func setForceSyncStatus(_ status: SyncStatus) {
+        forceSyncResult = status
+    }
+
+    func setSyncStatusQueue(_ statuses: [SyncStatus]) {
+        syncStatusQueue = statuses
+    }
+
+    func failNext(_ method: String, message: String) {
+        failures[method] = TestError(description: message)
+    }
+
+    func currentWorkspace() async throws -> Workspace {
+        try failIfNeeded("currentWorkspace")
+        calls.append("currentWorkspace")
+        return current
+    }
+
+    func listWorkspaces() async throws -> [Workspace] {
+        try failIfNeeded("listWorkspaces")
+        calls.append("listWorkspaces")
+        return workspaceOptions
+    }
+
+    func selectWorkspace(namespace: String?) async throws -> WorkspaceSelection {
+        calls.append("selectWorkspace:\(namespace ?? "base")")
+        try failIfNeeded("selectWorkspace")
+        current = workspace(id: namespace ?? "base", namespace: namespace, isCurrent: true)
+        workspaceOptions = workspaceOptions.map {
+            workspace(id: $0.id, namespace: $0.namespace, isCurrent: $0.namespace == namespace)
+        }
+        currentAuth = auth(namespace: namespace)
+        currentSync = sync(state: "idle")
+        return selection(namespace: namespace)
+    }
+
+    func listTasks(source: String?, status: String?, project: String?, includeSeen: Bool, limit: Int) async throws -> [AgendumTask] {
+        try failIfNeeded("listTasks")
+        calls.append("listTasks")
+        return currentTasks
+    }
+
+    func getTask(id: Int) async throws -> AgendumTask? {
+        try failIfNeeded("getTask")
+        calls.append("getTask:\(id)")
+        return currentTasks.first { $0.id == id }
+    }
+
+    func markTaskReviewed(id: Int) async throws -> AgendumTask {
+        try taskAction("markTaskReviewed", id: id)
+    }
+
+    func markTaskInProgress(id: Int) async throws -> AgendumTask {
+        try taskAction("markTaskInProgress", id: id)
+    }
+
+    func moveTaskToBacklog(id: Int) async throws -> AgendumTask {
+        try taskAction("moveTaskToBacklog", id: id)
+    }
+
+    func markTaskDone(id: Int) async throws -> AgendumTask {
+        try taskAction("markTaskDone", id: id)
+    }
+
+    func markTaskSeen(id: Int) async throws -> AgendumTask {
+        try taskAction("markTaskSeen", id: id)
+    }
+
+    func removeTask(id: Int) async throws -> Bool {
+        try failIfNeeded("removeTask")
+        calls.append("removeTask:\(id)")
+        return true
+    }
+
+    func syncStatus() async throws -> SyncStatus {
+        calls.append("syncStatus")
+        try failIfNeeded("syncStatus")
+        if !syncStatusQueue.isEmpty {
+            currentSync = syncStatusQueue.removeFirst()
+        }
+        return currentSync
+    }
+
+    func forceSync() async throws -> SyncStatus {
+        try failIfNeeded("forceSync")
+        calls.append("forceSync")
+        currentSync = forceSyncResult
+        return forceSyncResult
+    }
+
+    func authStatus() async throws -> AuthStatus {
+        try failIfNeeded("authStatus")
+        calls.append("authStatus")
+        return currentAuth
+    }
+
+    private func taskAction(_ method: String, id: Int) throws -> AgendumTask {
+        calls.append("\(method):\(id)")
+        try failIfNeeded(method)
+        return currentTasks.first { $0.id == id } ?? task(id: id)
+    }
+
+    private func failIfNeeded(_ method: String) throws {
+        if let error = failures.removeValue(forKey: method) {
+            throw error
+        }
+    }
+}
+
+private struct TestError: Error, CustomStringConvertible {
+    let description: String
+}
+
+private let immediateSleep: @Sendable (UInt64) async throws -> Void = { _ in }
+
+private func workspace(id: String, namespace: String?, isCurrent: Bool = false) -> Workspace {
+    decode(
+        """
+        {
+            "id": "\(id)",
+            "namespace": \(namespace.map { "\"\($0)\"" } ?? "null"),
+            "displayName": "\(namespace ?? "Base")",
+            "configPath": "/tmp/agendum/config.toml",
+            "dbPath": "/tmp/agendum/agendum.db",
+            "isCurrent": \(isCurrent)
+        }
+        """
+    )
+}
+
+private func auth(namespace: String?) -> AuthStatus {
+    decode(
+        """
+        {
+            "ghFound": true,
+            "ghPath": "/opt/homebrew/bin/gh",
+            "authenticated": true,
+            "username": "dan",
+            "workspaceGhConfigDir": "/tmp/agendum\(namespace.map { "/workspaces/\($0)" } ?? "")/gh",
+            "repairInstructions": null
+        }
+        """
+    )
+}
+
+private func sync(state: String, changes: Int = 0, lastError: String? = nil) -> SyncStatus {
+    decode(
+        """
+        {
+            "state": "\(state)",
+            "lastSyncAt": null,
+            "lastError": \(lastError.map { "\"\($0)\"" } ?? "null"),
+            "changes": \(changes),
+            "hasAttentionItems": false
+        }
+        """
+    )
+}
+
+private func selection(namespace: String?) -> WorkspaceSelection {
+    let id = namespace ?? "base"
+    let value: WorkspaceSelection = decode(
+        """
+        {
+            "workspace": {
+                "id": "\(id)",
+                "namespace": \(namespace.map { "\"\($0)\"" } ?? "null"),
+                "displayName": "\(namespace ?? "Base")",
+                "configPath": "/tmp/agendum/config.toml",
+                "dbPath": "/tmp/agendum/agendum.db",
+                "isCurrent": true
+            },
+            "auth": {
+                "ghFound": true,
+                "ghPath": "/opt/homebrew/bin/gh",
+                "authenticated": true,
+                "username": "dan",
+                "workspaceGhConfigDir": "/tmp/agendum\(namespace.map { "/workspaces/\($0)" } ?? "")/gh",
+                "repairInstructions": null
+            },
+            "sync": {
+                "state": "idle",
+                "lastSyncAt": null,
+                "lastError": null,
+                "changes": 0,
+                "hasAttentionItems": false
+            }
+        }
+        """
+    )
+    return value
+}
+
+private func task(
+    id: Int,
+    title: String = "Task",
+    source: String = "manual",
+    status: String = "backlog",
+    url: String? = nil,
+    seen: Bool = true
+) -> AgendumTask {
+    decode(
+        """
+        {
+            "id": \(id),
+            "title": "\(title)",
+            "source": "\(source)",
+            "status": "\(status)",
+            "project": "agendum-mac",
+            "ghRepo": null,
+            "ghUrl": \(url.map { "\"\($0)\"" } ?? "null"),
+            "ghNumber": null,
+            "ghAuthor": null,
+            "ghAuthorName": null,
+            "tags": [],
+            "seen": \(seen),
+            "lastChangedAt": null,
+            "updatedAt": null
+        }
+        """
+    )
+}
+
+private func decode<Value: Decodable>(_ json: String) -> Value {
+    try! JSONDecoder().decode(Value.self, from: Data(json.utf8))
+}
