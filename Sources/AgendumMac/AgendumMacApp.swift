@@ -31,6 +31,7 @@ struct AgendumMacApp: App {
 private struct TaskDashboardView: View {
     @State private var selection: TaskSource? = .authored
     @State private var selectedTask: TaskItem.ID?
+    @State private var isShowingCreateManualTask = false
     @ObservedObject var backendStatus: BackendStatusModel
     let commands: TaskDashboardCommands
 
@@ -55,6 +56,14 @@ private struct TaskDashboardView: View {
             .toolbar {
                 ToolbarItem {
                     Button {
+                        isShowingCreateManualTask = true
+                    } label: {
+                        Label("New Task", systemImage: "plus")
+                    }
+                    .disabled(backendStatus.isLoading)
+                }
+                ToolbarItem {
+                    Button {
                         selectedTask = nil
                         Task {
                             await commands.toolbarRefresh.perform(on: backendStatus)
@@ -75,6 +84,21 @@ private struct TaskDashboardView: View {
                     }
                     .disabled(backendStatus.isLoading)
                 }
+            }
+            .sheet(isPresented: $isShowingCreateManualTask) {
+                CreateManualTaskSheet(
+                    isLoading: backendStatus.isLoading,
+                    create: { title, project, tags in
+                        await backendStatus.createManualTask(
+                            title: title,
+                            project: project,
+                            tags: tags
+                        )
+                    },
+                    dismiss: {
+                        isShowingCreateManualTask = false
+                    }
+                )
             }
         } detail: {
             if let task = selectedTask.flatMap(taskByID) {
@@ -318,6 +342,74 @@ private struct TaskDetail: View {
         }
         .padding(24)
         .frame(minWidth: 340, alignment: .topLeading)
+    }
+}
+
+private struct CreateManualTaskSheet: View {
+    let isLoading: Bool
+    let create: (String, String?, [String]?) async -> Bool
+    let dismiss: () -> Void
+
+    @State private var title: String = ""
+    @State private var project: String = ""
+    @State private var tagsInput: String = ""
+    @State private var isSubmitting = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("New Manual Task")
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            Form {
+                TextField("Title", text: $title)
+                TextField("Project (optional)", text: $project)
+                TextField("Tags (comma separated, optional)", text: $tagsInput)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) {
+                    dismiss()
+                }
+                .disabled(isSubmitting)
+
+                Button("Create") {
+                    submit()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(isSubmitting || isLoading || trimmedTitle.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 380)
+    }
+
+    private var trimmedTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func submit() {
+        let titleValue = trimmedTitle
+        guard !titleValue.isEmpty else { return }
+
+        let projectTrimmed = project.trimmingCharacters(in: .whitespacesAndNewlines)
+        let projectValue = projectTrimmed.isEmpty ? nil : projectTrimmed
+
+        let parsedTags = tagsInput
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let tagsValue = parsedTags.isEmpty ? nil : parsedTags
+
+        isSubmitting = true
+        Task {
+            let succeeded = await create(titleValue, projectValue, tagsValue)
+            isSubmitting = false
+            if succeeded {
+                dismiss()
+            }
+        }
     }
 }
 

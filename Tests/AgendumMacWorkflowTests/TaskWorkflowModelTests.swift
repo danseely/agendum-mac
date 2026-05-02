@@ -193,6 +193,48 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertEqual(calls, ["markTaskDone:17"])
     }
 
+    func testCreateManualTaskSucceedsAndReloadsTasks() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 99, title: "Created via fake", source: "manual")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        let succeeded = await model.createManualTask(
+            title: "Sketch backend contract",
+            project: "agendum-mac",
+            tags: ["planning", "design"]
+        )
+
+        XCTAssertTrue(succeeded)
+        XCTAssertEqual(model.tasks.map(\.id), [99])
+        XCTAssertNil(model.errorMessage)
+        XCTAssertFalse(model.isLoading)
+        let calls = await backend.calls
+        XCTAssertEqual(
+            calls,
+            [
+                "createManualTask:Sketch backend contract|agendum-mac|[planning,design]",
+                "listTasks",
+            ]
+        )
+    }
+
+    func testCreateManualTaskFailureKeepsExistingTasksAndSurfacesError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, title: "Existing")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        await backend.failNext("createManualTask", message: "create failed")
+
+        let succeeded = await model.createManualTask(title: "New", project: nil, tags: nil)
+
+        XCTAssertFalse(succeeded)
+        XCTAssertEqual(model.tasks.map(\.id), [17])
+        XCTAssertEqual(model.errorMessage, "create failed")
+        let calls = await backend.calls
+        XCTAssertEqual(calls, ["createManualTask:New|nil|nil"])
+    }
+
     func testDetailActionAvailability() {
         let review = TaskItem(task: task(id: 1, source: "pr_review", url: "https://github.com/danseely/agendum-mac/pull/1", seen: false))
         XCTAssertEqual(review.availableDetailActions, [.openBrowser, .markSeen, .markReviewed, .remove])
@@ -332,6 +374,14 @@ private actor FakeBackend: AgendumBackendServicing {
         try failIfNeeded("authStatus")
         calls.append("authStatus")
         return currentAuth
+    }
+
+    func createManualTask(title: String, project: String?, tags: [String]?) async throws -> AgendumTask {
+        let projectLabel = project ?? "nil"
+        let tagsLabel = tags.map { "[" + $0.joined(separator: ",") + "]" } ?? "nil"
+        calls.append("createManualTask:\(title)|\(projectLabel)|\(tagsLabel)")
+        try failIfNeeded("createManualTask")
+        return task(id: 99, title: title, source: "manual", status: "backlog", url: nil)
     }
 
     private func taskAction(_ method: String, id: Int) throws -> AgendumTask {

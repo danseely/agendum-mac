@@ -17,6 +17,7 @@ public protocol AgendumBackendServicing: Sendable {
     func syncStatus() async throws -> SyncStatus
     func forceSync() async throws -> SyncStatus
     func authStatus() async throws -> AuthStatus
+    func createManualTask(title: String, project: String?, tags: [String]?) async throws -> AgendumTask
 }
 
 extension AgendumBackendClient: AgendumBackendServicing {}
@@ -273,6 +274,26 @@ public final class BackendStatusModel: ObservableObject {
     public func removeTask(id: TaskItem.ID) async {
         await performTaskAction {
             _ = try await client.removeTask(id: id)
+        }
+    }
+
+    @discardableResult
+    public func createManualTask(
+        title: String,
+        project: String? = nil,
+        tags: [String]? = nil
+    ) async -> Bool {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            _ = try await client.createManualTask(title: title, project: project, tags: tags)
+            tasks = try await loadTaskItems()
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = String(describing: error)
+            return false
         }
     }
 

@@ -461,6 +461,123 @@ class BackendHelperTests(unittest.TestCase):
             self.assertTrue(missing["ok"])
             self.assertIsNone(missing["payload"]["task"])
 
+    def test_task_create_manual_persists_task_and_returns_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = HelperState(base_dir=root)
+
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "create-manual",
+                    "command": "task.createManual",
+                    "payload": {
+                        "title": "  Sketch Mac backend contract  ",
+                        "project": "agendum-mac",
+                        "tags": ["planning", "design"],
+                    },
+                },
+                state,
+            )
+
+            self.assertTrue(response["ok"])
+            task = response["payload"]["task"]
+            self.assertEqual(task["title"], "Sketch Mac backend contract")
+            self.assertEqual(task["source"], "manual")
+            self.assertEqual(task["status"], "backlog")
+            self.assertEqual(task["project"], "agendum-mac")
+            self.assertEqual(task["tags"], ["planning", "design"])
+            self.assertIsNone(task["ghUrl"])
+            self.assertIsInstance(task["id"], int)
+
+            listed = handle_request(
+                {
+                    "version": 1,
+                    "id": "after-create",
+                    "command": "task.list",
+                    "payload": {},
+                },
+                state,
+            )
+            self.assertTrue(listed["ok"])
+            self.assertEqual(len(listed["payload"]["tasks"]), 1)
+            self.assertEqual(listed["payload"]["tasks"][0]["id"], task["id"])
+            self.assertEqual(listed["payload"]["tasks"][0]["title"], "Sketch Mac backend contract")
+
+    def test_task_create_manual_accepts_minimal_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "create-manual-minimal",
+                    "command": "task.createManual",
+                    "payload": {"title": "Minimal task"},
+                },
+                HelperState(base_dir=Path(tmp)),
+            )
+
+            self.assertTrue(response["ok"])
+            task = response["payload"]["task"]
+            self.assertEqual(task["title"], "Minimal task")
+            self.assertEqual(task["source"], "manual")
+            self.assertEqual(task["status"], "backlog")
+            self.assertIsNone(task["project"])
+            self.assertEqual(task["tags"], [])
+
+    def test_task_create_manual_uses_selected_workspace_database(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = HelperState(base_dir=root, namespace="example-org")
+
+            response = handle_request(
+                {
+                    "version": 1,
+                    "id": "create-manual-namespace",
+                    "command": "task.createManual",
+                    "payload": {"title": "Namespaced manual task"},
+                },
+                state,
+            )
+
+            self.assertTrue(response["ok"])
+            task = response["payload"]["task"]
+            self.assertEqual(task["title"], "Namespaced manual task")
+
+            namespace_db = root / "workspaces" / "example-org" / "agendum.db"
+            self.assertTrue(namespace_db.exists())
+            base_db = root / "agendum.db"
+            self.assertFalse(base_db.exists())
+
+    def test_task_create_manual_rejects_invalid_payloads(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+
+            cases = [
+                ({}, "Manual task title is required."),
+                ({"title": 42}, "Manual task title must be a string."),
+                ({"title": "   "}, "Manual task title must not be blank."),
+                ({"title": "ok", "project": ""}, "Manual task project must not be blank when provided."),
+                ({"title": "ok", "project": 7}, "Manual task project must be a string or null."),
+                ({"title": "ok", "tags": "planning"}, "Manual task tags must be a list of strings or null."),
+                ({"title": "ok", "tags": ["planning", 5]}, "Manual task tags must be a list of strings or null."),
+                ({"title": "ok", "tags": ["planning", "  "]}, "Manual task tags must not contain blank strings."),
+            ]
+
+            for payload, expected_message in cases:
+                with self.subTest(payload=payload):
+                    response = handle_request(
+                        {
+                            "version": 1,
+                            "id": "bad-create-manual",
+                            "command": "task.createManual",
+                            "payload": payload,
+                        },
+                        state,
+                    )
+                    self.assertFalse(response["ok"], msg=str(payload))
+                    self.assertEqual(response["error"]["code"], "payload.invalid")
+                    self.assertEqual(response["error"]["message"], expected_message)
+
     def test_task_actions_update_or_remove_task(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

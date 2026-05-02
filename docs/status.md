@@ -3,7 +3,7 @@
 Last updated: 2026-05-02
 
 ## Current milestone
-SwiftUI workflow coverage merged in PR #10 into `feature/mac-prototype`. Manual task creation UX is the next checkpoint, on a new short-lived branch from updated `feature/mac-prototype`.
+Manual task creation UX is implemented on `codex/manual-task-creation`. The next short-lived branch from updated `feature/mac-prototype` should pick up any remaining live-slice gap once this checkpoint merges.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -117,18 +117,22 @@ SwiftUI workflow coverage merged in PR #10 into `feature/mac-prototype`. Manual 
 - Addressed PR #10 review feedback: restructured `testRefreshFailureClearsTasksAndSurfacesError` so a successful refresh populates tasks before the failing refresh proves the catch's tasks clear, and expanded the 2026-05-02 entry in `docs/decisions.md` to name `AgendumBackendServicing` and `TaskDashboardCommands` alongside the `AgendumMacWorkflow` target.
 - PR #10 was marked ready and merged into `feature/mac-prototype` after passing CI and a clean local review pass.
 - Fast-forwarded local `feature/mac-prototype` after PR #10 and created the next short-lived branch for the manual task creation UX checkpoint.
+- Implemented `task.createManual` in `Backend/agendum_backend/helper.py` delegating to `agendum.task_api.create_manual_task`, with title/project/tags payload validation that rejects blank strings and non-string tag entries.
+- Added backend unit tests in `Tests/test_backend_helper.py` for full payload, minimal payload, selected-namespace DB usage, and invalid payloads.
+- Added a subprocess JSONL test in `Tests/test_backend_helper_process.py` that creates a manual task, lists tasks through the same helper process, and verifies invalid payloads return enveloped errors.
+- Added `createManualTask(title:project:tags:)` to `Sources/AgendumMacCore/BackendClient.swift` with a request payload that omits nil `project`/`tags` keys, and added a request/response Swift client test.
+- Added `createManualTask(...)` to `BackendStatusModel` plus `AgendumBackendServicing`, with fake-backed workflow tests covering success/reload and failure-keeps-existing-tasks behavior.
+- Wired a SwiftUI "New Task" toolbar button and `CreateManualTaskSheet` form that submits through `BackendStatusModel.createManualTask` and dismisses only on success.
 
 ## In progress
-- None. `codex/manual-task-creation` is freshly cut from the post-PR-#10 tip; the manual task creation UX checkpoint is queued, not yet started.
+- None. The manual task creation UX checkpoint is implemented and validated locally on `codex/manual-task-creation`; opening a draft PR against `feature/mac-prototype` is the next external action.
 
 ## Blocked
 - None.
 
 ## Next
-- Implement `task.createManual` in `Backend/agendum_backend/helper.py` per `docs/backend-contract.md`.
-- Add backend unit and subprocess tests for manual task creation, including invalid payloads.
-- Add a Swift client method and tests for `task.createManual` in `AgendumMacCore`.
-- Wire a SwiftUI manual-task-create flow that refreshes the dashboard after creation.
+- Push `codex/manual-task-creation` and open a draft PR against `feature/mac-prototype`.
+- Run blind PR review and address findings before marking ready.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.

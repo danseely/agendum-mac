@@ -229,6 +229,21 @@ public actor AgendumBackendClient {
         return payload.task
     }
 
+    public func createManualTask(
+        title: String,
+        project: String? = nil,
+        tags: [String]? = nil
+    ) async throws -> AgendumTask {
+        let payload: TaskResponsePayload = try await send(
+            command: "task.createManual",
+            payload: TaskCreateManualRequestPayload(title: title, project: project, tags: tags)
+        )
+        guard let task = payload.task else {
+            throw BackendClientError.invalidResponse("Backend helper response did not include a task.")
+        }
+        return task
+    }
+
     public func markTaskReviewed(id: Int) async throws -> AgendumTask {
         try await taskAction(command: "task.markReviewed", id: id)
     }
@@ -537,6 +552,12 @@ private struct TaskListResponsePayload: Decodable {
 
 private struct TaskIDRequestPayload: Encodable, Sendable {
     let id: Int
+}
+
+private struct TaskCreateManualRequestPayload: Encodable, Sendable {
+    let title: String
+    let project: String?
+    let tags: [String]?
 }
 
 private struct TaskResponsePayload: Decodable {
