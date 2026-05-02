@@ -94,9 +94,10 @@ Task detail refresh, task actions, and sync wiring are implemented on `codex/tas
 - Focused PR #9 review found and fixed two issues: unexpected sync exceptions now produce an error sync status instead of leaving helper state `running`, and SwiftUI manual status actions are limited to backend `manual` tasks instead of all items in the Issues & Manual section.
 - Local review-fix validation passed: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` ran 40 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` reported 405/428 lines (94.6%), `swift build` passed, `swift test --enable-code-coverage` ran 11 tests, and `git diff --check` passed.
 - PR #9 review fixes were pushed and GitHub Actions `Test` passed on the updated branch.
+- `swift run AgendumMac` built the app and stayed running until manually interrupted after a brief launch smoke test; no immediate startup crash was observed.
 
 ## In progress
-- Manual `swift run AgendumMac` smoke test remains pending for the live UI slice.
+- PR #9 is ready for final readiness/merge decision, subject to explicit approval.
 
 ## Blocked
 - None.
@@ -105,5 +106,5 @@ Task detail refresh, task actions, and sync wiring are implemented on `codex/tas
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Decide whether to run a manual `swift run AgendumMac` smoke test before marking PR #9 ready.
+- Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
 - Keep `feature/mac-prototype` as the broad integration branch.
