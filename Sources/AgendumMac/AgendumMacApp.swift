@@ -206,15 +206,42 @@ private struct BackendStatusPanel: View {
                 .foregroundStyle(status.auth?.authenticated == true ? Color.secondary : Color.orange)
                 .lineLimit(1)
 
-            Label(status.syncLabel, systemImage: status.sync?.state == "error" ? "exclamationmark.arrow.triangle.2.circlepath" : "arrow.triangle.2.circlepath")
-                .foregroundStyle(status.sync?.state == "error" ? Color.red : Color.secondary)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Label(status.syncLabel, systemImage: status.sync?.state == "error" ? "exclamationmark.arrow.triangle.2.circlepath" : "arrow.triangle.2.circlepath")
+                        .foregroundStyle(status.sync?.state == "error" ? Color.red : Color.secondary)
+                        .lineLimit(1)
+                        .accessibilityIdentifier("sync-status-state")
+                    if status.hasAttentionItems {
+                        Image(systemName: "exclamationmark.circle")
+                            .foregroundStyle(.orange)
+                            .accessibilityIdentifier("sync-status-attention-indicator")
+                    }
+                }
+                if let lastSyncLabel = status.lastSyncLabel {
+                    Text(lastSyncLabel)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .accessibilityIdentifier("sync-status-last-synced")
+                }
+            }
 
-            if let errorMessage = status.errorMessage {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(3)
+            if let error = status.error {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(error.message)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .lineLimit(3)
+                        .accessibilityIdentifier("backend-error-message")
+                    if let recovery = error.recovery {
+                        Text(recovery)
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            .lineLimit(3)
+                            .accessibilityIdentifier("backend-error-recovery")
+                    }
+                }
             }
         }
         .font(.caption)
@@ -257,7 +284,7 @@ private struct TaskDetail: View {
 
     let task: TaskItem
     let isLoading: Bool
-    let actionError: String?
+    let actionError: PresentedError?
     let markSeen: () async -> Void
     let markReviewed: () async -> Void
     let markInProgress: () async -> Void
@@ -347,11 +374,20 @@ private struct TaskDetail: View {
             }
 
             if let actionError {
-                Text(actionError)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(3)
-                    .accessibilityIdentifier("task-action-error")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(actionError.message)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .lineLimit(3)
+                        .accessibilityIdentifier("task-action-error")
+                    if let recovery = actionError.recovery {
+                        Text(recovery)
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            .lineLimit(3)
+                            .accessibilityIdentifier("task-action-error-recovery")
+                    }
+                }
             }
 
             Spacer()
