@@ -1,18 +1,19 @@
 # Handoff
 
 ## Current objective
-Prepare for the SwiftUI workflow coverage checkpoint after PR #9 merged task detail/actions/sync wiring.
+Start the manual task creation UX checkpoint on a new short-lived branch from updated `feature/mac-prototype`.
 
 ## Branch
-`feature/mac-prototype` after fast-forwarding the PR #9 merge.
+`codex/manual-task-creation`, branched from updated `feature/mac-prototype` after PR #10 merged.
 
 ## Repo state
-- HEAD: `feature/mac-prototype`; run `git rev-parse --short HEAD` for the current commit after pulling the PR #9 merge.
-- Integration branch: `feature/mac-prototype`; PR #9 is merged.
-- Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
+- HEAD: `codex/manual-task-creation`; local branch starts from the post-PR-#10 tip of `feature/mac-prototype`.
+- Integration branch: `feature/mac-prototype`; PR #10 is merged.
+- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/10`, merged into `feature/mac-prototype` on 2026-05-02.
+- Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/9`, merged into `feature/mac-prototype`.
+- Workspace selection PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
 - Post-merge docs update: PR #8 merged into `feature/mac-prototype` on 2026-05-01.
-- Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/9`, merged into `feature/mac-prototype`.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
@@ -22,7 +23,7 @@ Prepare for the SwiftUI workflow coverage checkpoint after PR #9 merged task det
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree after merge cleanup should be clean on `feature/mac-prototype`.
+- Working tree is clean on `codex/manual-task-creation`.
 - Last validation date: 2026-05-02
 
 ## Completed
@@ -133,6 +134,23 @@ Prepare for the SwiftUI workflow coverage checkpoint after PR #9 merged task det
 - Ran a third fresh blind review of PR #9 at remote head `f764f9e`; it found no actionable bugs, regressions, contract drift, concurrency issues, missing required tests, or planning-doc drift. Residual risk remains deeper SwiftUI workflow coverage, especially force-sync polling and detail-pane actions.
 - Added a concrete SwiftUI workflow coverage checkpoint to `docs/testing.md`. The next coverage step is to extract `BackendStatusModel` or equivalent app workflow state into a testable target, inject a fake backend-client protocol, and cover refresh, workspace switching, force-sync polling, task actions, detail-pane action availability, and toolbar/menu sync convergence without launching the full app.
 - Marked PR #9 ready and merged it into `feature/mac-prototype`.
+- Fast-forwarded local `feature/mac-prototype` after the PR #9 merge and created `codex/swiftui-workflow-coverage`.
+- Added `AgendumMacWorkflow` in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`.
+- Moved `TaskItem`, `TaskSource`, and `BackendStatusModel` out of `Sources/AgendumMac/AgendumMacApp.swift` into the workflow target.
+- Added `AgendumBackendServicing` so workflow tests can inject a fake backend without launching SwiftUI or spawning the Python helper.
+- Added pure detail-pane action planning through `TaskItem.availableDetailActions`.
+- Wired the app menu `Sync Now` command and toolbar sync button to the same shared `BackendStatusModel.forceSync()` instance.
+- Added `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift` covering refresh success/failure, workspace switching/no-op behavior, force-sync polling, task action reloads, task action failure behavior, and detail-pane action availability.
+- Added `TaskDashboardCommands` so toolbar sync and menu sync share the same workflow command path, with fake-backed test coverage.
+- Committed the checkpoint as `2b78794` and pushed `codex/swiftui-workflow-coverage`.
+- Opened draft PR #10: `https://github.com/danseely/agendum-mac/pull/10`.
+- PR #10 GitHub Actions `Test` passed on run `25254571906`.
+- Marked PR #10 ready for review.
+- PR #10 GitHub Actions `Test` passed on run `25254607730` after the PR-readiness docs follow-up.
+- PR #10 GitHub Actions `Test` is passing at the time of this update.
+- Addressed PR #10 review feedback: restructured `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift::testRefreshFailureClearsTasksAndSurfacesError` so a successful refresh populates tasks before the failing refresh proves the catch's clear, and expanded the 2026-05-02 entry in `docs/decisions.md` to name `AgendumBackendServicing` and `TaskDashboardCommands` alongside the `AgendumMacWorkflow` target.
+- PR #10 was marked ready, passed GitHub Actions `Test`, and merged into `feature/mac-prototype` on 2026-05-02.
+- Fast-forwarded local `feature/mac-prototype` after the PR #10 merge and created `codex/manual-task-creation` from the updated tip.
 
 ## Validation
 - `swift build` passes.
@@ -184,6 +202,11 @@ Prepare for the SwiftUI workflow coverage checkpoint after PR #9 merged task det
 - PR #9 second blind-review fix GitHub Actions `Test` check passed after the fix push.
 - PR #9 third blind review checked passing GitHub Actions, clean `git diff --check origin/feature/mac-prototype...origin/codex/task-detail-actions-sync`, and targeted sync helper tests.
 - SwiftUI workflow coverage plan recorded in `docs/testing.md`; no implementation validation has run for that future checkpoint yet.
+- SwiftUI workflow checkpoint validation: `swift test --enable-code-coverage` passes with 22 Swift tests, including 11 `AgendumMacWorkflowTests`.
+- SwiftUI workflow checkpoint validation: `swift build` passes.
+- SwiftUI workflow checkpoint validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 43 tests.
+- SwiftUI workflow checkpoint validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 416/455 lines, 91.4% for `Backend/agendum_backend/helper.py`.
+- SwiftUI workflow checkpoint validation: `git diff --check` passes.
 - PR #9 final pre-merge GitHub Actions `Test` check passed before merge.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
@@ -211,8 +234,13 @@ Prepare for the SwiftUI workflow coverage checkpoint after PR #9 merged task det
 - `git diff --check` passes.
 - `python3 -m unittest discover -s Tests` fails in the current shell because `python3` resolves to pyenv Python 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 - Launch smoke completed with `swift run AgendumMac`; deeper UI workflow testing remains manual.
+- PR #10 review-fix validation: `swift build` passes, `swift test --enable-code-coverage` passes with 22 Swift tests, `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes with 43 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` reports 416/455 lines (91.4%) for `Backend/agendum_backend/helper.py`, and `git diff --check` passes.
+- PR #10 review-fix sanity check: temporarily removed the `tasks = []` clear in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift` `refresh()` catch and reran `swift test --filter TaskWorkflowModelTests/testRefreshFailureClearsTasksAndSurfacesError`; the test failed as expected, then passed again after restoring the line.
 
 ## Changed files
+- No code changes yet on `codex/manual-task-creation`; the branch starts clean from the updated `feature/mac-prototype` tip.
+- Expected next changes: `Backend/agendum_backend/helper.py`, `Tests/test_backend_helper.py`, `Tests/test_backend_helper_process.py`, `Sources/AgendumMacCore/BackendClient.swift`, `Tests/AgendumMacCoreTests/BackendClientTests.swift`, and `Sources/AgendumMac/AgendumMacApp.swift` (or the workflow target) for the SwiftUI manual-task-create flow.
+- PR #10 changed `Package.swift`, `Sources/AgendumMac/AgendumMacApp.swift`, `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`, `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`, and `docs/decisions.md`, `docs/status.md`, `docs/handoff.md`, `docs/plan.md`.
 - PR #9 changed `Backend/agendum_backend/helper.py`.
 - PR #9 changed `Sources/AgendumMacCore/BackendClient.swift`.
 - PR #9 changed `Sources/AgendumMac/AgendumMacApp.swift`.
@@ -231,12 +259,13 @@ Prepare for the SwiftUI workflow coverage checkpoint after PR #9 merged task det
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Fast-forward local `feature/mac-prototype` and clean up the merged `codex/task-detail-actions-sync` branch/tracking artifacts.
-2. Create a new short-lived branch from `feature/mac-prototype` for SwiftUI workflow coverage.
-3. Start the SwiftUI workflow coverage checkpoint: extract testable workflow state, inject a fake backend client, and cover force-sync polling/detail-pane actions.
+1. Implement `task.createManual` in `Backend/agendum_backend/helper.py` per `docs/backend-contract.md`, including title/project/tags validation and bridge-payload mapping.
+2. Add backend unit and subprocess tests in `Tests/test_backend_helper.py` and `Tests/test_backend_helper_process.py` for manual task creation, including invalid payloads and selected-namespace DB usage.
+3. Add `createManualTask(...)` to `Sources/AgendumMacCore/BackendClient.swift` with request encoding and response decoding tests in `Tests/AgendumMacCoreTests/BackendClientTests.swift`.
+4. Wire a SwiftUI manual-task-create flow that refreshes the dashboard after creation and add fake-backed workflow coverage in `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`.
 
 ## After checkpoint
-- Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
+- Continue toward any remaining live-slice gaps, especially richer sync lifecycle/error presentation.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
@@ -247,4 +276,7 @@ Prepare for the SwiftUI workflow coverage checkpoint after PR #9 merged task det
 - Blind-review sync-force finding confirmed implementation drift from `docs/backend-contract.md`; fixed by bringing `sync.force` behavior back in line with the contract.
 - Second blind-review finding confirmed test/documentation drift around subprocess coverage; fixed by adding the missing subprocess JSONL sync test.
 - Third blind review found no new drift.
-- SwiftUI workflow coverage remains a known residual risk, not a PR #9 blocker; it is now recorded as the next testing checkpoint.
+- SwiftUI workflow coverage residual risk has been reduced by the new fake-backed workflow target and tests.
+- No new unapproved drift found during the SwiftUI workflow extraction; the new `AgendumMacWorkflow` target is recorded in `docs/decisions.md`.
+- PR #10 review surfaced one test-intent gap (now fixed) and one decisions-log scope omission (now expanded), so the planning-handoff drift check approach continues to be useful.
+- No new unapproved drift after PR #10 merge; manual task creation UX is the next live-slice gap and was already named in earlier handoff `After checkpoint` notes.
