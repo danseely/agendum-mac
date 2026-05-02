@@ -172,6 +172,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - PR #9 blind-review fix validation: `swift build` passes.
 - PR #9 blind-review fix validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
 - PR #9 blind-review fix validation: `git diff --check` passes.
+- PR #9 blind-review fix GitHub Actions `Test` check passed after the fix push.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -220,9 +221,9 @@ Implement task detail refresh, task actions, and sync wiring.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Push blind-review fixes for PR #9 and confirm GitHub Actions on the new head.
-2. Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
-3. If PR #9 merges, fast-forward `feature/mac-prototype` and clean up the topic branch/worktree artifacts.
+1. Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
+2. If PR #9 merges, fast-forward `feature/mac-prototype` and clean up the topic branch/worktree artifacts.
+3. Continue toward remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
 
 ## After checkpoint
 - Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
