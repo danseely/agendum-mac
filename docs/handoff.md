@@ -1,19 +1,18 @@
 # Handoff
 
 ## Current objective
-Implement task detail refresh, task actions, and sync wiring.
+Prepare for the SwiftUI workflow coverage checkpoint after PR #9 merged task detail/actions/sync wiring.
 
 ## Branch
-`codex/task-detail-actions-sync`
+`feature/mac-prototype` after fast-forwarding the PR #9 merge.
 
 ## Repo state
-- HEAD: `codex/task-detail-actions-sync`; run `git rev-parse --short HEAD` for the current commit.
-- Integration branch: `feature/mac-prototype` at squash merge `42f06aa`.
+- HEAD: `feature/mac-prototype`; run `git rev-parse --short HEAD` for the current commit after pulling the PR #9 merge.
+- Integration branch: `feature/mac-prototype`; PR #9 is merged.
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
 - Post-merge docs update: PR #8 merged into `feature/mac-prototype` on 2026-05-01.
-- Current checkpoint branch: `codex/task-detail-actions-sync`, targeting `feature/mac-prototype`.
-- Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/9`, draft, clean merge state, targeting `feature/mac-prototype`.
+- Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/9`, merged into `feature/mac-prototype`.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
@@ -23,8 +22,8 @@ Implement task detail refresh, task actions, and sync wiring.
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: implementation committed and pushed; current task is keeping planning docs aligned with PR #9.
-- Last validation date: 2026-05-01
+- Working tree after merge cleanup should be clean on `feature/mac-prototype`.
+- Last validation date: 2026-05-02
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -133,6 +132,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - Added `Tests/test_backend_helper_process.py` coverage that keeps one helper process alive, sends `sync.force`, then polls `sync.status` over the same JSONL process until completion.
 - Ran a third fresh blind review of PR #9 at remote head `f764f9e`; it found no actionable bugs, regressions, contract drift, concurrency issues, missing required tests, or planning-doc drift. Residual risk remains deeper SwiftUI workflow coverage, especially force-sync polling and detail-pane actions.
 - Added a concrete SwiftUI workflow coverage checkpoint to `docs/testing.md`. The next coverage step is to extract `BackendStatusModel` or equivalent app workflow state into a testable target, inject a fake backend-client protocol, and cover refresh, workspace switching, force-sync polling, task actions, detail-pane action availability, and toolbar/menu sync convergence without launching the full app.
+- Marked PR #9 ready and merged it into `feature/mac-prototype`.
 
 ## Validation
 - `swift build` passes.
@@ -184,6 +184,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - PR #9 second blind-review fix GitHub Actions `Test` check passed after the fix push.
 - PR #9 third blind review checked passing GitHub Actions, clean `git diff --check origin/feature/mac-prototype...origin/codex/task-detail-actions-sync`, and targeted sync helper tests.
 - SwiftUI workflow coverage plan recorded in `docs/testing.md`; no implementation validation has run for that future checkpoint yet.
+- PR #9 final pre-merge GitHub Actions `Test` check passed before merge.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -212,16 +213,13 @@ Implement task detail refresh, task actions, and sync wiring.
 - Launch smoke completed with `swift run AgendumMac`; deeper UI workflow testing remains manual.
 
 ## Changed files
-- `Backend/agendum_backend/helper.py`
-- `Sources/AgendumMacCore/BackendClient.swift`
-- `Sources/AgendumMac/AgendumMacApp.swift`
-- `Tests/AgendumMacCoreTests/BackendClientTests.swift`
-- `Tests/test_backend_helper.py`
-- `Tests/test_backend_helper_process.py`
-- `docs/testing.md`
-- `docs/plan.md`
-- `docs/status.md`
-- `docs/handoff.md`
+- PR #9 changed `Backend/agendum_backend/helper.py`.
+- PR #9 changed `Sources/AgendumMacCore/BackendClient.swift`.
+- PR #9 changed `Sources/AgendumMac/AgendumMacApp.swift`.
+- PR #9 changed `Tests/AgendumMacCoreTests/BackendClientTests.swift`.
+- PR #9 changed `Tests/test_backend_helper.py`.
+- PR #9 changed `Tests/test_backend_helper_process.py`.
+- PR #9 changed `docs/testing.md`, `docs/plan.md`, `docs/status.md`, and `docs/handoff.md`.
 
 ## Risks / blockers
 - A Mac App Store build is likely harder if the app depends on launching external `gh` and sharing `gh` auth files.
@@ -233,9 +231,9 @@ Implement task detail refresh, task actions, and sync wiring.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
-2. If PR #9 merges, fast-forward `feature/mac-prototype` and clean up the topic branch/worktree artifacts.
-3. Start the SwiftUI workflow coverage checkpoint before deepening UI behavior: extract testable workflow state, inject a fake backend client, and cover force-sync polling/detail-pane actions.
+1. Fast-forward local `feature/mac-prototype` and clean up the merged `codex/task-detail-actions-sync` branch/tracking artifacts.
+2. Create a new short-lived branch from `feature/mac-prototype` for SwiftUI workflow coverage.
+3. Start the SwiftUI workflow coverage checkpoint: extract testable workflow state, inject a fake backend client, and cover force-sync polling/detail-pane actions.
 
 ## After checkpoint
 - Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.

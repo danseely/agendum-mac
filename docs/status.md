@@ -1,9 +1,9 @@
 # Status
 
-Last updated: 2026-05-01
+Last updated: 2026-05-02
 
 ## Current milestone
-Task detail refresh, task actions, and sync wiring are implemented on `codex/task-detail-actions-sync` and under draft PR review as #9, targeting `feature/mac-prototype`.
+Task detail refresh, task actions, and sync wiring are done and merged through PR #9 into `feature/mac-prototype`. The next checkpoint is SwiftUI workflow coverage before deepening UI behavior.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -105,9 +105,10 @@ Task detail refresh, task actions, and sync wiring are implemented on `codex/tas
 - PR #9 second blind-review fix was pushed and GitHub Actions `Test` passed on the updated branch.
 - Third fresh blind review of PR #9 found no actionable bugs, regressions, contract drift, concurrency issues, missing required tests, or planning-doc drift.
 - Added the next SwiftUI workflow coverage checkpoint to `docs/testing.md`: extract app workflow logic behind a testable seam, fake the backend client, and cover refresh, workspace selection, force-sync polling, task actions, detail-pane action availability, and shared sync command wiring.
+- PR #9 was marked ready and merged into `feature/mac-prototype`.
 
 ## In progress
-- PR #9 is ready for final readiness/merge decision, subject to explicit approval.
+- SwiftUI workflow coverage checkpoint planning is complete; implementation should start on a new short-lived branch from updated `feature/mac-prototype`.
 
 ## Blocked
 - None.
@@ -116,6 +117,6 @@ Task detail refresh, task actions, and sync wiring are implemented on `codex/tas
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
-- After PR #9, make SwiftUI workflow coverage the next test checkpoint before deepening UI behavior.
+- Fast-forward local `feature/mac-prototype` after PR #9 merge and clean up the merged topic branch.
+- Start the SwiftUI workflow coverage checkpoint on a new short-lived branch.
 - Keep `feature/mac-prototype` as the broad integration branch.
