@@ -1,7 +1,7 @@
 # Handoff
 
 ## Current objective
-Ship the manual task creation UX checkpoint on `codex/manual-task-creation`. The implementation is complete, locally validated, pushed, and opened as draft PR #11 against `feature/mac-prototype`. The remaining external action is the blind review loop and waiting for GitHub Actions `Test` to pass before marking the PR ready.
+Land manual task creation UX via PR #11 (`codex/manual-task-creation` → `feature/mac-prototype`). Implementation is complete and pushed; live PR, CI, and review state lives in `gh pr view 11`.
 
 ## Branch
 `codex/manual-task-creation`, branched from updated `feature/mac-prototype` after PR #10 merged.
@@ -21,7 +21,7 @@ Ship the manual task creation UX checkpoint on `codex/manual-task-creation`. The
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
 - Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
 - Working tree on `codex/manual-task-creation` is clean after committing the checkpoint as `9a1239f` and pushing to `origin/codex/manual-task-creation`.
-- Active PR: `https://github.com/danseely/agendum-mac/pull/11`, draft, targeting `feature/mac-prototype`.
+- Active PR: `https://github.com/danseely/agendum-mac/pull/11`, targeting `feature/mac-prototype` (live state via `gh pr view 11`).
 - Last validation date: 2026-05-02
 
 ## Completed
@@ -291,10 +291,11 @@ Ship the manual task creation UX checkpoint on `codex/manual-task-creation`. The
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Wait for GitHub Actions `Test` to finish on PR #11 and confirm it passes; investigate any failures and push fixes as a new commit on `codex/manual-task-creation`.
-2. Run a focused/blind PR review pass on PR #11; address any findings with new commits before marking the PR ready.
-3. Mark PR #11 ready for review, then merge into `feature/mac-prototype` once review and CI are clean.
-4. After merge, fast-forward local `feature/mac-prototype` and decide on the next live-slice gap (likely richer sync lifecycle/error presentation or per-task error surfacing).
+1. Run `gh pr view 11` and `gh pr checks 11`, then branch on the result:
+   - CI failing: investigate and push fixes to `codex/manual-task-creation`.
+   - CI green, no review yet: run a blind review pass; address findings as new commits.
+   - Review clean, PR still draft: mark ready.
+   - Merged: fast-forward local `feature/mac-prototype`, then pick the next checkpoint (likely richer sync lifecycle/error presentation or per-task error surfacing).
 
 ## After checkpoint
 - Continue toward any remaining live-slice gaps, especially richer sync lifecycle/error presentation.
