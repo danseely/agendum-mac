@@ -129,6 +129,8 @@ Implement task detail refresh, task actions, and sync wiring.
   - `Backend/agendum_backend/helper.py`: `workspace.select` now resets `state.sync_status`, `sync.force` starts a background worker and returns `running` immediately, duplicate force-sync requests return the current running state, and sync completions are token-guarded so stale workers cannot overwrite status after workspace switches.
   - `Sources/AgendumMac/AgendumMacApp.swift`: the force-sync UI path now polls `sync.status` until completion or a bounded timeout before reloading tasks.
   - `Tests/test_backend_helper.py`: coverage now includes async force-sync completion, duplicate running requests, error/exception completion status, and workspace-select sync reset.
+- Ran a second fresh blind review of PR #9. It found no code-level bugs or contract regressions, but flagged that `sync.force` process-boundary behavior needed a real subprocess JSONL test because planning docs claimed subprocess coverage.
+- Added `Tests/test_backend_helper_process.py` coverage that keeps one helper process alive, sends `sync.force`, then polls `sync.status` over the same JSONL process until completion.
 
 ## Validation
 - `swift build` passes.
@@ -173,6 +175,10 @@ Implement task detail refresh, task actions, and sync wiring.
 - PR #9 blind-review fix validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
 - PR #9 blind-review fix validation: `git diff --check` passes.
 - PR #9 blind-review fix GitHub Actions `Test` check passed after the fix push.
+- PR #9 second blind-review fix validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 43 tests.
+- PR #9 second blind-review fix validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 416/455 lines, 91.4% for `Backend/agendum_backend/helper.py`.
+- PR #9 second blind-review fix validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
+- PR #9 second blind-review fix validation: `git diff --check` passes.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -221,9 +227,9 @@ Implement task detail refresh, task actions, and sync wiring.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
-2. If PR #9 merges, fast-forward `feature/mac-prototype` and clean up the topic branch/worktree artifacts.
-3. Continue toward remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
+1. Push the second blind-review subprocess coverage fix and confirm GitHub Actions on the new head.
+2. Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
+3. If PR #9 merges, fast-forward `feature/mac-prototype` and clean up the topic branch/worktree artifacts.
 
 ## After checkpoint
 - Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
@@ -235,3 +241,4 @@ Implement task detail refresh, task actions, and sync wiring.
 - No new unapproved drift found during the PR #9 planning-doc update.
 - No new unapproved drift found during the PR #9 focused review fixes.
 - Blind-review sync-force finding confirmed implementation drift from `docs/backend-contract.md`; fixed by bringing `sync.force` behavior back in line with the contract.
+- Second blind-review finding confirmed test/documentation drift around subprocess coverage; fixed by adding the missing subprocess JSONL sync test.

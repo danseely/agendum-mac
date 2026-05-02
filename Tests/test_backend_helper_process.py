@@ -6,6 +6,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from typing import Any
@@ -232,6 +233,70 @@ class BackendHelperProcessTests(unittest.TestCase):
             self.assertEqual(responses[0]["payload"]["task"]["title"], "Process action task")
             self.assertEqual(responses[1]["payload"]["task"]["status"], "done")
             self.assertTrue(responses[2]["payload"]["removed"])
+
+    def test_sync_force_and_status_use_shared_jsonl_process(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env = os.environ.copy()
+            env["AGENDUM_MAC_BASE_DIR"] = str(root)
+            process = subprocess.Popen(
+                [sys.executable, str(HELPER)],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+                cwd=REPO_ROOT,
+            )
+
+            def request(command: str, request_id: str) -> dict[str, Any]:
+                self.assertIsNotNone(process.stdin)
+                self.assertIsNotNone(process.stdout)
+                process.stdin.write(
+                    json.dumps(
+                        {
+                            "version": 1,
+                            "id": request_id,
+                            "command": command,
+                            "payload": {},
+                        }
+                    )
+                    + "\n"
+                )
+                process.stdin.flush()
+                line = process.stdout.readline()
+                self.assertNotEqual(line, "", "helper exited before returning a response")
+                return json.loads(line)
+
+            try:
+                forced = request("sync.force", "process-sync-force")
+                self.assertTrue(forced["ok"])
+                self.assertEqual(forced["payload"]["status"]["state"], "running")
+
+                deadline = time.monotonic() + 5
+                status = forced["payload"]["status"]
+                while time.monotonic() < deadline:
+                    response = request("sync.status", "process-sync-status")
+                    self.assertTrue(response["ok"])
+                    status = response["payload"]["status"]
+                    if status["state"] != "running":
+                        break
+                    time.sleep(0.01)
+
+                self.assertEqual(status["state"], "idle")
+                self.assertEqual(status["changes"], 0)
+                self.assertFalse(status["hasAttentionItems"])
+                self.assertIsNotNone(status["lastSyncAt"])
+            finally:
+                if process.stdin:
+                    process.stdin.close()
+                stderr = process.stderr.read() if process.stderr else ""
+                process.wait(timeout=5)
+                if process.stdout:
+                    process.stdout.close()
+                if process.stderr:
+                    process.stderr.close()
+                self.assertEqual(process.returncode, 0, stderr)
 
     def test_process_honors_base_dir_and_configured_gh_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
