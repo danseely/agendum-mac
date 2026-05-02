@@ -1,7 +1,7 @@
 # Handoff
 
 ## Current objective
-Land per-task error surfacing on `codex/per-task-error-surfacing` → `feature/mac-prototype`. Implementation is complete locally and validation passes; the branch has not yet been pushed and no PR is open.
+Land per-task error surfacing via PR #12 (`codex/per-task-error-surfacing` → `feature/mac-prototype`). Implementation is complete and pushed; live PR, CI, and review state lives in `gh pr view 12`.
 
 ## Branch
 `codex/per-task-error-surfacing`, branched from updated `feature/mac-prototype` after PR #11 merged.
@@ -21,7 +21,8 @@ Land per-task error surfacing on `codex/per-task-error-surfacing` → `feature/m
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge. The `codex/manual-task-creation` local branch was removed by the PR #11 merge flow; remote PR branches `origin/codex/manual-task-creation` and `origin/codex/swiftui-workflow-coverage` were deleted on the remote.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
 - Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
-- Working tree on `codex/per-task-error-surfacing` has uncommitted changes for the per-task error surfacing checkpoint; the branch has not been pushed and no PR is open.
+- Working tree on `codex/per-task-error-surfacing` is clean after committing the checkpoint as `10e7ad3` and pushing to `origin/codex/per-task-error-surfacing`.
+- Active PR: `https://github.com/danseely/agendum-mac/pull/12`, draft, targeting `feature/mac-prototype` (live state via `gh pr view 12`).
 - Last validation date: 2026-05-02
 
 ## Completed
@@ -311,8 +312,7 @@ Land per-task error surfacing on `codex/per-task-error-surfacing` → `feature/m
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Commit the per-task error surfacing checkpoint on `codex/per-task-error-surfacing`, push to `origin`, and open a draft PR targeting `feature/mac-prototype`.
-2. Once the PR exists, run `gh pr view <N>` / `gh pr checks <N>` and branch on the result:
+1. Run `gh pr view 12` and `gh pr checks 12`, then branch on the result:
    - CI failing: investigate and push fixes to `codex/per-task-error-surfacing`.
    - CI green, no review yet: run a blind review pass; address findings as new commits.
    - Review clean, PR still draft: mark ready.

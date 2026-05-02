@@ -133,16 +133,14 @@ Per-task error surfacing is implemented on `codex/per-task-error-surfacing`. Aft
 - Updated `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`: replaced the single failure test with `testTaskActionFailureScopesErrorToTaskAndKeepsGlobalErrorClean`, added `testTaskActionSuccessClearsExistingPerTaskError`, `testTaskActionFailureOnOneTaskDoesNotClearAnotherTasksError`, `testRefreshClearsTaskActionErrors`, and `testSelectWorkspaceClearsTaskActionErrors`; added `taskActionErrors.isEmpty` assertion to `testTaskActionsCallBackendAndReloadTasks`.
 
 ## In progress
-- Per-task error surfacing checkpoint on `codex/per-task-error-surfacing`. Local validation passes (29 Swift tests, 48 Python tests, helper coverage 91.9%, smoke launch ok). PR not yet opened.
+- PR #12 (`codex/per-task-error-surfacing` → `feature/mac-prototype`) tracks the per-task error surfacing checkpoint; live state via `gh pr view 12`. Local validation passes (29 Swift tests, 48 Python tests, helper coverage 91.9%, smoke launch ok).
 
 ## Blocked
 - None.
 
 ## Next
-- Push `codex/per-task-error-surfacing` and open a draft PR against `feature/mac-prototype`.
-- Run blind review pass; address findings.
-- Mark ready and merge once review and CI are clean.
-- After merge, fast-forward `feature/mac-prototype` and pick next checkpoint (likely richer sync lifecycle/error presentation surfacing `lastSyncAt`/`hasAttentionItems`/`BackendErrorPayload.recovery`).
+- Run `gh pr view 12` and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
+- After PR #12 merges, decide the next checkpoint: likely richer sync lifecycle/error presentation surfacing `lastSyncAt`/`hasAttentionItems`/`BackendErrorPayload.recovery`, or beginning packaging/distribution work.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
