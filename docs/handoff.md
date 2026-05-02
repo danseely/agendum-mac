@@ -193,6 +193,8 @@ Land per-task error surfacing via PR #12 (`codex/per-task-error-surfacing` → `
 - `git diff --check` passes.
 - `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~5s before manual termination).
 - Follow-up fix: `markReviewed`, `markDone`, and `remove` closures in `Sources/AgendumMac/AgendumMacApp.swift` now defer `selectedTask = nil` until after the action awaits and only clear when `backendStatus.errorForTask(id:)` is `nil`, so per-task errors stay visible inline in `TaskDetail` on failure. Validation: `swift build` passed; `swift test --enable-code-coverage` passed (29 Swift tests); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed (48 tests); `git diff --check` passed.
+- Manual SwiftUI smoke on `d163d02`: temporarily injected an `NSError` throw in `BackendStatusModel.removeTask`, ran `swift run AgendumMac`, clicked `Remove` on a selected task; confirmed selection stayed on the failing task, the red caption error rendered inline beneath the action buttons, and per-task scoping held when navigating between tasks. Smoke edit reverted via `git checkout --` after.
+- Independent blind code review on `d163d02` (after the follow-up fix and smoke) returned no findings at the 75-confidence bar across correctness, standards, security, contract, and architecture lenses.
 
 ### History
 - `swift build` passes.
