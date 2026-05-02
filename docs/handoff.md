@@ -202,11 +202,11 @@ Map every `BackendClientError` case (not just `.helperError`) to a structured `P
 
 ### Structured error mapping checkpoint (on `codex/structured-error-mapping`, after the changes listed under Completed)
 - `swift build` passes.
-- `swift test --enable-code-coverage` passes: TBD Swift tests (12 `AgendumMacCoreTests` + TBD `AgendumMacWorkflowTests`).
+- `swift test --enable-code-coverage` passes: 45 Swift tests (12 `AgendumMacCoreTests` + 33 `AgendumMacWorkflowTests`).
 - `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 48 tests (no Python changes).
 - `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 464/505 lines (91.9%) for `Backend/agendum_backend/helper.py` (no backend changes).
 - `git diff --check` passes.
-- `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~5s before SIGTERM).
+- `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~5s before SIGTERM, exit code 143).
 
 ### Per-task error surfacing checkpoint (on `codex/per-task-error-surfacing`, after the changes listed under Completed)
 - `swift build` passes.
