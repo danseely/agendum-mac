@@ -174,10 +174,11 @@ final class TaskWorkflowModelTests: XCTestCase {
             let calls = await backend.calls
             XCTAssertEqual(calls, [expectedCall, "listTasks"], expectedCall)
             XCTAssertNil(model.errorMessage, expectedCall)
+            XCTAssertTrue(model.taskActionErrors.isEmpty, expectedCall)
         }
     }
 
-    func testTaskActionFailureLeavesExistingTasksUntouched() async throws {
+    func testTaskActionFailureScopesErrorToTaskAndKeepsGlobalErrorClean() async throws {
         let backend = FakeBackend()
         await backend.setTasks([task(id: 17, title: "Existing")])
         let model = BackendStatusModel(client: backend, sleep: immediateSleep)
@@ -188,9 +189,72 @@ final class TaskWorkflowModelTests: XCTestCase {
         await model.markDone(id: 17)
 
         XCTAssertEqual(model.tasks.map(\.id), [17])
-        XCTAssertEqual(model.errorMessage, "done failed")
+        XCTAssertNil(model.errorMessage)
+        XCTAssertEqual(model.errorForTask(id: 17), "done failed")
         let calls = await backend.calls
         XCTAssertEqual(calls, ["markTaskDone:17"])
+    }
+
+    func testTaskActionSuccessClearsExistingPerTaskError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, title: "Existing")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.failNext("markTaskDone", message: "done failed")
+        await model.markDone(id: 17)
+        XCTAssertEqual(model.errorForTask(id: 17), "done failed")
+
+        await model.markInProgress(id: 17)
+
+        XCTAssertNil(model.errorForTask(id: 17))
+        XCTAssertTrue(model.taskActionErrors.isEmpty)
+    }
+
+    func testTaskActionFailureOnOneTaskDoesNotClearAnotherTasksError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, title: "First"), task(id: 23, title: "Second")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.failNext("markTaskDone", message: "done 17 failed")
+        await model.markDone(id: 17)
+        XCTAssertEqual(model.errorForTask(id: 17), "done 17 failed")
+
+        await backend.failNext("markTaskDone", message: "done 23 failed")
+        await model.markDone(id: 23)
+
+        XCTAssertEqual(model.errorForTask(id: 17), "done 17 failed")
+        XCTAssertEqual(model.errorForTask(id: 23), "done 23 failed")
+    }
+
+    func testRefreshClearsTaskActionErrors() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, title: "Existing")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.failNext("markTaskDone", message: "done failed")
+        await model.markDone(id: 17)
+        XCTAssertEqual(model.errorForTask(id: 17), "done failed")
+
+        await model.refresh()
+
+        XCTAssertNil(model.errorForTask(id: 17))
+        XCTAssertTrue(model.taskActionErrors.isEmpty)
+    }
+
+    func testSelectWorkspaceClearsTaskActionErrors() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, title: "Existing")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.failNext("markTaskDone", message: "done failed")
+        await model.markDone(id: 17)
+        XCTAssertEqual(model.errorForTask(id: 17), "done failed")
+
+        await backend.setTasks([task(id: 22, title: "Org task", source: "manual")])
+        await model.selectWorkspace(id: "example-org")
+
+        XCTAssertNil(model.errorForTask(id: 17))
+        XCTAssertTrue(model.taskActionErrors.isEmpty)
     }
 
     func testCreateManualTaskSucceedsAndReloadsTasks() async throws {

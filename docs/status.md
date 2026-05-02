@@ -3,7 +3,7 @@
 Last updated: 2026-05-02
 
 ## Current milestone
-Manual task creation UX is implemented and tracked in PR #11 (`codex/manual-task-creation` → `feature/mac-prototype`). Live state via `gh pr view 11`. The next short-lived branch from updated `feature/mac-prototype` should pick up any remaining live-slice gap once this checkpoint merges.
+Per-task error surfacing is implemented on `codex/per-task-error-surfacing`. After PR #11 (manual task creation UX) merged, this checkpoint scopes task-action failures to the affected task instead of the single global `errorMessage`, surfacing them inline in the SwiftUI detail pane. Once this lands, the next short-lived branch from updated `feature/mac-prototype` should pick the next live-slice gap (likely richer sync lifecycle/error presentation).
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -124,16 +124,25 @@ Manual task creation UX is implemented and tracked in PR #11 (`codex/manual-task
 - Added `createManualTask(...)` to `BackendStatusModel` plus `AgendumBackendServicing`, with fake-backed workflow tests covering success/reload and failure-keeps-existing-tasks behavior.
 - Wired a SwiftUI "New Task" toolbar button and `CreateManualTaskSheet` form that submits through `BackendStatusModel.createManualTask` and dismisses only on success.
 - Committed the manual task creation checkpoint as `9a1239f`, pushed `codex/manual-task-creation` to `origin`, and opened draft PR #11 (`https://github.com/danseely/agendum-mac/pull/11`) against `feature/mac-prototype`.
+- PR #11 was merged into `feature/mac-prototype` on 2026-05-02 (squash merge `1e8306a`).
+- Fast-forwarded local `feature/mac-prototype` after the PR #11 merge and created `codex/per-task-error-surfacing` from the updated tip.
+- Added `@Published taskActionErrors: [TaskItem.ID: String]` and `errorForTask(id:)` to `BackendStatusModel` in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`.
+- Routed task-action failures (`markSeen`, `markReviewed`, `markInProgress`, `moveToBacklog`, `markDone`, `removeTask`) into the per-task map via a now-task-aware `performTaskAction(taskID:)` instead of the global `errorMessage`.
+- Wired `refresh()` and `selectWorkspace(...)` to clear the whole `taskActionErrors` map; successful task actions clear only the affected task's entry.
+- Surfaced the per-task error inline in `TaskDetail` (`Sources/AgendumMac/AgendumMacApp.swift`) with a red caption under the action buttons.
+- Updated `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`: replaced the single failure test with `testTaskActionFailureScopesErrorToTaskAndKeepsGlobalErrorClean`, added `testTaskActionSuccessClearsExistingPerTaskError`, `testTaskActionFailureOnOneTaskDoesNotClearAnotherTasksError`, `testRefreshClearsTaskActionErrors`, and `testSelectWorkspaceClearsTaskActionErrors`; added `taskActionErrors.isEmpty` assertion to `testTaskActionsCallBackendAndReloadTasks`.
 
 ## In progress
-- PR #11 (`codex/manual-task-creation` → `feature/mac-prototype`) tracks the manual task creation UX checkpoint; live state via `gh pr view 11`.
+- Per-task error surfacing checkpoint on `codex/per-task-error-surfacing`. Local validation passes (29 Swift tests, 48 Python tests, helper coverage 91.9%, smoke launch ok). PR not yet opened.
 
 ## Blocked
 - None.
 
 ## Next
-- Run `gh pr view 11` and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
-- After PR #11 merges, decide the next checkpoint: likely richer sync lifecycle/error presentation, per-task error surfacing, or beginning packaging/distribution work.
+- Push `codex/per-task-error-surfacing` and open a draft PR against `feature/mac-prototype`.
+- Run blind review pass; address findings.
+- Mark ready and merge once review and CI are clean.
+- After merge, fast-forward `feature/mac-prototype` and pick next checkpoint (likely richer sync lifecycle/error presentation surfacing `lastSyncAt`/`hasAttentionItems`/`BackendErrorPayload.recovery`).
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.

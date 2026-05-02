@@ -1,15 +1,16 @@
 # Handoff
 
 ## Current objective
-Land manual task creation UX via PR #11 (`codex/manual-task-creation` → `feature/mac-prototype`). Implementation is complete and pushed; live PR, CI, and review state lives in `gh pr view 11`.
+Land per-task error surfacing on `codex/per-task-error-surfacing` → `feature/mac-prototype`. Implementation is complete locally and validation passes; the branch has not yet been pushed and no PR is open.
 
 ## Branch
-`codex/manual-task-creation`, branched from updated `feature/mac-prototype` after PR #10 merged.
+`codex/per-task-error-surfacing`, branched from updated `feature/mac-prototype` after PR #11 merged.
 
 ## Repo state
-- HEAD: `codex/manual-task-creation`; local branch starts from the post-PR-#10 tip of `feature/mac-prototype`.
-- Integration branch: `feature/mac-prototype`; PR #10 is merged.
-- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/10`, merged into `feature/mac-prototype` on 2026-05-02.
+- HEAD: `codex/per-task-error-surfacing`; local branch starts from the post-PR-#11 tip of `feature/mac-prototype`.
+- Integration branch: `feature/mac-prototype`; PR #11 (manual task creation UX) merged on 2026-05-02 (squash merge `1e8306a`).
+- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/11`, merged into `feature/mac-prototype` on 2026-05-02.
+- Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/10`, merged into `feature/mac-prototype` on 2026-05-02.
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/9`, merged into `feature/mac-prototype`.
 - Workspace selection PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
@@ -17,11 +18,10 @@ Land manual task creation UX via PR #11 (`codex/manual-task-creation` → `featu
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`.
 - Earlier merged PRs into `feature/mac-prototype`: #1 (backend helper scaffold), #3 (testing baseline + CI), #4 (branch discipline), #5 (Swift helper-process client).
-- Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
+- Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge. The `codex/manual-task-creation` local branch was removed by the PR #11 merge flow; remote PR branches `origin/codex/manual-task-creation` and `origin/codex/swiftui-workflow-coverage` were deleted on the remote.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
 - Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
-- Working tree on `codex/manual-task-creation` is clean after committing the checkpoint as `9a1239f` and pushing to `origin/codex/manual-task-creation`.
-- Active PR: `https://github.com/danseely/agendum-mac/pull/11`, targeting `feature/mac-prototype` (live state via `gh pr view 11`).
+- Working tree on `codex/per-task-error-surfacing` has uncommitted changes for the per-task error surfacing checkpoint; the branch has not been pushed and no PR is open.
 - Last validation date: 2026-05-02
 
 ## Completed
@@ -157,6 +157,13 @@ Land manual task creation UX via PR #11 (`codex/manual-task-creation` → `featu
 - Wired a SwiftUI "New Task" toolbar button in `Sources/AgendumMac/AgendumMacApp.swift` that opens a `CreateManualTaskSheet` form (title, optional project, comma-separated tags); the sheet dismisses only on success and surfaces failures through `BackendStatusModel.errorMessage`.
 - Committed the manual task creation checkpoint as `9a1239f` on `codex/manual-task-creation`.
 - Pushed `codex/manual-task-creation` to `origin` and opened draft PR #11: `https://github.com/danseely/agendum-mac/pull/11`.
+- PR #11 was marked ready, passed GitHub Actions `Test`, and merged into `feature/mac-prototype` on 2026-05-02 (squash merge `1e8306a`).
+- Fast-forwarded local `feature/mac-prototype` to `1e8306a` and created `codex/per-task-error-surfacing` from the updated tip.
+- Added `@Published taskActionErrors: [TaskItem.ID: String]` and `errorForTask(id:)` to `BackendStatusModel` in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`.
+- Reworked `performTaskAction(taskID:_:)` so task-action failures populate the per-task map and successful actions clear only the affected task's entry, leaving the global `errorMessage` for cross-cutting flows (refresh, workspace selection, force sync, manual task creation).
+- `refresh()` and `selectWorkspace(...)` now reset `taskActionErrors = [:]` on both success and failure paths.
+- Added `actionError: String?` to `TaskDetail` in `Sources/AgendumMac/AgendumMacApp.swift`; the dashboard passes `backendStatus.errorForTask(id: task.id)` and the detail view renders a red caption beneath the action buttons (with `accessibilityIdentifier("task-action-error")`).
+- Replaced `testTaskActionFailureLeavesExistingTasksUntouched` with `testTaskActionFailureScopesErrorToTaskAndKeepsGlobalErrorClean` in `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`, and added `testTaskActionSuccessClearsExistingPerTaskError`, `testTaskActionFailureOnOneTaskDoesNotClearAnotherTasksError`, `testRefreshClearsTaskActionErrors`, and `testSelectWorkspaceClearsTaskActionErrors`. Also added `taskActionErrors.isEmpty` assertion to `testTaskActionsCallBackendAndReloadTasks`.
 
 ## Validation
 
@@ -176,6 +183,14 @@ Land manual task creation UX via PR #11 (`codex/manual-task-creation` → `featu
 - `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 464/505 lines (91.9%) for `Backend/agendum_backend/helper.py`.
 - `git diff --check` passes.
 - `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~4s before manual termination).
+
+### Per-task error surfacing checkpoint (on `codex/per-task-error-surfacing`, after the changes listed under Completed)
+- `swift build` passes.
+- `swift test --enable-code-coverage` passes: 29 Swift tests (12 `AgendumMacCoreTests` + 17 `AgendumMacWorkflowTests`).
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 48 tests.
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 464/505 lines (91.9%) for `Backend/agendum_backend/helper.py` (no backend changes in this checkpoint).
+- `git diff --check` passes.
+- `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~5s before manual termination).
 
 ### History
 - `swift build` passes.
@@ -263,6 +278,12 @@ Land manual task creation UX via PR #11 (`codex/manual-task-creation` → `featu
 - PR #10 review-fix sanity check: temporarily removed the `tasks = []` clear in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift` `refresh()` catch and reran `swift test --filter TaskWorkflowModelTests/testRefreshFailureClearsTasksAndSurfacesError`; the test failed as expected, then passed again after restoring the line.
 
 ## Changed files
+- `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`: added `@Published taskActionErrors: [TaskItem.ID: String]`, `errorForTask(id:)`, task-aware `performTaskAction(taskID:_:)`, and per-task-error clearing in `refresh()`/`selectWorkspace(...)`.
+- `Sources/AgendumMac/AgendumMacApp.swift`: `TaskDetail` now takes `actionError: String?` and renders it under the action buttons; the dashboard passes `backendStatus.errorForTask(id: task.id)`.
+- `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`: replaced `testTaskActionFailureLeavesExistingTasksUntouched` with `testTaskActionFailureScopesErrorToTaskAndKeepsGlobalErrorClean`; added `testTaskActionSuccessClearsExistingPerTaskError`, `testTaskActionFailureOnOneTaskDoesNotClearAnotherTasksError`, `testRefreshClearsTaskActionErrors`, and `testSelectWorkspaceClearsTaskActionErrors`; added `taskActionErrors.isEmpty` assertion to `testTaskActionsCallBackendAndReloadTasks`.
+- `docs/plan.md`, `docs/status.md`, `docs/handoff.md`, `docs/decisions.md`: updated for the per-task error surfacing checkpoint.
+
+## Previous checkpoint changed files (PR #11, manual task creation UX)
 - `Backend/agendum_backend/helper.py`: added `task.createManual` dispatch, `create_manual_task` function, and payload helpers (`_required_string`, `_optional_create_string`, `_optional_tag_list`); imports `create_manual_task` from `agendum.task_api`.
 - `Tests/test_backend_helper.py`: four new tests for manual task creation (full payload, minimal payload, namespaced DB, invalid-payload table).
 - `Tests/test_backend_helper_process.py`: `test_task_create_manual_persists_through_jsonl_process` covering create, list, and invalid-payload behavior over one helper process.
@@ -271,7 +292,6 @@ Land manual task creation UX via PR #11 (`codex/manual-task-creation` → `featu
 - `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`: `AgendumBackendServicing.createManualTask` and `BackendStatusModel.createManualTask` returning `Bool`.
 - `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`: success and failure tests for `createManualTask`, plus matching `FakeBackend` stub method.
 - `Sources/AgendumMac/AgendumMacApp.swift`: "New Task" toolbar button, sheet presentation state, and `CreateManualTaskSheet` form.
-- `docs/plan.md`, `docs/status.md`, `docs/handoff.md`, `docs/decisions.md`: updated for the manual task creation checkpoint.
 - PR #10 changed `Package.swift`, `Sources/AgendumMac/AgendumMacApp.swift`, `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`, `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`, and `docs/decisions.md`, `docs/status.md`, `docs/handoff.md`, `docs/plan.md`.
 - PR #9 changed `Backend/agendum_backend/helper.py`.
 - PR #9 changed `Sources/AgendumMacCore/BackendClient.swift`.
@@ -291,11 +311,12 @@ Land manual task creation UX via PR #11 (`codex/manual-task-creation` → `featu
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Run `gh pr view 11` and `gh pr checks 11`, then branch on the result:
-   - CI failing: investigate and push fixes to `codex/manual-task-creation`.
+1. Commit the per-task error surfacing checkpoint on `codex/per-task-error-surfacing`, push to `origin`, and open a draft PR targeting `feature/mac-prototype`.
+2. Once the PR exists, run `gh pr view <N>` / `gh pr checks <N>` and branch on the result:
+   - CI failing: investigate and push fixes to `codex/per-task-error-surfacing`.
    - CI green, no review yet: run a blind review pass; address findings as new commits.
    - Review clean, PR still draft: mark ready.
-   - Merged: fast-forward local `feature/mac-prototype`, then pick the next checkpoint (likely richer sync lifecycle/error presentation or per-task error surfacing).
+   - Merged: fast-forward local `feature/mac-prototype`, then pick the next checkpoint (likely richer sync lifecycle/error presentation surfacing `lastSyncAt`, `hasAttentionItems`, and structured `BackendErrorPayload.recovery` hints).
 
 ## After checkpoint
 - Continue toward any remaining live-slice gaps, especially richer sync lifecycle/error presentation.
@@ -314,3 +335,4 @@ Land manual task creation UX via PR #11 (`codex/manual-task-creation` → `featu
 - PR #10 review surfaced one test-intent gap (now fixed) and one decisions-log scope omission (now expanded), so the planning-handoff drift check approach continues to be useful.
 - No new unapproved drift after PR #10 merge; manual task creation UX is the next live-slice gap and was already named in earlier handoff `After checkpoint` notes.
 - Manual task creation checkpoint stays in scope of the named next-action plan; no unapproved drift introduced by the helper command, Swift client, workflow plumbing, or SwiftUI sheet.
+- Per-task error surfacing checkpoint stays in scope of the post-PR-#11 next-action plan; no unapproved drift introduced by the new `taskActionErrors` map, the task-scoped `performTaskAction`, the SwiftUI detail-pane error caption, or the new fake-backed workflow tests.

@@ -105,6 +105,7 @@ private struct TaskDashboardView: View {
                 TaskDetail(
                     task: task,
                     isLoading: backendStatus.isLoading,
+                    actionError: backendStatus.errorForTask(id: task.id),
                     markSeen: {
                         await backendStatus.markSeen(id: task.id)
                     },
@@ -250,6 +251,7 @@ private struct TaskDetail: View {
 
     let task: TaskItem
     let isLoading: Bool
+    let actionError: String?
     let markSeen: () async -> Void
     let markReviewed: () async -> Void
     let markInProgress: () async -> Void
@@ -336,6 +338,14 @@ private struct TaskDetail: View {
                     }
                     .disabled(isLoading)
                 }
+            }
+
+            if let actionError {
+                Text(actionError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(3)
+                    .accessibilityIdentifier("task-action-error")
             }
 
             Spacer()

@@ -95,3 +95,9 @@
 - Reason: Manual task creation is the next live-slice gap named in `docs/plan.md`; reusing `agendum.task_api.create_manual_task` keeps source/status defaults consistent with the CLI, and the `Bool` return separates form lifecycle (dismiss) from status presentation (`errorMessage`) without requiring the SwiftUI form to inspect helper errors directly.
 - Impact: The helper accepts both omitted and explicit-`null` `project`/`tags` (matching existing `_optional_*` validation patterns), the workflow target gains `createManualTask` plumbing covered by fake-backed tests, and the dashboard exposes a "New Task" toolbar button that opens a sheet for title/project/tags entry.
 - Plan change: no; this implements the manual task creation checkpoint already named in `docs/plan.md` and `docs/handoff.md`.
+
+## 2026-05-02
+- Decision: Scope task-action errors per task in `BackendStatusModel` (a published `taskActionErrors: [TaskItem.ID: String]` map plus an `errorForTask(id:)` accessor) instead of routing them into the global `errorMessage`. Successful actions clear that task's entry; `refresh()` and `selectWorkspace(...)` clear the whole map. Cross-cutting failures (`refresh`, `selectWorkspace`, `forceSync`, `createManualTask`) keep using `errorMessage`.
+- Reason: A single global error string overwrites itself on every action, hiding which task actually failed. Per-task scoping makes failures inspectable in the SwiftUI detail pane and survives the user navigating between tasks.
+- Impact: SwiftUI `TaskDetail` accepts an `actionError: String?` and renders it under the action buttons; new fake-backed workflow tests cover scoping, success-clears, multi-task isolation, and refresh/select-workspace clearing. The `errorMessage` field remains for cross-cutting flows.
+- Plan change: no; this implements the per-task error surfacing checkpoint named in `docs/plan.md` and `docs/handoff.md`.
