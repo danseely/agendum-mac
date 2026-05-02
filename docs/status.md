@@ -3,7 +3,7 @@
 Last updated: 2026-05-02
 
 ## Current milestone
-Richer sync lifecycle and structured error presentation is being scaffolded on `codex/sync-lifecycle-presentation` after PR #12 (per-task error surfacing) merged. This checkpoint surfaces a relative `lastSyncAt` label, an attention indicator from `SyncStatus.hasAttentionItems`, and a structured `PresentedError` (message + recovery hint + code) preserving `BackendErrorPayload.recovery`/`detail`/`code` instead of collapsing them into `String(describing:)`. The SwiftUI dashboard renders the new sync-row metadata and a two-line error caption (message + recovery) globally and per-task. Wire contract, helper, and `AgendumMacCore` types are unchanged.
+Structured mapping for non-helper `BackendClientError` cases is being scaffolded on `codex/structured-error-mapping` after PR #13 (sync lifecycle + structured error presentation) merged. `PresentedError.from(_:)` now maps every `BackendClientError` case — not only `.helperError(payload)` — to a stable `code` (`client.protocolMismatch`, `client.helperTerminated`, `client.timeout`, `client.unsupportedProtocolVersion`) plus a human-readable recovery hint, and unknown `Error` types fall back to a deterministic `client.unknown` envelope. Wire contract, helper, `BackendClient.swift`, `AgendumBackendServicing`, and SwiftUI views are unchanged; this is a workflow-only mapping change covered by new fake-backed `TaskWorkflowModelTests`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -133,15 +133,17 @@ Richer sync lifecycle and structured error presentation is being scaffolded on `
 - Updated `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`: replaced the single failure test with `testTaskActionFailureScopesErrorToTaskAndKeepsGlobalErrorClean`, added `testTaskActionSuccessClearsExistingPerTaskError`, `testTaskActionFailureOnOneTaskDoesNotClearAnotherTasksError`, `testRefreshClearsTaskActionErrors`, and `testSelectWorkspaceClearsTaskActionErrors`; added `taskActionErrors.isEmpty` assertion to `testTaskActionsCallBackendAndReloadTasks`.
 - PR #12 (per-task error surfacing) merged into `feature/mac-prototype` on 2026-05-02 (squash merge `9edb428`).
 - Created `codex/sync-lifecycle-presentation` from the post-PR-#12 tip of `feature/mac-prototype` for the richer sync lifecycle and structured error presentation checkpoint.
+- PR #13 (sync lifecycle + structured error presentation) merged into `feature/mac-prototype` on 2026-05-02 (squash merge `30d66d4`).
+- Created `codex/structured-error-mapping` from the post-PR-#13 tip of `feature/mac-prototype` for the structured-error-mapping checkpoint.
 
 ## In progress
-- Scaffolding the richer sync lifecycle / structured error presentation checkpoint on `codex/sync-lifecycle-presentation`: structured `PresentedError` on `BackendStatusModel`, relative `lastSyncLabel`, `hasAttentionItems` accent, and SwiftUI dashboard updates that render the new sync row metadata plus two-line error captions globally and per-task.
+- Scaffolding the structured error mapping checkpoint on `codex/structured-error-mapping`: `PresentedError.from(_:)` maps every `BackendClientError` case to a stable `client.*` code plus a human-readable recovery hint, and unknown errors fall back to `client.unknown`. No helper, contract, or SwiftUI changes.
 
 ## Blocked
 - None.
 
 ## Next
-- Run `gh pr view 13` and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
+- Run `gh pr view <N>` (replace `<N>` with the PR number once opened) and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
 - After this checkpoint merges, decide the next checkpoint: remaining live-slice gaps (richer task list filtering, packaging/distribution scoping, or settings UI for auth repair).
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
