@@ -134,6 +134,7 @@ Per-task error surfacing is implemented on `codex/per-task-error-surfacing`. Aft
 
 ## In progress
 - PR #12 (`codex/per-task-error-surfacing` → `feature/mac-prototype`) tracks the per-task error surfacing checkpoint; live state via `gh pr view 12`. Local validation passes (29 Swift tests, 48 Python tests, helper coverage 91.9%, smoke launch ok).
+- Follow-up fix on `codex/per-task-error-surfacing`: `markReviewed`/`markDone`/`remove` closures in `Sources/AgendumMac/AgendumMacApp.swift` now defer `selectedTask = nil` until after the await and only clear when `errorForTask(id:)` is nil, so per-task errors remain visible in `TaskDetail` on failure (29 Swift tests, 48 Python tests still pass, `git diff --check` clean).
 
 ## Blocked
 - None.

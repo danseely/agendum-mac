@@ -110,8 +110,10 @@ private struct TaskDashboardView: View {
                         await backendStatus.markSeen(id: task.id)
                     },
                     markReviewed: {
-                        selectedTask = nil
                         await backendStatus.markReviewed(id: task.id)
+                        if backendStatus.errorForTask(id: task.id) == nil {
+                            selectedTask = nil
+                        }
                     },
                     markInProgress: {
                         await backendStatus.markInProgress(id: task.id)
@@ -120,12 +122,16 @@ private struct TaskDashboardView: View {
                         await backendStatus.moveToBacklog(id: task.id)
                     },
                     markDone: {
-                        selectedTask = nil
                         await backendStatus.markDone(id: task.id)
+                        if backendStatus.errorForTask(id: task.id) == nil {
+                            selectedTask = nil
+                        }
                     },
                     remove: {
-                        selectedTask = nil
                         await backendStatus.removeTask(id: task.id)
+                        if backendStatus.errorForTask(id: task.id) == nil {
+                            selectedTask = nil
+                        }
                     }
                 )
             } else {
