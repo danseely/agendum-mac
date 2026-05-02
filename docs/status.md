@@ -3,7 +3,7 @@
 Last updated: 2026-05-02
 
 ## Current milestone
-Structured mapping for non-helper `BackendClientError` cases is being scaffolded on `codex/structured-error-mapping` after PR #13 (sync lifecycle + structured error presentation) merged. `PresentedError.from(_:)` now maps every `BackendClientError` case — not only `.helperError(payload)` — to a stable `code` (`client.protocolMismatch`, `client.helperTerminated`, `client.timeout`, `client.unsupportedProtocolVersion`) plus a human-readable recovery hint, and unknown `Error` types fall back to a deterministic `client.unknown` envelope. Wire contract, helper, `BackendClient.swift`, `AgendumBackendServicing`, and SwiftUI views are unchanged; this is a workflow-only mapping change covered by new fake-backed `TaskWorkflowModelTests`.
+Adding `docs/packaging.md` on `codex/packaging-matrix-doc` after PR #14 (structured error mapping) merged. The doc enumerates Mac distribution channels and Python helper runtime options against prior decisions and recommends a prototype-phase posture, but defers channel and runtime choices to the user. No code, CI, or wire-contract changes.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -135,16 +135,18 @@ Structured mapping for non-helper `BackendClientError` cases is being scaffolded
 - Created `codex/sync-lifecycle-presentation` from the post-PR-#12 tip of `feature/mac-prototype` for the richer sync lifecycle and structured error presentation checkpoint.
 - PR #13 (sync lifecycle + structured error presentation) merged into `feature/mac-prototype` on 2026-05-02 (squash merge `30d66d4`).
 - Created `codex/structured-error-mapping` from the post-PR-#13 tip of `feature/mac-prototype` for the structured-error-mapping checkpoint.
+- PR #14 (structured error mapping) was marked ready and merged into `feature/mac-prototype` on 2026-05-02 (squash merge `e05efa7`).
+- Fast-forwarded local `feature/mac-prototype` to `e05efa7` and created `codex/packaging-matrix-doc` from the updated tip for the packaging-matrix doc checkpoint.
 
 ## In progress
-- Scaffolding the structured error mapping checkpoint on `codex/structured-error-mapping`: `PresentedError.from(_:)` maps every `BackendClientError` case to a stable `client.*` code plus a human-readable recovery hint, and unknown errors fall back to `client.unknown`. No helper, contract, or SwiftUI changes.
+- Drafting `docs/packaging.md` on `codex/packaging-matrix-doc`: distribution-channel matrix, Python helper runtime-distribution matrix, interactions with prior decisions, prototype-phase recommendation, deferred-decisions list. Appending the matching 2026-05-02 entry to `docs/decisions.md`. No source, helper, contract, or CI changes.
 
 ## Blocked
 - None.
 
 ## Next
 - Run `gh pr view <N>` (replace `<N>` with the PR number once opened) and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
-- After this checkpoint merges, decide the next checkpoint: remaining live-slice gaps (richer task list filtering, packaging/distribution scoping, or settings UI for auth repair).
+- After this checkpoint merges, route the 10 deferred packaging decisions in `docs/packaging.md` to the user before scoping the first code-bearing packaging slice.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
