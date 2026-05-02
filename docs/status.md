@@ -3,7 +3,7 @@
 Last updated: 2026-05-02
 
 ## Current milestone
-SwiftUI workflow coverage is in PR #10 from `codex/swiftui-workflow-coverage` to `feature/mac-prototype`.
+SwiftUI workflow coverage merged in PR #10 into `feature/mac-prototype`. Manual task creation UX is the next checkpoint, on a new short-lived branch from updated `feature/mac-prototype`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -115,17 +115,21 @@ SwiftUI workflow coverage is in PR #10 from `codex/swiftui-workflow-coverage` to
 - Opened draft PR #10: `https://github.com/danseely/agendum-mac/pull/10`.
 - GitHub Actions `Test` is passing on PR #10 at the time of this update.
 - Addressed PR #10 review feedback: restructured `testRefreshFailureClearsTasksAndSurfacesError` so a successful refresh populates tasks before the failing refresh proves the catch's tasks clear, and expanded the 2026-05-02 entry in `docs/decisions.md` to name `AgendumBackendServicing` and `TaskDashboardCommands` alongside the `AgendumMacWorkflow` target.
+- PR #10 was marked ready and merged into `feature/mac-prototype` after passing CI and a clean local review pass.
+- Fast-forwarded local `feature/mac-prototype` after PR #10 and created the next short-lived branch for the manual task creation UX checkpoint.
 
 ## In progress
-- SwiftUI workflow coverage checkpoint is in PR #10, ready for review, and passing CI.
+- Manual task creation UX checkpoint: implement `task.createManual` in the helper, add backend coverage, expose a Swift client method, and wire a SwiftUI manual-task-create flow.
 
 ## Blocked
 - None.
 
 ## Next
+- Implement `task.createManual` in `Backend/agendum_backend/helper.py` per `docs/backend-contract.md`.
+- Add backend unit and subprocess tests for manual task creation, including invalid payloads.
+- Add a Swift client method and tests for `task.createManual` in `AgendumMacCore`.
+- Wire a SwiftUI manual-task-create flow that refreshes the dashboard after creation.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Review PR #10 for workflow-target boundaries and app command wiring.
-- Do not merge PR #10 unless explicitly requested.
 - Keep `feature/mac-prototype` as the broad integration branch.

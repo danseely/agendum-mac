@@ -30,9 +30,9 @@ Evaluate and prototype a proper native macOS GUI for agendum in a new standalone
 Start with a SwiftUI-first native macOS shell that talks to the existing Python engine through a narrow backend API. Revisit a Swift rewrite only after the GUI shape and backend contract are proven.
 
 ## Current Implementation Checkpoint
-The task detail/actions/sync checkpoint merged in PR #9 from `codex/task-detail-actions-sync` to `feature/mac-prototype`. It added helper-backed task detail lookup, task status actions, mark-seen/remove, sync status/force-sync commands, Swift client coverage, SwiftUI wiring for refresh, sync status, and source-aware detail actions, plus follow-up review fixes for async sync semantics and subprocess sync coverage.
+The SwiftUI workflow coverage checkpoint merged in PR #10 from `codex/swiftui-workflow-coverage` to `feature/mac-prototype`. It added the `AgendumMacWorkflow` SwiftPM target, the `AgendumBackendServicing` protocol so workflow tests can fake the helper-backed client, pure detail-pane action availability through `TaskItem.availableDetailActions`, fake-backed `TaskWorkflowModelTests` coverage, and a shared `TaskDashboardCommands` command path so the toolbar sync button and the menu `Sync Now` item converge on one model action.
 
-The active checkpoint is SwiftUI workflow coverage before deepening UI behavior. PR #10 from `codex/swiftui-workflow-coverage` to `feature/mac-prototype` extracts app workflow state into testable Swift code, injects a fake backend client in tests, and covers refresh, workspace switching, force-sync polling, task actions, detail-pane action availability, and toolbar/menu sync convergence.
+The active checkpoint is manual task creation UX. The next short-lived branch from updated `feature/mac-prototype` will implement `task.createManual` in `Backend/agendum_backend/helper.py`, add backend unit and subprocess coverage, expose a Swift client method and tests in `AgendumMacCore`, and wire a SwiftUI flow for creating manual tasks from the dashboard. This rounds out the live vertical slice toward the prototype acceptance criteria.
 
 ## Canonical Supporting Docs
 - `docs/status.md`: current milestone, done/in-progress/blocked/next state, and milestone exit criteria.
