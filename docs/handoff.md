@@ -7,7 +7,7 @@ Monitor PR #10 review/CI for the SwiftUI workflow coverage checkpoint.
 `codex/swiftui-workflow-coverage`, branched from updated `feature/mac-prototype`.
 
 ## Repo state
-- HEAD: `codex/swiftui-workflow-coverage`; latest pushed docs commit is `49db0c1`, with this PR-readiness docs follow-up pending locally.
+- HEAD: `codex/swiftui-workflow-coverage`; latest pushed commit is `2544cc9`, with this final status-doc correction pending locally.
 - Integration branch: `feature/mac-prototype`; PR #9 is merged.
 - Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/10`, targeting `feature/mac-prototype`.
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
@@ -145,6 +145,8 @@ Monitor PR #10 review/CI for the SwiftUI workflow coverage checkpoint.
 - Committed the checkpoint as `2b78794` and pushed `codex/swiftui-workflow-coverage`.
 - Opened draft PR #10: `https://github.com/danseely/agendum-mac/pull/10`.
 - PR #10 GitHub Actions `Test` passed on run `25254571906`.
+- Marked PR #10 ready for review.
+- PR #10 GitHub Actions `Test` passed on run `25254607730` after the PR-readiness docs follow-up.
 
 ## Validation
 - `swift build` passes.
@@ -253,8 +255,8 @@ Monitor PR #10 review/CI for the SwiftUI workflow coverage checkpoint.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Commit and push this PR-readiness docs follow-up to `codex/swiftui-workflow-coverage`.
-2. Mark PR #10 ready for review and monitor the final CI run.
+1. Commit and push this final status-doc correction to `codex/swiftui-workflow-coverage`.
+2. Wait for review on PR #10.
 3. Do not merge PR #10 unless explicitly requested.
 
 ## After checkpoint
