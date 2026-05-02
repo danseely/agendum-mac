@@ -1,7 +1,7 @@
 # Handoff
 
 ## Current objective
-Surface richer sync lifecycle and structured error presentation on `codex/sync-lifecycle-presentation` → `feature/mac-prototype`. Live PR/CI/review state lives in `gh pr view <N>`.
+Surface richer sync lifecycle and structured error presentation on `codex/sync-lifecycle-presentation` → `feature/mac-prototype`. Live PR/CI/review state lives in `gh pr view 13`.
 
 ## Branch
 `codex/sync-lifecycle-presentation`, branched from updated `feature/mac-prototype` after PR #12 merged.
@@ -328,7 +328,7 @@ Surface richer sync lifecycle and structured error presentation on `codex/sync-l
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Run `gh pr view <N>` and `gh pr checks <N>`, then branch on the result:
+1. Run `gh pr view 13` and `gh pr checks 13`, then branch on the result:
    - CI failing: investigate and push fixes to `codex/sync-lifecycle-presentation`.
    - CI green, no review yet: run a blind review pass; address findings as new commits.
    - Review clean, PR still draft: mark ready.

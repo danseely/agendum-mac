@@ -141,7 +141,7 @@ Richer sync lifecycle and structured error presentation is being scaffolded on `
 - None.
 
 ## Next
-- Run `gh pr view <N>` and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
+- Run `gh pr view 13` and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
 - After this checkpoint merges, decide the next checkpoint: remaining live-slice gaps (richer task list filtering, packaging/distribution scoping, or settings UI for auth repair).
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
