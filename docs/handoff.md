@@ -164,6 +164,12 @@ Surface richer sync lifecycle and structured error presentation on `codex/sync-l
 - `refresh()` and `selectWorkspace(...)` now reset `taskActionErrors = [:]` on both success and failure paths.
 - Added `actionError: String?` to `TaskDetail` in `Sources/AgendumMac/AgendumMacApp.swift`; the dashboard passes `backendStatus.errorForTask(id: task.id)` and the detail view renders a red caption beneath the action buttons (with `accessibilityIdentifier("task-action-error")`).
 - Replaced `testTaskActionFailureLeavesExistingTasksUntouched` with `testTaskActionFailureScopesErrorToTaskAndKeepsGlobalErrorClean` in `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`, and added `testTaskActionSuccessClearsExistingPerTaskError`, `testTaskActionFailureOnOneTaskDoesNotClearAnotherTasksError`, `testRefreshClearsTaskActionErrors`, and `testSelectWorkspaceClearsTaskActionErrors`. Also added `taskActionErrors.isEmpty` assertion to `testTaskActionsCallBackendAndReloadTasks`.
+- Added `PresentedError` (message + optional recovery + optional code) and `PresentedError.from(_:)` factory to `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`. Replaced `errorMessage: String?` with `error: PresentedError?` plus a computed `errorMessage` shim, and replaced `taskActionErrors: [TaskItem.ID: String]` with `taskActionErrors: [TaskItem.ID: PresentedError]`. `errorForTask(id:)` now returns `PresentedError?`.
+- Added `lastSyncLabel` (relative, `en_US_POSIX`, ISO8601 parsing) and `hasAttentionItems` accessors on `BackendStatusModel`, plus a `now: () -> Date` clock seam on the initializer.
+- Updated `syncLabel` to drop the `lastError` mash-up; sync errors continue to flow through `forceSync`'s catch into the structured `error`.
+- Added a public initializer on `BackendErrorPayload` so workflow tests can construct payloads outside `AgendumMacCore`.
+- Updated `Sources/AgendumMac/AgendumMacApp.swift` `BackendStatusPanel` sync row to render state + an optional "Last synced N min ago" caption + a `Needs attention` indicator, and the global error block to render message + optional recovery on two lines. `TaskDetail.actionError` is now `PresentedError?` and renders the same two-line treatment. Added accessibility identifiers `sync-status-state`, `sync-status-last-synced`, `sync-status-attention-indicator`, `backend-error-message`, `backend-error-recovery`, `task-action-error-recovery`.
+- Added workflow tests `testPresentedErrorExtractsHelperPayloadFields`, `testPresentedErrorFallsBackToDescriptionForGenericErrors`, `testRefreshFailureSurfacesStructuredRecoveryHint`, `testTaskActionFailureSurfacesStructuredRecoveryHint`, `testLastSyncLabelFormatsIso8601Timestamp`, `testLastSyncLabelNilWhenNoTimestamp`, `testHasAttentionItemsReflectsSyncStatus`. Updated existing per-task error assertions to compare against `errorForTask(id:)?.message`.
 
 ## Validation
 
@@ -183,6 +189,14 @@ Surface richer sync lifecycle and structured error presentation on `codex/sync-l
 - `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 464/505 lines (91.9%) for `Backend/agendum_backend/helper.py`.
 - `git diff --check` passes.
 - `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~4s before manual termination).
+
+### Sync lifecycle and structured error presentation checkpoint (on `codex/sync-lifecycle-presentation`, after the changes listed under Completed)
+- `swift build` passes.
+- `swift test --enable-code-coverage` passes: 36 Swift tests (12 `AgendumMacCoreTests` + 24 `AgendumMacWorkflowTests`).
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 48 tests.
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 464/505 lines (91.9%) for `Backend/agendum_backend/helper.py` (no backend changes in this checkpoint).
+- `git diff --check` passes.
+- `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~5s before SIGTERM, exit code 143).
 
 ### Per-task error surfacing checkpoint (on `codex/per-task-error-surfacing`, after the changes listed under Completed)
 - `swift build` passes.
