@@ -119,7 +119,7 @@ SwiftUI workflow coverage merged in PR #10 into `feature/mac-prototype`. Manual 
 - Fast-forwarded local `feature/mac-prototype` after PR #10 and created the next short-lived branch for the manual task creation UX checkpoint.
 
 ## In progress
-- Manual task creation UX checkpoint: implement `task.createManual` in the helper, add backend coverage, expose a Swift client method, and wire a SwiftUI manual-task-create flow.
+- None. `codex/manual-task-creation` is freshly cut from the post-PR-#10 tip; the manual task creation UX checkpoint is queued, not yet started.
 
 ## Blocked
 - None.

@@ -15,14 +15,11 @@ Start the manual task creation UX checkpoint on a new short-lived branch from up
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
 - Post-merge docs update: PR #8 merged into `feature/mac-prototype` on 2026-05-01.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
-- PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
-- PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
-- PR #4: `https://github.com/danseely/agendum-mac/pull/4`, merged into `feature/mac-prototype`
-- PR #5: `https://github.com/danseely/agendum-mac/pull/5`, merged into `feature/mac-prototype`
-- PR #6: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype`
-- Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
+- Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`.
+- Earlier merged PRs into `feature/mac-prototype`: #1 (backend helper scaffold), #3 (testing baseline + CI), #4 (branch discipline), #5 (Swift helper-process client).
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
+- Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
 - Working tree is clean on `codex/manual-task-creation`.
 - Last validation date: 2026-05-02
 
@@ -153,6 +150,17 @@ Start the manual task creation UX checkpoint on a new short-lived branch from up
 - Fast-forwarded local `feature/mac-prototype` after the PR #10 merge and created `codex/manual-task-creation` from the updated tip.
 
 ## Validation
+
+### Current baseline (post-PR-#10, expected on `codex/manual-task-creation` before any new code)
+- `swift build` passes.
+- `swift test --enable-code-coverage` passes: 22 Swift tests (11 `AgendumMacCoreTests` + 11 `AgendumMacWorkflowTests`).
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 43 tests.
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 416/455 lines (91.4%) for `Backend/agendum_backend/helper.py`.
+- `git diff --check` passes.
+- `swift run AgendumMac` launches without an immediate startup crash.
+- Note: `python3` resolves to pyenv 3.10.2 in the user shell, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper tests. CI uses macOS system Python and is unaffected.
+
+### History
 - `swift build` passes.
 - `swift test` passes: 8 Swift tests.
 - `swift test --enable-code-coverage` passes; `BackendClient.swift` line coverage is 72.14% by `xcrun llvm-cov report`.
