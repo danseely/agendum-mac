@@ -3,7 +3,7 @@
 Last updated: 2026-05-02
 
 ## Current milestone
-SwiftUI workflow coverage merged in PR #10 into `feature/mac-prototype`. Manual task creation UX is the next checkpoint, on a new short-lived branch from updated `feature/mac-prototype`.
+Manual task creation UX is implemented and tracked in PR #11 (`codex/manual-task-creation` → `feature/mac-prototype`). Live state via `gh pr view 11`. The next short-lived branch from updated `feature/mac-prototype` should pick up any remaining live-slice gap once this checkpoint merges.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -117,18 +117,23 @@ SwiftUI workflow coverage merged in PR #10 into `feature/mac-prototype`. Manual 
 - Addressed PR #10 review feedback: restructured `testRefreshFailureClearsTasksAndSurfacesError` so a successful refresh populates tasks before the failing refresh proves the catch's tasks clear, and expanded the 2026-05-02 entry in `docs/decisions.md` to name `AgendumBackendServicing` and `TaskDashboardCommands` alongside the `AgendumMacWorkflow` target.
 - PR #10 was marked ready and merged into `feature/mac-prototype` after passing CI and a clean local review pass.
 - Fast-forwarded local `feature/mac-prototype` after PR #10 and created the next short-lived branch for the manual task creation UX checkpoint.
+- Implemented `task.createManual` in `Backend/agendum_backend/helper.py` delegating to `agendum.task_api.create_manual_task`, with title/project/tags payload validation that rejects blank strings and non-string tag entries.
+- Added backend unit tests in `Tests/test_backend_helper.py` for full payload, minimal payload, selected-namespace DB usage, and invalid payloads.
+- Added a subprocess JSONL test in `Tests/test_backend_helper_process.py` that creates a manual task, lists tasks through the same helper process, and verifies invalid payloads return enveloped errors.
+- Added `createManualTask(title:project:tags:)` to `Sources/AgendumMacCore/BackendClient.swift` with a request payload that omits nil `project`/`tags` keys, and added a request/response Swift client test.
+- Added `createManualTask(...)` to `BackendStatusModel` plus `AgendumBackendServicing`, with fake-backed workflow tests covering success/reload and failure-keeps-existing-tasks behavior.
+- Wired a SwiftUI "New Task" toolbar button and `CreateManualTaskSheet` form that submits through `BackendStatusModel.createManualTask` and dismisses only on success.
+- Committed the manual task creation checkpoint as `9a1239f`, pushed `codex/manual-task-creation` to `origin`, and opened draft PR #11 (`https://github.com/danseely/agendum-mac/pull/11`) against `feature/mac-prototype`.
 
 ## In progress
-- Manual task creation UX checkpoint: implement `task.createManual` in the helper, add backend coverage, expose a Swift client method, and wire a SwiftUI manual-task-create flow.
+- PR #11 (`codex/manual-task-creation` → `feature/mac-prototype`) tracks the manual task creation UX checkpoint; live state via `gh pr view 11`.
 
 ## Blocked
 - None.
 
 ## Next
-- Implement `task.createManual` in `Backend/agendum_backend/helper.py` per `docs/backend-contract.md`.
-- Add backend unit and subprocess tests for manual task creation, including invalid payloads.
-- Add a Swift client method and tests for `task.createManual` in `AgendumMacCore`.
-- Wire a SwiftUI manual-task-create flow that refreshes the dashboard after creation.
+- Run `gh pr view 11` and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
+- After PR #11 merges, decide the next checkpoint: likely richer sync lifecycle/error presentation, per-task error surfacing, or beginning packaging/distribution work.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.

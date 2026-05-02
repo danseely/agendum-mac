@@ -37,6 +37,7 @@ from agendum.config import (  # noqa: E402
 )
 from agendum.db import init_db, remove_task, update_task  # noqa: E402
 from agendum.syncer import run_sync  # noqa: E402
+from agendum.task_api import create_manual_task as agendum_create_manual_task  # noqa: E402
 from agendum.task_api import get_task as agendum_get_task  # noqa: E402
 from agendum.task_api import list_tasks as agendum_list_tasks  # noqa: E402
 
@@ -123,6 +124,8 @@ def handle_request(request: Any, state: HelperState) -> dict[str, Any]:
             return _success_response(request_id, {"tasks": list_tasks(state, payload)})
         if command == "task.get":
             return _success_response(request_id, {"task": get_task(state, payload)})
+        if command == "task.createManual":
+            return _success_response(request_id, {"task": create_manual_task(state, payload)})
         if command in _TASK_STATUS_COMMANDS:
             return _success_response(request_id, {"task": update_task_status(state, payload, command)})
         if command == "task.markSeen":
@@ -284,6 +287,27 @@ def get_task(state: HelperState, payload: dict[str, Any]) -> dict[str, Any] | No
     paths = _prepare_task_storage(state)
     task = agendum_get_task(paths.db_path, task_id)
     return _task_payload(task) if task else None
+
+
+def create_manual_task(state: HelperState, payload: dict[str, Any]) -> dict[str, Any]:
+    title = _required_string(payload, "title")
+    if not title.strip():
+        raise PayloadError("Manual task title must not be blank.")
+
+    project = _optional_create_string(payload, "project")
+    if project is not None and not project.strip():
+        raise PayloadError("Manual task project must not be blank when provided.")
+
+    tags = _optional_tag_list(payload)
+
+    paths = _prepare_task_storage(state)
+    task = agendum_create_manual_task(
+        paths.db_path,
+        title=title,
+        project=project,
+        tags=tags,
+    )
+    return _task_payload(task)
 
 
 def update_task_status(state: HelperState, payload: dict[str, Any], command: str) -> dict[str, Any]:
@@ -471,6 +495,44 @@ def _optional_string(payload: dict[str, Any], key: str) -> str | None:
     if not isinstance(value, str):
         raise PayloadError(f"Task {key} filter must be a string or null.")
     return value
+
+
+def _required_string(payload: dict[str, Any], key: str) -> str:
+    if key not in payload:
+        raise PayloadError(f"Manual task {key} is required.")
+    value = payload[key]
+    if not isinstance(value, str):
+        raise PayloadError(f"Manual task {key} must be a string.")
+    return value
+
+
+def _optional_create_string(payload: dict[str, Any], key: str) -> str | None:
+    if key not in payload:
+        return None
+    value = payload[key]
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise PayloadError(f"Manual task {key} must be a string or null.")
+    return value
+
+
+def _optional_tag_list(payload: dict[str, Any]) -> list[str] | None:
+    if "tags" not in payload:
+        return None
+    value = payload["tags"]
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise PayloadError("Manual task tags must be a list of strings or null.")
+    tags: list[str] = []
+    for tag in value:
+        if not isinstance(tag, str):
+            raise PayloadError("Manual task tags must be a list of strings or null.")
+        if not tag.strip():
+            raise PayloadError("Manual task tags must not contain blank strings.")
+        tags.append(tag)
+    return tags
 
 
 def _task_id(payload: dict[str, Any]) -> int:

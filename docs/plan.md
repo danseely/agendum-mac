@@ -30,9 +30,9 @@ Evaluate and prototype a proper native macOS GUI for agendum in a new standalone
 Start with a SwiftUI-first native macOS shell that talks to the existing Python engine through a narrow backend API. Revisit a Swift rewrite only after the GUI shape and backend contract are proven.
 
 ## Current Implementation Checkpoint
-The SwiftUI workflow coverage checkpoint merged in PR #10 from `codex/swiftui-workflow-coverage` to `feature/mac-prototype`. It added the `AgendumMacWorkflow` SwiftPM target, the `AgendumBackendServicing` protocol so workflow tests can fake the helper-backed client, pure detail-pane action availability through `TaskItem.availableDetailActions`, fake-backed `TaskWorkflowModelTests` coverage, and a shared `TaskDashboardCommands` command path so the toolbar sync button and the menu `Sync Now` item converge on one model action.
+The manual task creation UX checkpoint is implemented on `codex/manual-task-creation`. It adds `task.createManual` to `Backend/agendum_backend/helper.py` (delegating to `agendum.task_api.create_manual_task` with title/project/tags validation), backend unit and subprocess JSONL coverage, a `createManualTask(title:project:tags:)` Swift client method on `AgendumBackendClient`, fake-backed workflow coverage on `BackendStatusModel.createManualTask`, and a SwiftUI "New Task" toolbar sheet that dismisses on success and surfaces helper errors through the existing status panel.
 
-The active checkpoint is manual task creation UX. The next short-lived branch from updated `feature/mac-prototype` will implement `task.createManual` in `Backend/agendum_backend/helper.py`, add backend unit and subprocess coverage, expose a Swift client method and tests in `AgendumMacCore`, and wire a SwiftUI flow for creating manual tasks from the dashboard. This rounds out the live vertical slice toward the prototype acceptance criteria.
+The next checkpoint should focus on remaining live-slice gaps such as richer sync lifecycle/error presentation, surfacing per-task errors closer to the affected row, or beginning Mac packaging/distribution work once the prototype acceptance criteria are met.
 
 ## Canonical Supporting Docs
 - `docs/status.md`: current milestone, done/in-progress/blocked/next state, and milestone exit criteria.

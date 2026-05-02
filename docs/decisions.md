@@ -89,3 +89,9 @@
 - Reason: `AgendumMacCore` should stay focused on helper protocol models and process-boundary client behavior, while refresh, workspace switching, sync polling, task actions, and detail action availability are app workflow concerns that need fake-backed tests.
 - Impact: The executable imports `AgendumMacWorkflow` and consumes both the protocol-typed model and `TaskDashboardCommands.standard`; workflow tests inject `AgendumBackendServicing` fakes without launching SwiftUI or spawning the Python helper.
 - Plan change: no; this implements the SwiftUI workflow coverage checkpoint already recorded in `docs/testing.md`.
+
+## 2026-05-02
+- Decision: Add `task.createManual` to the v0 helper contract behind the existing `agendum.task_api.create_manual_task`, encode optional `project`/`tags` on the Swift side using `encodeIfPresent` (omit nil keys), and expose a `BackendStatusModel.createManualTask(...)` returning `Bool` so the SwiftUI sheet can dismiss only on success.
+- Reason: Manual task creation is the next live-slice gap named in `docs/plan.md`; reusing `agendum.task_api.create_manual_task` keeps source/status defaults consistent with the CLI, and the `Bool` return separates form lifecycle (dismiss) from status presentation (`errorMessage`) without requiring the SwiftUI form to inspect helper errors directly.
+- Impact: The helper accepts both omitted and explicit-`null` `project`/`tags` (matching existing `_optional_*` validation patterns), the workflow target gains `createManualTask` plumbing covered by fake-backed tests, and the dashboard exposes a "New Task" toolbar button that opens a sheet for title/project/tags entry.
+- Plan change: no; this implements the manual task creation checkpoint already named in `docs/plan.md` and `docs/handoff.md`.

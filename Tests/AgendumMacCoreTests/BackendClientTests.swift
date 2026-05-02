@@ -285,6 +285,105 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(syncAfter.lastSyncAt, "2026-05-01T20:00:00+00:00")
     }
 
+    func testClientCreatesManualTask() async throws {
+        let helper = try writePythonHelper(
+            contents: """
+            import json
+            import sys
+
+            expected = [
+                {
+                    "title": "Sketch Mac backend contract",
+                    "project": "agendum-mac",
+                    "tags": ["planning", "design"],
+                },
+                {"title": "Minimal task"},
+            ]
+            responses = [
+                {
+                    "id": 42,
+                    "title": "Sketch Mac backend contract",
+                    "source": "manual",
+                    "status": "backlog",
+                    "project": "agendum-mac",
+                    "ghRepo": None,
+                    "ghUrl": None,
+                    "ghNumber": None,
+                    "ghAuthor": None,
+                    "ghAuthorName": None,
+                    "tags": ["planning", "design"],
+                    "seen": True,
+                    "lastChangedAt": "2026-05-02T15:00:00+00:00",
+                    "updatedAt": "2026-05-02T15:01:00+00:00",
+                },
+                {
+                    "id": 43,
+                    "title": "Minimal task",
+                    "source": "manual",
+                    "status": "backlog",
+                    "project": None,
+                    "ghRepo": None,
+                    "ghUrl": None,
+                    "ghNumber": None,
+                    "ghAuthor": None,
+                    "ghAuthorName": None,
+                    "tags": [],
+                    "seen": True,
+                    "lastChangedAt": "2026-05-02T15:02:00+00:00",
+                    "updatedAt": "2026-05-02T15:02:00+00:00",
+                },
+            ]
+
+            for index, line in enumerate(sys.stdin):
+                request = json.loads(line)
+                payload = request["payload"]
+                expected_payload = expected[index]
+                if (
+                    request["command"] != "task.createManual"
+                    or payload != expected_payload
+                ):
+                    print(json.dumps({
+                        "version": 1,
+                        "id": request["id"],
+                        "ok": False,
+                        "error": {
+                            "code": "test.failed",
+                            "message": "unexpected createManual request",
+                            "detail": json.dumps(payload),
+                        }
+                    }), flush=True)
+                    continue
+                print(json.dumps({
+                    "version": 1,
+                    "id": request["id"],
+                    "ok": True,
+                    "payload": {"task": responses[index]},
+                }), flush=True)
+            """
+        )
+        let client = AgendumBackendClient(configuration: fakeHelperConfiguration(helperURL: helper))
+
+        let created = try await client.createManualTask(
+            title: "Sketch Mac backend contract",
+            project: "agendum-mac",
+            tags: ["planning", "design"]
+        )
+        let minimal = try await client.createManualTask(title: "Minimal task")
+        await client.close()
+
+        XCTAssertEqual(created.id, 42)
+        XCTAssertEqual(created.title, "Sketch Mac backend contract")
+        XCTAssertEqual(created.source, "manual")
+        XCTAssertEqual(created.status, "backlog")
+        XCTAssertEqual(created.project, "agendum-mac")
+        XCTAssertEqual(created.tags, ["planning", "design"])
+
+        XCTAssertEqual(minimal.id, 43)
+        XCTAssertEqual(minimal.title, "Minimal task")
+        XCTAssertNil(minimal.project)
+        XCTAssertEqual(minimal.tags, [])
+    }
+
     func testClientReusesOneHelperProcess() async throws {
         let helper = try writePythonHelper(
             contents: """

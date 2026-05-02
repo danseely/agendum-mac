@@ -234,6 +234,55 @@ class BackendHelperProcessTests(unittest.TestCase):
             self.assertEqual(responses[1]["payload"]["task"]["status"], "done")
             self.assertTrue(responses[2]["payload"]["removed"])
 
+    def test_task_create_manual_persists_through_jsonl_process(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            responses = self.run_helper(
+                [
+                    {
+                        "version": 1,
+                        "id": "process-create-manual",
+                        "command": "task.createManual",
+                        "payload": {
+                            "title": "Process manual task",
+                            "project": "agendum-mac",
+                            "tags": ["planning"],
+                        },
+                    },
+                    {
+                        "version": 1,
+                        "id": "process-create-manual-list",
+                        "command": "task.list",
+                        "payload": {},
+                    },
+                    {
+                        "version": 1,
+                        "id": "process-create-manual-bad",
+                        "command": "task.createManual",
+                        "payload": {"title": "   "},
+                    },
+                ],
+                base_dir=root,
+            )
+
+            self.assertEqual(len(responses), 3)
+            self.assertTrue(responses[0]["ok"])
+            created = responses[0]["payload"]["task"]
+            self.assertEqual(created["title"], "Process manual task")
+            self.assertEqual(created["source"], "manual")
+            self.assertEqual(created["status"], "backlog")
+            self.assertEqual(created["tags"], ["planning"])
+
+            self.assertTrue(responses[1]["ok"])
+            listed = responses[1]["payload"]["tasks"]
+            self.assertEqual(len(listed), 1)
+            self.assertEqual(listed[0]["id"], created["id"])
+            self.assertEqual(listed[0]["title"], "Process manual task")
+
+            self.assertFalse(responses[2]["ok"])
+            self.assertEqual(responses[2]["error"]["code"], "payload.invalid")
+
     def test_sync_force_and_status_use_shared_jsonl_process(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
