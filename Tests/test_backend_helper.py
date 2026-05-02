@@ -651,6 +651,38 @@ class BackendHelperTests(unittest.TestCase):
             self.assertEqual(response["payload"]["status"]["state"], "error")
             self.assertEqual(response["payload"]["status"]["lastError"], "gh credentials expired")
 
+    def test_force_sync_reports_exception_status_and_helper_continues(self) -> None:
+        async def fake_run_sync(db_path, config):
+            raise RuntimeError("sync transport failed")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+
+            with mock.patch("Backend.agendum_backend.helper.run_sync", side_effect=fake_run_sync):
+                response = handle_request(
+                    {
+                        "version": 1,
+                        "id": "sync-force-exception",
+                        "command": "sync.force",
+                        "payload": {},
+                    },
+                    state,
+                )
+            status = handle_request(
+                {
+                    "version": 1,
+                    "id": "sync-status-after-exception",
+                    "command": "sync.status",
+                    "payload": {},
+                },
+                state,
+            )
+
+            self.assertTrue(response["ok"])
+            self.assertEqual(response["payload"]["status"]["state"], "error")
+            self.assertEqual(response["payload"]["status"]["lastError"], "sync transport failed")
+            self.assertEqual(status["payload"]["status"], response["payload"]["status"])
+
     def test_auth_status_reports_missing_gh(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             state = HelperState(base_dir=Path(tmp))

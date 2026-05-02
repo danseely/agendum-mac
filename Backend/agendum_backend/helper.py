@@ -325,7 +325,18 @@ def force_sync(state: HelperState) -> dict[str, Any]:
         "lastError": None,
     }
 
-    changes, has_attention_items, error_message = asyncio.run(run_sync(paths.db_path, config))
+    try:
+        changes, has_attention_items, error_message = asyncio.run(run_sync(paths.db_path, config))
+    except Exception as exc:
+        state.sync_status = {
+            "state": "error",
+            "lastSyncAt": datetime.now(timezone.utc).isoformat(),
+            "lastError": str(exc),
+            "changes": 0,
+            "hasAttentionItems": False,
+        }
+        return state.sync_status
+
     state.sync_status = {
         "state": "error" if error_message else "idle",
         "lastSyncAt": datetime.now(timezone.utc).isoformat(),

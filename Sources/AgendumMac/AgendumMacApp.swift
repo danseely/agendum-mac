@@ -23,6 +23,7 @@ struct AgendumMacApp: App {
 private struct TaskItem: Identifiable, Hashable {
     let id: Int
     let title: String
+    let backendSource: String
     let source: TaskSource
     let status: String
     let project: String
@@ -34,6 +35,7 @@ private struct TaskItem: Identifiable, Hashable {
     init(task: AgendumTask) {
         id = task.id
         title = task.title
+        backendSource = task.source
         source = TaskSource(backendSource: task.source)
         status = task.status
         project = task.project ?? "No project"
@@ -462,7 +464,7 @@ private struct TaskDetail: View {
                     }
                     .disabled(isLoading)
                 }
-                if task.source == .issues {
+                if task.backendSource == "manual" {
                     if task.status == "in progress" {
                         Button("Move to Backlog") {
                             Task {

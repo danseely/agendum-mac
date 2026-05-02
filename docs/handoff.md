@@ -122,6 +122,9 @@ Implement task detail refresh, task actions, and sync wiring.
 - Wired `Sources/AgendumMac/AgendumMacApp.swift` so the toolbar can force sync, the status panel shows sync state, and the detail pane performs source-aware backend task actions.
 - Opened draft PR #9 against `feature/mac-prototype`.
 - Checked PR #9 with `gh pr view`; it is open as a draft, mergeable cleanly, and its `Test` check is passing on the current head.
+- Ran a focused PR #9 review and fixed two findings:
+  - `Backend/agendum_backend/helper.py`: unexpected `run_sync` exceptions now set terminal `error` sync status and return it, instead of leaving `state.sync_status` stuck at `running`.
+  - `Sources/AgendumMac/AgendumMacApp.swift`: manual status actions now key off backend source `manual`, so GitHub issue rows grouped under Issues & Manual do not get local manual status controls.
 
 ## Validation
 - `swift build` passes.
@@ -153,6 +156,11 @@ Implement task detail refresh, task actions, and sync wiring.
 - Final checkpoint validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
 - Final checkpoint validation: `git diff --check` passes.
 - PR #9 GitHub Actions `Test` check is passing on the current head.
+- PR #9 review-fix validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 40 tests.
+- PR #9 review-fix validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 405/428 lines, 94.6% for `Backend/agendum_backend/helper.py`.
+- PR #9 review-fix validation: `swift build` passes.
+- PR #9 review-fix validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
+- PR #9 review-fix validation: `git diff --check` passes.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -201,7 +209,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Run a focused review pass on PR #9 and fix any findings.
+1. Push PR #9 review fixes and confirm GitHub Actions on the new head.
 2. Keep the manual `swift run AgendumMac` smoke test in mind before treating the UI slice as fully exercised.
 3. After review fixes, mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
 
@@ -213,3 +221,4 @@ Implement task detail refresh, task actions, and sync wiring.
 - Approved deviation: public `main` is README-only; prototype work lives on stacked feature branches.
 - Resolved stack state: `codex/task-list-loading` was temporarily based on PR #6, then rebased onto `feature/mac-prototype` after PR #6 merged.
 - No new unapproved drift found during the PR #9 planning-doc update.
+- No new unapproved drift found during the PR #9 focused review fixes.
