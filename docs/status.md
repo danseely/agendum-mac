@@ -1,9 +1,9 @@
 # Status
 
-Last updated: 2026-05-01
+Last updated: 2026-05-02
 
 ## Current milestone
-Backend-backed task list loading merged in PR #7. The next checkpoint is task detail refresh, task actions, and sync wiring on a new short-lived branch targeting `feature/mac-prototype`.
+Task detail refresh, task actions, and sync wiring are done and merged through PR #9 into `feature/mac-prototype`. The next checkpoint is SwiftUI workflow coverage before deepening UI behavior.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -83,9 +83,32 @@ Backend-backed task list loading merged in PR #7. The next checkpoint is task de
 - Ran blind review cycle 3 after `4df64c6`; it found no actionable bugs, regressions, missing required tests, or stale project-memory docs.
 - PR #7 was marked ready and merged into `feature/mac-prototype` on 2026-05-01 with squash merge `8e71589`.
 - Local `feature/mac-prototype` was fast-forwarded to `8e71589`.
+- PR #8 merged the post-PR #7 planning docs into `feature/mac-prototype` with squash merge `42f06aa`.
+- Created `codex/task-detail-actions-sync` from updated `feature/mac-prototype`.
+- Implemented helper commands for `task.get`, `task.markReviewed`, `task.markInProgress`, `task.moveToBacklog`, `task.markDone`, `task.markSeen`, `task.remove`, `sync.status`, and `sync.force`.
+- Added backend unit and subprocess coverage for task detail/action commands and sync status/force behavior.
+- Added Swift client methods and coverage for task detail/actions and sync commands.
+- Wired the SwiftUI dashboard to show sync status, run force sync, and perform source-aware task actions from the detail pane.
+- Opened draft PR #9: `https://github.com/danseely/agendum-mac/pull/9`.
+- PR #9 is open as a draft, has a clean merge state, and its GitHub Actions `Test` check is passing on the current head.
+- Focused PR #9 review found and fixed two issues: unexpected sync exceptions now produce an error sync status instead of leaving helper state `running`, and SwiftUI manual status actions are limited to backend `manual` tasks instead of all items in the Issues & Manual section.
+- Local review-fix validation passed: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` ran 40 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` reported 405/428 lines (94.6%), `swift build` passed, `swift test --enable-code-coverage` ran 11 tests, and `git diff --check` passed.
+- PR #9 review fixes were pushed and GitHub Actions `Test` passed on the updated branch.
+- `swift run AgendumMac` built the app and stayed running until manually interrupted after a brief launch smoke test; no immediate startup crash was observed.
+- Fresh blind review of PR #9 found two sync-state issues: workspace selection could leave stale sync status behind, and `sync.force` blocked instead of returning `running` per `docs/backend-contract.md`.
+- Addressed the blind-review findings by resetting sync status on workspace selection, running `sync.force` in a background worker with duplicate-run protection, invalidating old sync completions with a token, and polling `sync.status` from the SwiftUI force-sync path.
+- Blind-review fix validation passed: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` ran 42 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` reported 416/455 lines (91.4%), `swift build` passed, `swift test --enable-code-coverage` ran 11 tests, and `git diff --check` passed.
+- PR #9 blind-review fixes were pushed and GitHub Actions `Test` passed on the updated branch.
+- Second fresh blind review of PR #9 found no code-level bugs or contract regressions, but flagged that sync process-boundary behavior needed a real subprocess JSONL test because docs claimed subprocess coverage.
+- Added `Tests/test_backend_helper_process.py` coverage for one long-lived helper process handling `sync.force` followed by `sync.status` polling.
+- Second blind-review fix validation passed: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` ran 43 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` reported 416/455 lines (91.4%), `swift test --enable-code-coverage` ran 11 tests, and `git diff --check` passed.
+- PR #9 second blind-review fix was pushed and GitHub Actions `Test` passed on the updated branch.
+- Third fresh blind review of PR #9 found no actionable bugs, regressions, contract drift, concurrency issues, missing required tests, or planning-doc drift.
+- Added the next SwiftUI workflow coverage checkpoint to `docs/testing.md`: extract app workflow logic behind a testable seam, fake the backend client, and cover refresh, workspace selection, force-sync polling, task actions, detail-pane action availability, and shared sync command wiring.
+- PR #9 was marked ready and merged into `feature/mac-prototype`.
 
 ## In progress
-- Ready to start the next implementation checkpoint.
+- SwiftUI workflow coverage checkpoint planning is complete; implementation should start on a new short-lived branch from updated `feature/mac-prototype`.
 
 ## Blocked
 - None.
@@ -94,5 +117,6 @@ Backend-backed task list loading merged in PR #7. The next checkpoint is task de
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Start the next short-lived branch for task detail refresh, task actions, and sync wiring.
+- Fast-forward local `feature/mac-prototype` after PR #9 merge and clean up the merged topic branch.
+- Start the SwiftUI workflow coverage checkpoint on a new short-lived branch.
 - Keep `feature/mac-prototype` as the broad integration branch.

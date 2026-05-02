@@ -224,6 +224,46 @@ public actor AgendumBackendClient {
         return payload.tasks
     }
 
+    public func getTask(id: Int) async throws -> AgendumTask? {
+        let payload: TaskResponsePayload = try await send(command: "task.get", payload: TaskIDRequestPayload(id: id))
+        return payload.task
+    }
+
+    public func markTaskReviewed(id: Int) async throws -> AgendumTask {
+        try await taskAction(command: "task.markReviewed", id: id)
+    }
+
+    public func markTaskInProgress(id: Int) async throws -> AgendumTask {
+        try await taskAction(command: "task.markInProgress", id: id)
+    }
+
+    public func moveTaskToBacklog(id: Int) async throws -> AgendumTask {
+        try await taskAction(command: "task.moveToBacklog", id: id)
+    }
+
+    public func markTaskDone(id: Int) async throws -> AgendumTask {
+        try await taskAction(command: "task.markDone", id: id)
+    }
+
+    public func markTaskSeen(id: Int) async throws -> AgendumTask {
+        try await taskAction(command: "task.markSeen", id: id)
+    }
+
+    public func removeTask(id: Int) async throws -> Bool {
+        let payload: TaskRemoveResponsePayload = try await send(command: "task.remove", payload: TaskIDRequestPayload(id: id))
+        return payload.removed
+    }
+
+    public func syncStatus() async throws -> SyncStatus {
+        let payload: SyncStatusResponsePayload = try await send(command: "sync.status")
+        return payload.status
+    }
+
+    public func forceSync() async throws -> SyncStatus {
+        let payload: SyncStatusResponsePayload = try await send(command: "sync.force")
+        return payload.status
+    }
+
     public func authStatus() async throws -> AuthStatus {
         let payload: AuthStatusResponsePayload = try await send(command: "auth.status")
         return payload.auth
@@ -320,6 +360,14 @@ public actor AgendumBackendClient {
         command: String
     ) async throws -> ResponsePayload {
         try await send(command: command, payload: EmptyPayload())
+    }
+
+    private func taskAction(command: String, id: Int) async throws -> AgendumTask {
+        let payload: TaskResponsePayload = try await send(command: command, payload: TaskIDRequestPayload(id: id))
+        guard let task = payload.task else {
+            throw BackendClientError.invalidResponse("Backend helper response did not include a task.")
+        }
+        return task
     }
 
     private func startIfNeeded() throws {
@@ -485,4 +533,20 @@ private struct TaskListRequestPayload: Encodable, Sendable {
 
 private struct TaskListResponsePayload: Decodable {
     let tasks: [AgendumTask]
+}
+
+private struct TaskIDRequestPayload: Encodable, Sendable {
+    let id: Int
+}
+
+private struct TaskResponsePayload: Decodable {
+    let task: AgendumTask?
+}
+
+private struct TaskRemoveResponsePayload: Decodable {
+    let removed: Bool
+}
+
+private struct SyncStatusResponsePayload: Decodable {
+    let status: SyncStatus
 }

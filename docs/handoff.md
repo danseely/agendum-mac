@@ -1,17 +1,18 @@
 # Handoff
 
 ## Current objective
-Prepare the next live-slice checkpoint after backend-backed task list loading landed.
+Prepare for the SwiftUI workflow coverage checkpoint after PR #9 merged task detail/actions/sync wiring.
 
 ## Branch
-`feature/mac-prototype`
+`feature/mac-prototype` after fast-forwarding the PR #9 merge.
 
 ## Repo state
-- HEAD: `feature/mac-prototype`; run `git rev-parse --short HEAD` for the exact commit.
-- Integration branch: `feature/mac-prototype` at squash merge `8e71589`.
+- HEAD: `feature/mac-prototype`; run `git rev-parse --short HEAD` for the current commit after pulling the PR #9 merge.
+- Integration branch: `feature/mac-prototype`; PR #9 is merged.
 - Current base checkpoint PR: `https://github.com/danseely/agendum-mac/pull/6`, merged into `feature/mac-prototype` on 2026-05-01.
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
-- Post-merge docs update: PR #8 records the PR #7 merge state.
+- Post-merge docs update: PR #8 merged into `feature/mac-prototype` on 2026-05-01.
+- Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/9`, merged into `feature/mac-prototype`.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
@@ -21,8 +22,8 @@ Prepare the next live-slice checkpoint after backend-backed task list loading la
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: should be clean after PR #8 lands.
-- Last validation date: 2026-05-01
+- Working tree after merge cleanup should be clean on `feature/mac-prototype`.
+- Last validation date: 2026-05-02
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -111,6 +112,27 @@ Prepare the next live-slice checkpoint after backend-backed task list loading la
 - Merged PR #7 into `feature/mac-prototype` with squash merge `8e71589`.
 - Fast-forwarded local `feature/mac-prototype` to `8e71589`.
 - The local `codex/task-list-loading` branch was removed by the merge flow; the remote PR branch was deleted.
+- Merged PR #8 into `feature/mac-prototype` with squash merge `42f06aa`.
+- Created `codex/task-detail-actions-sync` from updated `feature/mac-prototype`.
+- Implemented backend helper support in `Backend/agendum_backend/helper.py` for task detail, status actions, per-task mark seen, removal, sync status, and force sync.
+- Added backend tests in `Tests/test_backend_helper.py` and `Tests/test_backend_helper_process.py` for the new commands.
+- Added Swift client methods and response payload types in `Sources/AgendumMacCore/BackendClient.swift`.
+- Added Swift client coverage in `Tests/AgendumMacCoreTests/BackendClientTests.swift`.
+- Wired `Sources/AgendumMac/AgendumMacApp.swift` so the toolbar can force sync, the status panel shows sync state, and the detail pane performs source-aware backend task actions.
+- Opened draft PR #9 against `feature/mac-prototype`.
+- Checked PR #9 with `gh pr view`; it is open as a draft, mergeable cleanly, and its `Test` check is passing on the current head.
+- Ran a focused PR #9 review and fixed two findings:
+  - `Backend/agendum_backend/helper.py`: unexpected `run_sync` exceptions now set terminal `error` sync status and return it, instead of leaving `state.sync_status` stuck at `running`.
+  - `Sources/AgendumMac/AgendumMacApp.swift`: manual status actions now key off backend source `manual`, so GitHub issue rows grouped under Issues & Manual do not get local manual status controls.
+- Ran a fresh blind review of PR #9 and fixed two sync-state findings:
+  - `Backend/agendum_backend/helper.py`: `workspace.select` now resets `state.sync_status`, `sync.force` starts a background worker and returns `running` immediately, duplicate force-sync requests return the current running state, and sync completions are token-guarded so stale workers cannot overwrite status after workspace switches.
+  - `Sources/AgendumMac/AgendumMacApp.swift`: the force-sync UI path now polls `sync.status` until completion or a bounded timeout before reloading tasks.
+  - `Tests/test_backend_helper.py`: coverage now includes async force-sync completion, duplicate running requests, error/exception completion status, and workspace-select sync reset.
+- Ran a second fresh blind review of PR #9. It found no code-level bugs or contract regressions, but flagged that `sync.force` process-boundary behavior needed a real subprocess JSONL test because planning docs claimed subprocess coverage.
+- Added `Tests/test_backend_helper_process.py` coverage that keeps one helper process alive, sends `sync.force`, then polls `sync.status` over the same JSONL process until completion.
+- Ran a third fresh blind review of PR #9 at remote head `f764f9e`; it found no actionable bugs, regressions, contract drift, concurrency issues, missing required tests, or planning-doc drift. Residual risk remains deeper SwiftUI workflow coverage, especially force-sync polling and detail-pane actions.
+- Added a concrete SwiftUI workflow coverage checkpoint to `docs/testing.md`. The next coverage step is to extract `BackendStatusModel` or equivalent app workflow state into a testable target, inject a fake backend-client protocol, and cover refresh, workspace switching, force-sync polling, task actions, detail-pane action availability, and toolbar/menu sync convergence without launching the full app.
+- Marked PR #9 ready and merged it into `feature/mac-prototype`.
 
 ## Validation
 - `swift build` passes.
@@ -133,6 +155,36 @@ Prepare the next live-slice checkpoint after backend-backed task list loading la
 - Second review-fix validation: `swift test --enable-code-coverage` passed: 10 Swift tests.
 - Blind review cycle 3 validation: `gh pr checks 7` passed, `git diff --check origin/feature/mac-prototype...origin/codex/task-list-loading` passed, `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed: 32 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed: 305/326 lines, 93.6%, and `swift test --enable-code-coverage` passed: 10 Swift tests.
 - PR #7 final CI passed: GitHub Actions run `25230767259`.
+- Early checkpoint validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 39 tests.
+- Early checkpoint validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
+- Early checkpoint validation: `git diff --check` passes.
+- Final checkpoint validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 39 tests.
+- Final checkpoint validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 396/419 lines, 94.5% for `Backend/agendum_backend/helper.py`.
+- Final checkpoint validation: `swift build` passes.
+- Final checkpoint validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
+- Final checkpoint validation: `git diff --check` passes.
+- PR #9 GitHub Actions `Test` check is passing on the current head.
+- PR #9 review-fix validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 40 tests.
+- PR #9 review-fix validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 405/428 lines, 94.6% for `Backend/agendum_backend/helper.py`.
+- PR #9 review-fix validation: `swift build` passes.
+- PR #9 review-fix validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
+- PR #9 review-fix validation: `git diff --check` passes.
+- PR #9 review-fix GitHub Actions `Test` check passed after the fix push.
+- Launch smoke: `swift run AgendumMac` built successfully and the app stayed running until manually interrupted after a brief launch window; no immediate startup crash was observed.
+- PR #9 blind-review fix validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 42 tests.
+- PR #9 blind-review fix validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 416/455 lines, 91.4% for `Backend/agendum_backend/helper.py`.
+- PR #9 blind-review fix validation: `swift build` passes.
+- PR #9 blind-review fix validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
+- PR #9 blind-review fix validation: `git diff --check` passes.
+- PR #9 blind-review fix GitHub Actions `Test` check passed after the fix push.
+- PR #9 second blind-review fix validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 43 tests.
+- PR #9 second blind-review fix validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 416/455 lines, 91.4% for `Backend/agendum_backend/helper.py`.
+- PR #9 second blind-review fix validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
+- PR #9 second blind-review fix validation: `git diff --check` passes.
+- PR #9 second blind-review fix GitHub Actions `Test` check passed after the fix push.
+- PR #9 third blind review checked passing GitHub Actions, clean `git diff --check origin/feature/mac-prototype...origin/codex/task-detail-actions-sync`, and targeted sync helper tests.
+- SwiftUI workflow coverage plan recorded in `docs/testing.md`; no implementation validation has run for that future checkpoint yet.
+- PR #9 final pre-merge GitHub Actions `Test` check passed before merge.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -158,18 +210,16 @@ Prepare the next live-slice checkpoint after backend-backed task list loading la
 - `swift test --enable-code-coverage` passes: 10 Swift tests.
 - `git diff --check` passes.
 - `python3 -m unittest discover -s Tests` fails in the current shell because `python3` resolves to pyenv Python 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
-- Pending: `swift run AgendumMac`.
+- Launch smoke completed with `swift run AgendumMac`; deeper UI workflow testing remains manual.
 
 ## Changed files
-- `Backend/agendum_backend/helper.py`
-- `Sources/AgendumMacCore/BackendClient.swift`
-- `Sources/AgendumMac/AgendumMacApp.swift`
-- `Tests/AgendumMacCoreTests/BackendClientTests.swift`
-- `Tests/test_backend_helper.py`
-- `Tests/test_backend_helper_process.py`
-- `docs/plan.md`
-- `docs/status.md`
-- `docs/handoff.md`
+- PR #9 changed `Backend/agendum_backend/helper.py`.
+- PR #9 changed `Sources/AgendumMacCore/BackendClient.swift`.
+- PR #9 changed `Sources/AgendumMac/AgendumMacApp.swift`.
+- PR #9 changed `Tests/AgendumMacCoreTests/BackendClientTests.swift`.
+- PR #9 changed `Tests/test_backend_helper.py`.
+- PR #9 changed `Tests/test_backend_helper_process.py`.
+- PR #9 changed `docs/testing.md`, `docs/plan.md`, `docs/status.md`, and `docs/handoff.md`.
 
 ## Risks / blockers
 - A Mac App Store build is likely harder if the app depends on launching external `gh` and sharing `gh` auth files.
@@ -181,14 +231,20 @@ Prepare the next live-slice checkpoint after backend-backed task list loading la
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Start a short-lived branch for task detail refresh, task actions, and sync wiring.
-2. Keep `feature/mac-prototype` as the broad integration branch and continue landing work through PRs.
-3. Keep the manual `swift run AgendumMac` smoke test in mind before treating the UI slice as fully exercised.
+1. Fast-forward local `feature/mac-prototype` and clean up the merged `codex/task-detail-actions-sync` branch/tracking artifacts.
+2. Create a new short-lived branch from `feature/mac-prototype` for SwiftUI workflow coverage.
+3. Start the SwiftUI workflow coverage checkpoint: extract testable workflow state, inject a fake backend client, and cover force-sync polling/detail-pane actions.
 
 ## After checkpoint
-- Continue from backend-backed `task.list` loading to task detail refresh, task actions, and sync wiring.
+- Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
 - Approved deviation: public `main` is README-only; prototype work lives on stacked feature branches.
 - Resolved stack state: `codex/task-list-loading` was temporarily based on PR #6, then rebased onto `feature/mac-prototype` after PR #6 merged.
+- No new unapproved drift found during the PR #9 planning-doc update.
+- No new unapproved drift found during the PR #9 focused review fixes.
+- Blind-review sync-force finding confirmed implementation drift from `docs/backend-contract.md`; fixed by bringing `sync.force` behavior back in line with the contract.
+- Second blind-review finding confirmed test/documentation drift around subprocess coverage; fixed by adding the missing subprocess JSONL sync test.
+- Third blind review found no new drift.
+- SwiftUI workflow coverage remains a known residual risk, not a PR #9 blocker; it is now recorded as the next testing checkpoint.

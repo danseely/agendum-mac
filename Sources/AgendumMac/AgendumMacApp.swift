@@ -23,6 +23,7 @@ struct AgendumMacApp: App {
 private struct TaskItem: Identifiable, Hashable {
     let id: Int
     let title: String
+    let backendSource: String
     let source: TaskSource
     let status: String
     let project: String
@@ -34,6 +35,7 @@ private struct TaskItem: Identifiable, Hashable {
     init(task: AgendumTask) {
         id = task.id
         title = task.title
+        backendSource = task.source
         source = TaskSource(backendSource: task.source)
         status = task.status
         project = task.project ?? "No project"
@@ -98,10 +100,45 @@ private struct TaskDashboardView: View {
                     }
                     .disabled(backendStatus.isLoading)
                 }
+                ToolbarItem {
+                    Button {
+                        selectedTask = nil
+                        Task {
+                            await backendStatus.forceSync()
+                        }
+                    } label: {
+                        Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(backendStatus.isLoading)
+                }
             }
         } detail: {
             if let task = selectedTask.flatMap(taskByID) {
-                TaskDetail(task: task)
+                TaskDetail(
+                    task: task,
+                    isLoading: backendStatus.isLoading,
+                    markSeen: {
+                        await backendStatus.markSeen(id: task.id)
+                    },
+                    markReviewed: {
+                        selectedTask = nil
+                        await backendStatus.markReviewed(id: task.id)
+                    },
+                    markInProgress: {
+                        await backendStatus.markInProgress(id: task.id)
+                    },
+                    moveToBacklog: {
+                        await backendStatus.moveToBacklog(id: task.id)
+                    },
+                    markDone: {
+                        selectedTask = nil
+                        await backendStatus.markDone(id: task.id)
+                    },
+                    remove: {
+                        selectedTask = nil
+                        await backendStatus.removeTask(id: task.id)
+                    }
+                )
             } else {
                 ContentUnavailableView(
                     "No Task Selected",
@@ -140,6 +177,7 @@ private final class BackendStatusModel: ObservableObject {
     @Published var workspace: Workspace?
     @Published var workspaces: [Workspace] = []
     @Published var auth: AuthStatus?
+    @Published var sync: SyncStatus?
     @Published var tasks: [TaskItem] = []
     @Published var errorMessage: String?
     @Published var isLoading = false
@@ -167,6 +205,19 @@ private final class BackendStatusModel: ObservableObject {
         return "GitHub CLI missing"
     }
 
+    var syncLabel: String {
+        guard let sync else {
+            return "Sync status unknown"
+        }
+        if let lastError = sync.lastError {
+            return "Sync \(sync.state): \(lastError)"
+        }
+        if sync.changes > 0 {
+            return "Sync \(sync.state): \(sync.changes) changes"
+        }
+        return "Sync \(sync.state)"
+    }
+
     func refresh() async {
         isLoading = true
         defer { isLoading = false }
@@ -175,6 +226,7 @@ private final class BackendStatusModel: ObservableObject {
             workspace = try await client.currentWorkspace()
             workspaces = try await client.listWorkspaces()
             auth = try await client.authStatus()
+            sync = try await client.syncStatus()
             tasks = try await client.listTasks().map(TaskItem.init)
             errorMessage = nil
         } catch {
@@ -195,6 +247,7 @@ private final class BackendStatusModel: ObservableObject {
             let selection = try await client.selectWorkspace(namespace: target.namespace)
             workspace = selection.workspace
             auth = selection.auth
+            sync = selection.sync
             workspaces = try await client.listWorkspaces()
             tasks = []
             tasks = try await client.listTasks().map(TaskItem.init)
@@ -202,6 +255,78 @@ private final class BackendStatusModel: ObservableObject {
         } catch {
             tasks = []
             errorMessage = String(describing: error)
+        }
+    }
+
+    func forceSync() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            sync = try await client.forceSync()
+            try await pollSyncUntilComplete()
+            tasks = try await client.listTasks().map(TaskItem.init)
+            errorMessage = nil
+        } catch {
+            errorMessage = String(describing: error)
+        }
+    }
+
+    func markSeen(id: TaskItem.ID) async {
+        await performTaskAction {
+            _ = try await client.markTaskSeen(id: id)
+        }
+    }
+
+    func markReviewed(id: TaskItem.ID) async {
+        await performTaskAction {
+            _ = try await client.markTaskReviewed(id: id)
+        }
+    }
+
+    func markInProgress(id: TaskItem.ID) async {
+        await performTaskAction {
+            _ = try await client.markTaskInProgress(id: id)
+        }
+    }
+
+    func moveToBacklog(id: TaskItem.ID) async {
+        await performTaskAction {
+            _ = try await client.moveTaskToBacklog(id: id)
+        }
+    }
+
+    func markDone(id: TaskItem.ID) async {
+        await performTaskAction {
+            _ = try await client.markTaskDone(id: id)
+        }
+    }
+
+    func removeTask(id: TaskItem.ID) async {
+        await performTaskAction {
+            _ = try await client.removeTask(id: id)
+        }
+    }
+
+    private func performTaskAction(_ action: () async throws -> Void) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await action()
+            tasks = try await client.listTasks().map(TaskItem.init)
+            errorMessage = nil
+        } catch {
+            errorMessage = String(describing: error)
+        }
+    }
+
+    private func pollSyncUntilComplete() async throws {
+        var attempts = 0
+        while sync?.state == "running", attempts < 120 {
+            try await Task.sleep(nanoseconds: 500_000_000)
+            sync = try await client.syncStatus()
+            attempts += 1
         }
     }
 }
@@ -243,6 +368,10 @@ private struct BackendStatusPanel: View {
 
             Label(status.authLabel, systemImage: status.auth?.authenticated == true ? "checkmark.seal" : "exclamationmark.triangle")
                 .foregroundStyle(status.auth?.authenticated == true ? Color.secondary : Color.orange)
+                .lineLimit(1)
+
+            Label(status.syncLabel, systemImage: status.sync?.state == "error" ? "exclamationmark.arrow.triangle.2.circlepath" : "arrow.triangle.2.circlepath")
+                .foregroundStyle(status.sync?.state == "error" ? Color.red : Color.secondary)
                 .lineLimit(1)
 
             if let errorMessage = status.errorMessage {
@@ -291,6 +420,13 @@ private struct TaskDetail: View {
     @Environment(\.openURL) private var openURL
 
     let task: TaskItem
+    let isLoading: Bool
+    let markSeen: () async -> Void
+    let markReviewed: () async -> Void
+    let markInProgress: () async -> Void
+    let moveToBacklog: () async -> Void
+    let markDone: () async -> Void
+    let remove: () async -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -322,8 +458,51 @@ private struct TaskDetail: View {
                     }
                 }
                 .disabled(task.url == nil)
-                Button("Mark Done") {}
-                Button("Remove") {}
+                if task.isUnseen {
+                    Button("Mark Seen") {
+                        Task {
+                            await markSeen()
+                        }
+                    }
+                    .disabled(isLoading)
+                }
+                if task.source == .review {
+                    Button("Mark Reviewed") {
+                        Task {
+                            await markReviewed()
+                        }
+                    }
+                    .disabled(isLoading)
+                }
+                if task.backendSource == "manual" {
+                    if task.status == "in progress" {
+                        Button("Move to Backlog") {
+                            Task {
+                                await moveToBacklog()
+                            }
+                        }
+                        .disabled(isLoading)
+                    } else {
+                        Button("Mark In Progress") {
+                            Task {
+                                await markInProgress()
+                            }
+                        }
+                        .disabled(isLoading)
+                    }
+                    Button("Mark Done") {
+                        Task {
+                            await markDone()
+                        }
+                    }
+                    .disabled(isLoading)
+                }
+                Button("Remove") {
+                    Task {
+                        await remove()
+                    }
+                }
+                .disabled(isLoading)
             }
 
             Spacer()
