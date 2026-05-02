@@ -132,6 +132,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - Ran a second fresh blind review of PR #9. It found no code-level bugs or contract regressions, but flagged that `sync.force` process-boundary behavior needed a real subprocess JSONL test because planning docs claimed subprocess coverage.
 - Added `Tests/test_backend_helper_process.py` coverage that keeps one helper process alive, sends `sync.force`, then polls `sync.status` over the same JSONL process until completion.
 - Ran a third fresh blind review of PR #9 at remote head `f764f9e`; it found no actionable bugs, regressions, contract drift, concurrency issues, missing required tests, or planning-doc drift. Residual risk remains deeper SwiftUI workflow coverage, especially force-sync polling and detail-pane actions.
+- Added a concrete SwiftUI workflow coverage checkpoint to `docs/testing.md`. The next coverage step is to extract `BackendStatusModel` or equivalent app workflow state into a testable target, inject a fake backend-client protocol, and cover refresh, workspace switching, force-sync polling, task actions, detail-pane action availability, and toolbar/menu sync convergence without launching the full app.
 
 ## Validation
 - `swift build` passes.
@@ -182,6 +183,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - PR #9 second blind-review fix validation: `git diff --check` passes.
 - PR #9 second blind-review fix GitHub Actions `Test` check passed after the fix push.
 - PR #9 third blind review checked passing GitHub Actions, clean `git diff --check origin/feature/mac-prototype...origin/codex/task-detail-actions-sync`, and targeted sync helper tests.
+- SwiftUI workflow coverage plan recorded in `docs/testing.md`; no implementation validation has run for that future checkpoint yet.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -216,6 +218,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - `Tests/AgendumMacCoreTests/BackendClientTests.swift`
 - `Tests/test_backend_helper.py`
 - `Tests/test_backend_helper_process.py`
+- `docs/testing.md`
 - `docs/plan.md`
 - `docs/status.md`
 - `docs/handoff.md`
@@ -232,7 +235,7 @@ Implement task detail refresh, task actions, and sync wiring.
 ## Next actions
 1. Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
 2. If PR #9 merges, fast-forward `feature/mac-prototype` and clean up the topic branch/worktree artifacts.
-3. Continue toward remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
+3. Start the SwiftUI workflow coverage checkpoint before deepening UI behavior: extract testable workflow state, inject a fake backend client, and cover force-sync polling/detail-pane actions.
 
 ## After checkpoint
 - Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
@@ -246,3 +249,4 @@ Implement task detail refresh, task actions, and sync wiring.
 - Blind-review sync-force finding confirmed implementation drift from `docs/backend-contract.md`; fixed by bringing `sync.force` behavior back in line with the contract.
 - Second blind-review finding confirmed test/documentation drift around subprocess coverage; fixed by adding the missing subprocess JSONL sync test.
 - Third blind review found no new drift.
+- SwiftUI workflow coverage remains a known residual risk, not a PR #9 blocker; it is now recorded as the next testing checkpoint.

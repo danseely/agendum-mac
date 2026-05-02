@@ -104,6 +104,7 @@ Task detail refresh, task actions, and sync wiring are implemented on `codex/tas
 - Second blind-review fix validation passed: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` ran 43 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` reported 416/455 lines (91.4%), `swift test --enable-code-coverage` ran 11 tests, and `git diff --check` passed.
 - PR #9 second blind-review fix was pushed and GitHub Actions `Test` passed on the updated branch.
 - Third fresh blind review of PR #9 found no actionable bugs, regressions, contract drift, concurrency issues, missing required tests, or planning-doc drift.
+- Added the next SwiftUI workflow coverage checkpoint to `docs/testing.md`: extract app workflow logic behind a testable seam, fake the backend client, and cover refresh, workspace selection, force-sync polling, task actions, detail-pane action availability, and shared sync command wiring.
 
 ## In progress
 - PR #9 is ready for final readiness/merge decision, subject to explicit approval.
@@ -116,4 +117,5 @@ Task detail refresh, task actions, and sync wiring are implemented on `codex/tas
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
 - Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
+- After PR #9, make SwiftUI workflow coverage the next test checkpoint before deepening UI behavior.
 - Keep `feature/mac-prototype` as the broad integration branch.

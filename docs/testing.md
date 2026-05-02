@@ -82,6 +82,27 @@ Must cover:
 - task/workspace/auth/sync model decoding
 - helper process lifecycle decisions that can be tested without launching the full app
 
+### SwiftUI Workflow Unit Tests
+Before adding broad UI automation, move workflow logic behind a testable seam so SwiftPM tests can cover behavior without launching the app.
+
+Recommended next checkpoint:
+- Extract `BackendStatusModel` out of `Sources/AgendumMac/AgendumMacApp.swift` into a testable target, or introduce a small app-workflow target that the executable and tests can both import.
+- Add a backend-client protocol/fake so workflow tests can drive workspace, auth, sync, task-list, and task-action responses without spawning the Python helper.
+- Keep SwiftUI view code thin: views should call model methods or a small action planner, while state transitions and available action decisions live in testable Swift code.
+
+Must cover:
+- `refresh()` success and failure: workspace, workspace list, auth, sync, task loading, task clearing on failure, and user-presentable error state.
+- `selectWorkspace(id:)`: no-op for the current workspace, successful workspace/auth/sync/task replacement, task clearing during reload, and failure behavior.
+- `forceSync()`: starts sync, polls `sync.status` while state is `running`, stops on idle/error, reloads tasks after terminal state, and handles polling/transport errors.
+- Task actions: mark seen, mark reviewed, mark in progress, move to backlog, mark done, and remove all call the expected backend method, refresh tasks afterward, and surface errors without corrupting current task state.
+- Detail-pane action availability: review tasks show review actions, backend `manual` tasks show manual status actions, GitHub issue rows do not get manual-only status actions, URL actions require a URL, and remove remains available where intended.
+- Shared app commands: toolbar sync and the app menu sync command should reach the same model action once the menu command is wired.
+
+Acceptance:
+- New SwiftPM tests run under `swift test --enable-code-coverage`.
+- No Python helper process is needed for these workflow tests; process-boundary behavior remains covered by `AgendumMacCoreTests` and Python subprocess tests.
+- Manual launch smoke remains useful, but it should no longer be the only coverage for force-sync polling and detail-pane task actions.
+
 ### Swift UI / App Validation
 Use manual app validation initially, then add UI automation when the live slice is stable.
 
@@ -146,6 +167,11 @@ Acceptance:
 ### Before Sync UI
 - Add tests for sync status state transitions and duplicate `sync.force`.
 - Add at least one terminal-error case that maps to a stable error code and recovery message.
+
+### Before Deepening UI Features After PR #9
+- Add the SwiftUI workflow unit-test seam described above before adding more task detail behavior, manual task creation UX, richer sync presentation, keyboard shortcuts, or menu command wiring.
+- Cover force-sync polling and detail-pane task actions in SwiftPM tests before relying on manual smoke tests for future UI changes.
+- Decide whether menu command wiring belongs in the same checkpoint; current app validation expects toolbar and menu sync commands to converge on the same action.
 
 ### Before Calling The Prototype Ready
 - `swift build` passes.
