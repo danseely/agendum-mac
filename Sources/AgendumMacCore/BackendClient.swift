@@ -54,6 +54,13 @@ public struct BackendErrorPayload: Decodable, Error, Equatable, Sendable {
     public let message: String
     public let detail: String?
     public let recovery: String?
+
+    public init(code: String, message: String, detail: String?, recovery: String?) {
+        self.code = code
+        self.message = message
+        self.detail = detail
+        self.recovery = recovery
+    }
 }
 
 public enum BackendClientError: Error, Equatable, Sendable {

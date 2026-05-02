@@ -122,6 +122,30 @@ public struct TaskDashboardCommands: Equatable, Sendable {
     )
 }
 
+public struct PresentedError: Equatable, Sendable {
+    public let message: String
+    public let recovery: String?
+    public let code: String?
+
+    public init(message: String, recovery: String? = nil, code: String? = nil) {
+        self.message = message
+        self.recovery = recovery
+        self.code = code
+    }
+
+    public static func from(_ error: any Error) -> PresentedError {
+        if let clientError = error as? BackendClientError,
+           case let .helperError(payload) = clientError {
+            return PresentedError(
+                message: payload.message,
+                recovery: payload.recovery ?? payload.detail,
+                code: payload.code
+            )
+        }
+        return PresentedError(message: String(describing: error))
+    }
+}
+
 @MainActor
 public final class BackendStatusModel: ObservableObject {
     @Published public private(set) var workspace: Workspace?
@@ -129,14 +153,19 @@ public final class BackendStatusModel: ObservableObject {
     @Published public private(set) var auth: AuthStatus?
     @Published public private(set) var sync: SyncStatus?
     @Published public private(set) var tasks: [TaskItem] = []
-    @Published public private(set) var errorMessage: String?
-    @Published public private(set) var taskActionErrors: [TaskItem.ID: String] = [:]
+    @Published public private(set) var error: PresentedError?
+    @Published public private(set) var taskActionErrors: [TaskItem.ID: PresentedError] = [:]
     @Published public private(set) var isLoading = false
+
+    public var errorMessage: String? { error?.message }
 
     private let client: any AgendumBackendServicing
     private let syncPollIntervalNanoseconds: UInt64
     private let maxSyncPollAttempts: Int
     private let sleep: @Sendable (UInt64) async throws -> Void
+    private let now: @Sendable () -> Date
+    private let relativeFormatter: RelativeDateTimeFormatter
+    private let iso8601Formatter: ISO8601DateFormatter
 
     public convenience init() {
         self.init(client: AgendumBackendClient())
@@ -146,12 +175,21 @@ public final class BackendStatusModel: ObservableObject {
         client: any AgendumBackendServicing,
         syncPollIntervalNanoseconds: UInt64 = 500_000_000,
         maxSyncPollAttempts: Int = 120,
-        sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }
+        sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) },
+        now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.client = client
         self.syncPollIntervalNanoseconds = syncPollIntervalNanoseconds
         self.maxSyncPollAttempts = maxSyncPollAttempts
         self.sleep = sleep
+        self.now = now
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.unitsStyle = .short
+        self.relativeFormatter = formatter
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        self.iso8601Formatter = iso
     }
 
     public var workspaceLabel: String {
@@ -179,16 +217,26 @@ public final class BackendStatusModel: ObservableObject {
         guard let sync else {
             return "Sync status unknown"
         }
-        if let lastError = sync.lastError {
-            return "Sync \(sync.state): \(lastError)"
-        }
         if sync.changes > 0 {
             return "Sync \(sync.state): \(sync.changes) changes"
         }
         return "Sync \(sync.state)"
     }
 
-    public func errorForTask(id: TaskItem.ID) -> String? {
+    public var lastSyncLabel: String? {
+        guard let lastSyncAt = sync?.lastSyncAt,
+              let date = iso8601Formatter.date(from: lastSyncAt) else {
+            return nil
+        }
+        let relative = relativeFormatter.localizedString(for: date, relativeTo: now())
+        return "Last synced \(relative)"
+    }
+
+    public var hasAttentionItems: Bool {
+        sync?.hasAttentionItems ?? false
+    }
+
+    public func errorForTask(id: TaskItem.ID) -> PresentedError? {
         taskActionErrors[id]
     }
 
@@ -202,12 +250,12 @@ public final class BackendStatusModel: ObservableObject {
             auth = try await client.authStatus()
             sync = try await client.syncStatus()
             tasks = try await loadTaskItems()
-            errorMessage = nil
+            self.error = nil
             taskActionErrors = [:]
         } catch {
             tasks = []
             taskActionErrors = [:]
-            errorMessage = String(describing: error)
+            self.error = PresentedError.from(error)
         }
     }
 
@@ -227,12 +275,12 @@ public final class BackendStatusModel: ObservableObject {
             workspaces = try await client.listWorkspaces()
             tasks = []
             tasks = try await loadTaskItems()
-            errorMessage = nil
+            self.error = nil
             taskActionErrors = [:]
         } catch {
             tasks = []
             taskActionErrors = [:]
-            errorMessage = String(describing: error)
+            self.error = PresentedError.from(error)
         }
     }
 
@@ -244,9 +292,9 @@ public final class BackendStatusModel: ObservableObject {
             sync = try await client.forceSync()
             try await pollSyncUntilComplete()
             tasks = try await loadTaskItems()
-            errorMessage = nil
+            self.error = nil
         } catch {
-            errorMessage = String(describing: error)
+            self.error = PresentedError.from(error)
         }
     }
 
@@ -298,10 +346,10 @@ public final class BackendStatusModel: ObservableObject {
         do {
             _ = try await client.createManualTask(title: title, project: project, tags: tags)
             tasks = try await loadTaskItems()
-            errorMessage = nil
+            self.error = nil
             return true
         } catch {
-            errorMessage = String(describing: error)
+            self.error = PresentedError.from(error)
             return false
         }
     }
@@ -314,9 +362,9 @@ public final class BackendStatusModel: ObservableObject {
             try await action()
             tasks = try await loadTaskItems()
             taskActionErrors.removeValue(forKey: taskID)
-            errorMessage = nil
+            self.error = nil
         } catch {
-            taskActionErrors[taskID] = String(describing: error)
+            taskActionErrors[taskID] = PresentedError.from(error)
         }
     }
 

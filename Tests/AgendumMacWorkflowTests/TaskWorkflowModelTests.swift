@@ -190,7 +190,7 @@ final class TaskWorkflowModelTests: XCTestCase {
 
         XCTAssertEqual(model.tasks.map(\.id), [17])
         XCTAssertNil(model.errorMessage)
-        XCTAssertEqual(model.errorForTask(id: 17), "done failed")
+        XCTAssertEqual(model.errorForTask(id: 17)?.message, "done failed")
         let calls = await backend.calls
         XCTAssertEqual(calls, ["markTaskDone:17"])
     }
@@ -202,7 +202,7 @@ final class TaskWorkflowModelTests: XCTestCase {
         await model.refresh()
         await backend.failNext("markTaskDone", message: "done failed")
         await model.markDone(id: 17)
-        XCTAssertEqual(model.errorForTask(id: 17), "done failed")
+        XCTAssertEqual(model.errorForTask(id: 17)?.message, "done failed")
 
         await model.markInProgress(id: 17)
 
@@ -217,13 +217,13 @@ final class TaskWorkflowModelTests: XCTestCase {
         await model.refresh()
         await backend.failNext("markTaskDone", message: "done 17 failed")
         await model.markDone(id: 17)
-        XCTAssertEqual(model.errorForTask(id: 17), "done 17 failed")
+        XCTAssertEqual(model.errorForTask(id: 17)?.message, "done 17 failed")
 
         await backend.failNext("markTaskDone", message: "done 23 failed")
         await model.markDone(id: 23)
 
-        XCTAssertEqual(model.errorForTask(id: 17), "done 17 failed")
-        XCTAssertEqual(model.errorForTask(id: 23), "done 23 failed")
+        XCTAssertEqual(model.errorForTask(id: 17)?.message, "done 17 failed")
+        XCTAssertEqual(model.errorForTask(id: 23)?.message, "done 23 failed")
     }
 
     func testRefreshClearsTaskActionErrors() async throws {
@@ -233,7 +233,7 @@ final class TaskWorkflowModelTests: XCTestCase {
         await model.refresh()
         await backend.failNext("markTaskDone", message: "done failed")
         await model.markDone(id: 17)
-        XCTAssertEqual(model.errorForTask(id: 17), "done failed")
+        XCTAssertEqual(model.errorForTask(id: 17)?.message, "done failed")
 
         await model.refresh()
 
@@ -248,7 +248,7 @@ final class TaskWorkflowModelTests: XCTestCase {
         await model.refresh()
         await backend.failNext("markTaskDone", message: "done failed")
         await model.markDone(id: 17)
-        XCTAssertEqual(model.errorForTask(id: 17), "done failed")
+        XCTAssertEqual(model.errorForTask(id: 17)?.message, "done failed")
 
         await backend.setTasks([task(id: 22, title: "Org task", source: "manual")])
         await model.selectWorkspace(id: "example-org")
@@ -299,6 +299,112 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertEqual(calls, ["createManualTask:New|nil|nil"])
     }
 
+    func testPresentedErrorExtractsHelperPayloadFields() {
+        let payload = BackendErrorPayload(
+            code: "auth.required",
+            message: "GitHub auth needed",
+            detail: "scopes: repo",
+            recovery: "Run gh auth login"
+        )
+        let presented = PresentedError.from(BackendClientError.helperError(payload))
+        XCTAssertEqual(presented.message, "GitHub auth needed")
+        XCTAssertEqual(presented.recovery, "Run gh auth login")
+        XCTAssertEqual(presented.code, "auth.required")
+    }
+
+    func testPresentedErrorFallsBackToDescriptionForGenericErrors() {
+        let presented = PresentedError.from(TestError(description: "boom"))
+        XCTAssertEqual(presented.message, "boom")
+        XCTAssertNil(presented.recovery)
+        XCTAssertNil(presented.code)
+    }
+
+    func testRefreshFailureSurfacesStructuredRecoveryHint() async throws {
+        let payload = BackendErrorPayload(
+            code: "workspace.invalid",
+            message: "Workspace missing",
+            detail: nil,
+            recovery: "Pick another workspace"
+        )
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 1)])
+        await backend.failNextWithError("currentWorkspace", error: BackendClientError.helperError(payload))
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refresh()
+
+        XCTAssertEqual(model.error?.message, "Workspace missing")
+        XCTAssertEqual(model.error?.recovery, "Pick another workspace")
+        XCTAssertEqual(model.error?.code, "workspace.invalid")
+        XCTAssertEqual(model.errorMessage, "Workspace missing")
+    }
+
+    func testTaskActionFailureSurfacesStructuredRecoveryHint() async throws {
+        let payload = BackendErrorPayload(
+            code: "task.locked",
+            message: "Task locked",
+            detail: nil,
+            recovery: "Refresh and retry"
+        )
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, title: "Existing")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.failNextWithError("markTaskDone", error: BackendClientError.helperError(payload))
+
+        await model.markDone(id: 17)
+
+        let perTask = model.errorForTask(id: 17)
+        XCTAssertEqual(perTask?.message, "Task locked")
+        XCTAssertEqual(perTask?.recovery, "Refresh and retry")
+        XCTAssertEqual(perTask?.code, "task.locked")
+        XCTAssertNil(model.error)
+    }
+
+    func testLastSyncLabelFormatsIso8601Timestamp() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([])
+        await backend.setSyncStatusOverride(
+            sync(state: "idle", lastSyncAt: "2026-05-02T12:30:00Z")
+        )
+        let fixedNow = ISO8601DateFormatter().date(from: "2026-05-02T12:35:00Z") ?? Date()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            now: { fixedNow }
+        )
+
+        await model.refresh()
+
+        let label = model.lastSyncLabel
+        XCTAssertNotNil(label)
+        XCTAssertTrue(label?.hasPrefix("Last synced ") ?? false, "expected prefix, got \(label ?? "nil")")
+        XCTAssertTrue(label?.contains("min") ?? false, "expected 'min' in \(label ?? "nil")")
+    }
+
+    func testLastSyncLabelNilWhenNoTimestamp() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refresh()
+
+        XCTAssertNil(model.lastSyncLabel)
+    }
+
+    func testHasAttentionItemsReflectsSyncStatus() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([])
+        await backend.setSyncStatusOverride(
+            sync(state: "idle", hasAttentionItems: true)
+        )
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refresh()
+
+        XCTAssertTrue(model.hasAttentionItems)
+    }
+
     func testDetailActionAvailability() {
         let review = TaskItem(task: task(id: 1, source: "pr_review", url: "https://github.com/danseely/agendum-mac/pull/1", seen: false))
         XCTAssertEqual(review.availableDetailActions, [.openBrowser, .markSeen, .markReviewed, .remove])
@@ -324,7 +430,7 @@ private actor SleepRecorder {
 
 private actor FakeBackend: AgendumBackendServicing {
     private(set) var calls: [String] = []
-    private var failures: [String: TestError] = [:]
+    private var failures: [String: any Error] = [:]
     private var current = workspace(id: "base", namespace: nil, isCurrent: true)
     private var workspaceOptions = [
         workspace(id: "base", namespace: nil, isCurrent: true),
@@ -354,6 +460,14 @@ private actor FakeBackend: AgendumBackendServicing {
 
     func failNext(_ method: String, message: String) {
         failures[method] = TestError(description: message)
+    }
+
+    func failNextWithError(_ method: String, error: any Error) {
+        failures[method] = error
+    }
+
+    func setSyncStatusOverride(_ status: SyncStatus) {
+        currentSync = status
     }
 
     func currentWorkspace() async throws -> Workspace {
@@ -497,15 +611,21 @@ private func auth(namespace: String?) -> AuthStatus {
     )
 }
 
-private func sync(state: String, changes: Int = 0, lastError: String? = nil) -> SyncStatus {
+private func sync(
+    state: String,
+    changes: Int = 0,
+    lastError: String? = nil,
+    lastSyncAt: String? = nil,
+    hasAttentionItems: Bool = false
+) -> SyncStatus {
     decode(
         """
         {
             "state": "\(state)",
-            "lastSyncAt": null,
+            "lastSyncAt": \(lastSyncAt.map { "\"\($0)\"" } ?? "null"),
             "lastError": \(lastError.map { "\"\($0)\"" } ?? "null"),
             "changes": \(changes),
-            "hasAttentionItems": false
+            "hasAttentionItems": \(hasAttentionItems)
         }
         """
     )
