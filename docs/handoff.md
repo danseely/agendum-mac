@@ -13,7 +13,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - Task-list PR: `https://github.com/danseely/agendum-mac/pull/7`, merged into `feature/mac-prototype` on 2026-05-01.
 - Post-merge docs update: PR #8 merged into `feature/mac-prototype` on 2026-05-01.
 - Current checkpoint branch: `codex/task-detail-actions-sync`, targeting `feature/mac-prototype`.
-- Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/9`, draft, targeting `feature/mac-prototype`.
+- Current checkpoint PR: `https://github.com/danseely/agendum-mac/pull/9`, draft, clean merge state, targeting `feature/mac-prototype`.
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - PR #1: `https://github.com/danseely/agendum-mac/pull/1`, merged into `feature/mac-prototype`
 - PR #3: `https://github.com/danseely/agendum-mac/pull/3`, merged into `feature/mac-prototype`
@@ -23,7 +23,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Working tree: implementation committed and pushed; docs contain post-PR status updates.
+- Working tree: implementation committed and pushed; current task is keeping planning docs aligned with PR #9.
 - Last validation date: 2026-05-01
 
 ## Completed
@@ -120,8 +120,8 @@ Implement task detail refresh, task actions, and sync wiring.
 - Added Swift client methods and response payload types in `Sources/AgendumMacCore/BackendClient.swift`.
 - Added Swift client coverage in `Tests/AgendumMacCoreTests/BackendClientTests.swift`.
 - Wired `Sources/AgendumMac/AgendumMacApp.swift` so the toolbar can force sync, the status panel shows sync state, and the detail pane performs source-aware backend task actions.
-- Committed and pushed `codex/task-detail-actions-sync` as `0ca0899`.
 - Opened draft PR #9 against `feature/mac-prototype`.
+- Checked PR #9 with `gh pr view`; it is open as a draft, mergeable cleanly, and its `Test` check is passing on the current head.
 
 ## Validation
 - `swift build` passes.
@@ -152,7 +152,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - Final checkpoint validation: `swift build` passes.
 - Final checkpoint validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
 - Final checkpoint validation: `git diff --check` passes.
-- PR #9 GitHub Actions `Test` check is passing; use `gh pr checks 9 --repo danseely/agendum-mac` for the current head run.
+- PR #9 GitHub Actions `Test` check is passing on the current head.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -187,6 +187,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - `Tests/AgendumMacCoreTests/BackendClientTests.swift`
 - `Tests/test_backend_helper.py`
 - `Tests/test_backend_helper_process.py`
+- `docs/plan.md`
 - `docs/status.md`
 - `docs/handoff.md`
 
@@ -211,3 +212,4 @@ Implement task detail refresh, task actions, and sync wiring.
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
 - Approved deviation: public `main` is README-only; prototype work lives on stacked feature branches.
 - Resolved stack state: `codex/task-list-loading` was temporarily based on PR #6, then rebased onto `feature/mac-prototype` after PR #6 merged.
+- No new unapproved drift found during the PR #9 planning-doc update.

@@ -30,7 +30,7 @@ Evaluate and prototype a proper native macOS GUI for agendum in a new standalone
 Start with a SwiftUI-first native macOS shell that talks to the existing Python engine through a narrow backend API. Revisit a Swift rewrite only after the GUI shape and backend contract are proven.
 
 ## Current Implementation Checkpoint
-The backend-backed task loading checkpoint merged in PR #7 from `codex/task-list-loading` to `feature/mac-prototype`. It added `task.list` loading, Swift client task models, backend-loaded SwiftUI task lists, and review fixes for stale task state.
+The task detail/actions/sync checkpoint is open as draft PR #9 from `codex/task-detail-actions-sync` to `feature/mac-prototype`. It adds helper-backed task detail lookup, task status actions, mark-seen/remove, sync status/force-sync commands, Swift client coverage, and SwiftUI wiring for refresh, sync status, and source-aware detail actions.
 
 ## Canonical Supporting Docs
 - `docs/status.md`: current milestone, done/in-progress/blocked/next state, and milestone exit criteria.

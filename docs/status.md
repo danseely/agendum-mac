@@ -3,7 +3,7 @@
 Last updated: 2026-05-01
 
 ## Current milestone
-Task detail refresh, task actions, and sync wiring are in progress on `codex/task-detail-actions-sync`, targeting `feature/mac-prototype`.
+Task detail refresh, task actions, and sync wiring are implemented on `codex/task-detail-actions-sync` and under draft PR review as #9, targeting `feature/mac-prototype`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -89,12 +89,12 @@ Task detail refresh, task actions, and sync wiring are in progress on `codex/tas
 - Added backend unit and subprocess coverage for task detail/action commands and sync status/force behavior.
 - Added Swift client methods and coverage for task detail/actions and sync commands.
 - Wired the SwiftUI dashboard to show sync status, run force sync, and perform source-aware task actions from the detail pane.
-- Committed and pushed `codex/task-detail-actions-sync` as `0ca0899`.
 - Opened draft PR #9: `https://github.com/danseely/agendum-mac/pull/9`.
-- PR #9 GitHub Actions `Test` check is passing; use `gh pr checks 9 --repo danseely/agendum-mac` for the current head run.
+- PR #9 is open as a draft, has a clean merge state, and its GitHub Actions `Test` check is passing on the current head.
 
 ## In progress
-- Task detail/actions/sync checkpoint is in draft PR review as #9.
+- Focused review pass for PR #9 before marking ready.
+- Manual `swift run AgendumMac` smoke test remains pending for the live UI slice.
 
 ## Blocked
 - None.
