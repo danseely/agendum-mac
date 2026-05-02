@@ -26,8 +26,13 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testRefreshFailureClearsTasksAndSurfacesError() async throws {
         let backend = FakeBackend()
         await backend.setTasks([task(id: 17)])
-        await backend.failNext("currentWorkspace", message: "workspace failed")
         let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refresh()
+        XCTAssertEqual(model.tasks.map(\.id), [17])
+
+        await backend.resetCalls()
+        await backend.failNext("currentWorkspace", message: "workspace failed")
 
         await model.refresh()
 

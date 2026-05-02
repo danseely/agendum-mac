@@ -148,6 +148,7 @@ Monitor PR #10 review/CI for the SwiftUI workflow coverage checkpoint.
 - Marked PR #10 ready for review.
 - PR #10 GitHub Actions `Test` passed on run `25254607730` after the PR-readiness docs follow-up.
 - PR #10 GitHub Actions `Test` is passing at the time of this update.
+- Addressed PR #10 review feedback: restructured `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift::testRefreshFailureClearsTasksAndSurfacesError` so a successful refresh populates tasks before the failing refresh proves the catch's clear, and expanded the 2026-05-02 entry in `docs/decisions.md` to name `AgendumBackendServicing` and `TaskDashboardCommands` alongside the `AgendumMacWorkflow` target.
 
 ## Validation
 - `swift build` passes.
@@ -231,6 +232,8 @@ Monitor PR #10 review/CI for the SwiftUI workflow coverage checkpoint.
 - `git diff --check` passes.
 - `python3 -m unittest discover -s Tests` fails in the current shell because `python3` resolves to pyenv Python 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 - Launch smoke completed with `swift run AgendumMac`; deeper UI workflow testing remains manual.
+- PR #10 review-fix validation: `swift build` passes, `swift test --enable-code-coverage` passes with 22 Swift tests, `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes with 43 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` reports 416/455 lines (91.4%) for `Backend/agendum_backend/helper.py`, and `git diff --check` passes.
+- PR #10 review-fix sanity check: temporarily removed the `tasks = []` clear in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift` `refresh()` catch and reran `swift test --filter TaskWorkflowModelTests/testRefreshFailureClearsTasksAndSurfacesError`; the test failed as expected, then passed again after restoring the line.
 
 ## Changed files
 - Current checkpoint changes `Package.swift`.
@@ -257,8 +260,7 @@ Monitor PR #10 review/CI for the SwiftUI workflow coverage checkpoint.
 
 ## Next actions
 1. Wait for review on PR #10.
-2. Address any PR #10 review feedback on `codex/swiftui-workflow-coverage`.
-3. Do not merge PR #10 unless explicitly requested.
+2. Do not merge PR #10 unless explicitly requested.
 
 ## After checkpoint
 - Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
@@ -274,3 +276,4 @@ Monitor PR #10 review/CI for the SwiftUI workflow coverage checkpoint.
 - Third blind review found no new drift.
 - SwiftUI workflow coverage residual risk has been reduced by the new fake-backed workflow target and tests.
 - No new unapproved drift found during the SwiftUI workflow extraction; the new `AgendumMacWorkflow` target is recorded in `docs/decisions.md`.
+- PR #10 review surfaced one test-intent gap (now fixed) and one decisions-log scope omission (now expanded), so the planning-handoff drift check approach continues to be useful.

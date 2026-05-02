@@ -85,7 +85,7 @@
 - Plan change: no; this advances the accepted JSON-over-stdio bridge implementation.
 
 ## 2026-05-02
-- Decision: Add a separate `AgendumMacWorkflow` target for app workflow state instead of putting SwiftUI workflow logic in `AgendumMacCore`.
+- Decision: Add a separate `AgendumMacWorkflow` target for app workflow state, an `AgendumBackendServicing` protocol so workflow tests can fake the backend, and a `TaskDashboardCommands` command type so toolbar and menu sync share one code path, instead of putting any of this in `AgendumMacCore`.
 - Reason: `AgendumMacCore` should stay focused on helper protocol models and process-boundary client behavior, while refresh, workspace switching, sync polling, task actions, and detail action availability are app workflow concerns that need fake-backed tests.
-- Impact: The executable imports `AgendumMacWorkflow`; workflow tests can inject `AgendumBackendServicing` fakes without launching SwiftUI or spawning the Python helper.
+- Impact: The executable imports `AgendumMacWorkflow` and consumes both the protocol-typed model and `TaskDashboardCommands.standard`; workflow tests inject `AgendumBackendServicing` fakes without launching SwiftUI or spawning the Python helper.
 - Plan change: no; this implements the SwiftUI workflow coverage checkpoint already recorded in `docs/testing.md`.

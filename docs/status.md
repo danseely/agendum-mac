@@ -114,6 +114,7 @@ SwiftUI workflow coverage is in PR #10 from `codex/swiftui-workflow-coverage` to
 - Local validation for the workflow checkpoint currently passes: `swift build`, `swift test --enable-code-coverage` with 22 Swift tests, `/opt/homebrew/bin/python3 -m unittest discover -s Tests` with 43 Python tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` at 416/455 lines (91.4%), and `git diff --check`.
 - Opened draft PR #10: `https://github.com/danseely/agendum-mac/pull/10`.
 - GitHub Actions `Test` is passing on PR #10 at the time of this update.
+- Addressed PR #10 review feedback: restructured `testRefreshFailureClearsTasksAndSurfacesError` so a successful refresh populates tasks before the failing refresh proves the catch's tasks clear, and expanded the 2026-05-02 entry in `docs/decisions.md` to name `AgendumBackendServicing` and `TaskDashboardCommands` alongside the `AgendumMacWorkflow` target.
 
 ## In progress
 - SwiftUI workflow coverage checkpoint is in PR #10, ready for review, and passing CI.
