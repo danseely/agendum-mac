@@ -130,6 +130,7 @@ public final class BackendStatusModel: ObservableObject {
     @Published public private(set) var sync: SyncStatus?
     @Published public private(set) var tasks: [TaskItem] = []
     @Published public private(set) var errorMessage: String?
+    @Published public private(set) var taskActionErrors: [TaskItem.ID: String] = [:]
     @Published public private(set) var isLoading = false
 
     private let client: any AgendumBackendServicing
@@ -187,6 +188,10 @@ public final class BackendStatusModel: ObservableObject {
         return "Sync \(sync.state)"
     }
 
+    public func errorForTask(id: TaskItem.ID) -> String? {
+        taskActionErrors[id]
+    }
+
     public func refresh() async {
         isLoading = true
         defer { isLoading = false }
@@ -198,8 +203,10 @@ public final class BackendStatusModel: ObservableObject {
             sync = try await client.syncStatus()
             tasks = try await loadTaskItems()
             errorMessage = nil
+            taskActionErrors = [:]
         } catch {
             tasks = []
+            taskActionErrors = [:]
             errorMessage = String(describing: error)
         }
     }
@@ -221,8 +228,10 @@ public final class BackendStatusModel: ObservableObject {
             tasks = []
             tasks = try await loadTaskItems()
             errorMessage = nil
+            taskActionErrors = [:]
         } catch {
             tasks = []
+            taskActionErrors = [:]
             errorMessage = String(describing: error)
         }
     }
@@ -242,37 +251,37 @@ public final class BackendStatusModel: ObservableObject {
     }
 
     public func markSeen(id: TaskItem.ID) async {
-        await performTaskAction {
+        await performTaskAction(taskID: id) {
             _ = try await client.markTaskSeen(id: id)
         }
     }
 
     public func markReviewed(id: TaskItem.ID) async {
-        await performTaskAction {
+        await performTaskAction(taskID: id) {
             _ = try await client.markTaskReviewed(id: id)
         }
     }
 
     public func markInProgress(id: TaskItem.ID) async {
-        await performTaskAction {
+        await performTaskAction(taskID: id) {
             _ = try await client.markTaskInProgress(id: id)
         }
     }
 
     public func moveToBacklog(id: TaskItem.ID) async {
-        await performTaskAction {
+        await performTaskAction(taskID: id) {
             _ = try await client.moveTaskToBacklog(id: id)
         }
     }
 
     public func markDone(id: TaskItem.ID) async {
-        await performTaskAction {
+        await performTaskAction(taskID: id) {
             _ = try await client.markTaskDone(id: id)
         }
     }
 
     public func removeTask(id: TaskItem.ID) async {
-        await performTaskAction {
+        await performTaskAction(taskID: id) {
             _ = try await client.removeTask(id: id)
         }
     }
@@ -297,16 +306,17 @@ public final class BackendStatusModel: ObservableObject {
         }
     }
 
-    private func performTaskAction(_ action: () async throws -> Void) async {
+    private func performTaskAction(taskID: TaskItem.ID, _ action: () async throws -> Void) async {
         isLoading = true
         defer { isLoading = false }
 
         do {
             try await action()
             tasks = try await loadTaskItems()
+            taskActionErrors.removeValue(forKey: taskID)
             errorMessage = nil
         } catch {
-            errorMessage = String(describing: error)
+            taskActionErrors[taskID] = String(describing: error)
         }
     }
 

@@ -105,12 +105,15 @@ private struct TaskDashboardView: View {
                 TaskDetail(
                     task: task,
                     isLoading: backendStatus.isLoading,
+                    actionError: backendStatus.errorForTask(id: task.id),
                     markSeen: {
                         await backendStatus.markSeen(id: task.id)
                     },
                     markReviewed: {
-                        selectedTask = nil
                         await backendStatus.markReviewed(id: task.id)
+                        if backendStatus.errorForTask(id: task.id) == nil {
+                            selectedTask = nil
+                        }
                     },
                     markInProgress: {
                         await backendStatus.markInProgress(id: task.id)
@@ -119,12 +122,16 @@ private struct TaskDashboardView: View {
                         await backendStatus.moveToBacklog(id: task.id)
                     },
                     markDone: {
-                        selectedTask = nil
                         await backendStatus.markDone(id: task.id)
+                        if backendStatus.errorForTask(id: task.id) == nil {
+                            selectedTask = nil
+                        }
                     },
                     remove: {
-                        selectedTask = nil
                         await backendStatus.removeTask(id: task.id)
+                        if backendStatus.errorForTask(id: task.id) == nil {
+                            selectedTask = nil
+                        }
                     }
                 )
             } else {
@@ -250,6 +257,7 @@ private struct TaskDetail: View {
 
     let task: TaskItem
     let isLoading: Bool
+    let actionError: String?
     let markSeen: () async -> Void
     let markReviewed: () async -> Void
     let markInProgress: () async -> Void
@@ -336,6 +344,14 @@ private struct TaskDetail: View {
                     }
                     .disabled(isLoading)
                 }
+            }
+
+            if let actionError {
+                Text(actionError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(3)
+                    .accessibilityIdentifier("task-action-error")
             }
 
             Spacer()
