@@ -316,7 +316,86 @@ final class TaskWorkflowModelTests: XCTestCase {
         let presented = PresentedError.from(TestError(description: "boom"))
         XCTAssertEqual(presented.message, "boom")
         XCTAssertNil(presented.recovery)
-        XCTAssertNil(presented.code)
+        XCTAssertEqual(presented.code, "client.unknown")
+    }
+
+    func testPresentedErrorMapsInvalidResponseToProtocolMismatch() {
+        let presented = PresentedError.from(BackendClientError.invalidResponse("malformed JSON"))
+        XCTAssertEqual(presented.code, "client.protocolMismatch")
+        XCTAssertEqual(presented.message, "malformed JSON")
+        if let recovery = presented.recovery {
+            XCTAssertFalse(recovery.isEmpty)
+        } else {
+            XCTFail("expected non-nil recovery for .invalidResponse")
+        }
+    }
+
+    func testPresentedErrorMapsHelperTerminatedToTerminatedCode() {
+        let presented = PresentedError.from(BackendClientError.helperTerminated("boom"))
+        XCTAssertEqual(presented.code, "client.helperTerminated")
+        XCTAssertTrue(presented.message.contains("boom"))
+        XCTAssertNotNil(presented.recovery)
+    }
+
+    func testPresentedErrorMapsHelperTerminatedEmptyStderrToTerminatedCode() {
+        let presented = PresentedError.from(BackendClientError.helperTerminated(""))
+        XCTAssertEqual(presented.code, "client.helperTerminated")
+        XCTAssertFalse(presented.message.isEmpty)
+        XCTAssertNotNil(presented.recovery)
+    }
+
+    func testPresentedErrorMapsRequestTimedOutToTimeoutCode() {
+        let presented = PresentedError.from(BackendClientError.requestTimedOut(5))
+        XCTAssertEqual(presented.code, "client.timeout")
+        XCTAssertTrue(presented.message.contains("5"))
+        XCTAssertNotNil(presented.recovery)
+    }
+
+    func testPresentedErrorMapsUnexpectedResponseIDToProtocolMismatch() {
+        let presented = PresentedError.from(BackendClientError.unexpectedResponseID(expected: "a", actual: "b"))
+        XCTAssertEqual(presented.code, "client.protocolMismatch")
+        XCTAssertTrue(presented.message.contains("b"))
+        XCTAssertNotNil(presented.recovery)
+    }
+
+    func testPresentedErrorMapsUnsupportedProtocolVersionToVersionCode() {
+        let presented = PresentedError.from(BackendClientError.unsupportedProtocolVersion(2))
+        XCTAssertEqual(presented.code, "client.unsupportedProtocolVersion")
+        XCTAssertTrue(presented.message.contains("2"))
+        XCTAssertNotNil(presented.recovery)
+    }
+
+    func testPresentedErrorMapsUnknownErrorToClientUnknown() {
+        struct DummyError: Error {}
+        let presented = PresentedError.from(DummyError())
+        XCTAssertEqual(presented.code, "client.unknown")
+        XCTAssertNil(presented.recovery)
+        XCTAssertEqual(presented.message, String(describing: DummyError()))
+    }
+
+    func testPresentedErrorPreservesHelperPayloadCodeAndRecovery() {
+        let payload = BackendErrorPayload(
+            code: "task.locked",
+            message: "Task locked",
+            detail: nil,
+            recovery: "Refresh and retry"
+        )
+        let presented = PresentedError.from(BackendClientError.helperError(payload))
+        XCTAssertEqual(presented.code, "task.locked")
+        XCTAssertEqual(presented.recovery, "Refresh and retry")
+        XCTAssertNotEqual(presented.code, "client.helperError")
+    }
+
+    func testRefreshFailureSurfacesTimeoutRecoveryToConsumer() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 1)])
+        await backend.failNextWithError("currentWorkspace", error: BackendClientError.requestTimedOut(0.1))
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refresh()
+
+        XCTAssertEqual(model.error?.code, "client.timeout")
+        XCTAssertNotNil(model.error?.recovery)
     }
 
     func testRefreshFailureSurfacesStructuredRecoveryHint() async throws {

@@ -1,15 +1,16 @@
 # Handoff
 
 ## Current objective
-Surface richer sync lifecycle and structured error presentation on `codex/sync-lifecycle-presentation` → `feature/mac-prototype`. Live PR/CI/review state lives in `gh pr view 13`.
+Map every `BackendClientError` case (not just `.helperError`) to a structured `PresentedError` with stable `client.*` codes and human-readable recovery hints on `codex/structured-error-mapping` → `feature/mac-prototype`. Live PR/CI/review state lives in `gh pr view <N>`.
 
 ## Branch
-`codex/sync-lifecycle-presentation`, branched from updated `feature/mac-prototype` after PR #12 merged.
+`codex/structured-error-mapping`, branched from updated `feature/mac-prototype` after PR #13 merged.
 
 ## Repo state
-- HEAD: `codex/sync-lifecycle-presentation`; local branch starts from the post-PR-#12 tip of `feature/mac-prototype`.
-- Integration branch: `feature/mac-prototype`; PR #12 (per-task error surfacing) merged on 2026-05-02 (squash merge `9edb428`).
-- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/12`, merged into `feature/mac-prototype` on 2026-05-02.
+- HEAD: `codex/structured-error-mapping`; local branch starts from the post-PR-#13 tip of `feature/mac-prototype`.
+- Integration branch: `feature/mac-prototype`; PR #13 (sync lifecycle + structured error presentation) merged on 2026-05-02 (squash merge `30d66d4`).
+- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/13`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `30d66d4`).
+- Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/12`, merged into `feature/mac-prototype` on 2026-05-02.
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/11`, merged into `feature/mac-prototype` on 2026-05-02.
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/10`, merged into `feature/mac-prototype` on 2026-05-02.
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/9`, merged into `feature/mac-prototype`.
@@ -199,6 +200,14 @@ Surface richer sync lifecycle and structured error presentation on `codex/sync-l
 - `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~5s before SIGTERM, exit code 143).
 - Blind review fix landed (locale seam injected on `BackendStatusModel.init` so `RelativeDateTimeFormatter` follows the user's macOS locale in production while tests pin `en_US_POSIX`; `testLastSyncLabelFormatsIso8601Timestamp` now also asserts the `"ago"` direction): `swift build` passed, `swift test --enable-code-coverage` passed (36 Swift tests), `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed (48 tests), and `git diff --check` passed.
 
+### Structured error mapping checkpoint (on `codex/structured-error-mapping`, after the changes listed under Completed)
+- `swift build` passes.
+- `swift test --enable-code-coverage` passes: 45 Swift tests (12 `AgendumMacCoreTests` + 33 `AgendumMacWorkflowTests`).
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 48 tests (no Python changes).
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 464/505 lines (91.9%) for `Backend/agendum_backend/helper.py` (no backend changes).
+- `git diff --check` passes.
+- `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~5s before SIGTERM, exit code 143).
+
 ### Per-task error surfacing checkpoint (on `codex/per-task-error-surfacing`, after the changes listed under Completed)
 - `swift build` passes.
 - `swift test --enable-code-coverage` passes: 29 Swift tests (12 `AgendumMacCoreTests` + 17 `AgendumMacWorkflowTests`).
@@ -296,10 +305,15 @@ Surface richer sync lifecycle and structured error presentation on `codex/sync-l
 - PR #10 review-fix sanity check: temporarily removed the `tasks = []` clear in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift` `refresh()` catch and reran `swift test --filter TaskWorkflowModelTests/testRefreshFailureClearsTasksAndSurfacesError`; the test failed as expected, then passed again after restoring the line.
 
 ## Changed files
-- `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`: added `@Published taskActionErrors: [TaskItem.ID: String]`, `errorForTask(id:)`, task-aware `performTaskAction(taskID:_:)`, and per-task-error clearing in `refresh()`/`selectWorkspace(...)`.
-- `Sources/AgendumMac/AgendumMacApp.swift`: `TaskDetail` now takes `actionError: String?` and renders it under the action buttons; the dashboard passes `backendStatus.errorForTask(id: task.id)`.
-- `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`: replaced `testTaskActionFailureLeavesExistingTasksUntouched` with `testTaskActionFailureScopesErrorToTaskAndKeepsGlobalErrorClean`; added `testTaskActionSuccessClearsExistingPerTaskError`, `testTaskActionFailureOnOneTaskDoesNotClearAnotherTasksError`, `testRefreshClearsTaskActionErrors`, and `testSelectWorkspaceClearsTaskActionErrors`; added `taskActionErrors.isEmpty` assertion to `testTaskActionsCallBackendAndReloadTasks`.
-- `docs/plan.md`, `docs/status.md`, `docs/handoff.md`, `docs/decisions.md`: updated for the per-task error surfacing checkpoint.
+- `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`: extended `PresentedError.from(_:)` to map every `BackendClientError` case (`.invalidResponse`, `.helperError`, `.helperTerminated`, `.requestTimedOut`, `.unexpectedResponseID`, `.unsupportedProtocolVersion`) to a stable `client.*` code plus a human-readable recovery hint; non-`BackendClientError` types fall back to `client.unknown`.
+- `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`: added per-case mapping tests (`testPresentedErrorMapsInvalidResponseToProtocolMismatch`, `testPresentedErrorMapsHelperTerminatedToTerminatedCode`, `testPresentedErrorMapsHelperTerminatedEmptyStderrToTerminatedCode`, `testPresentedErrorMapsRequestTimedOutToTimeoutCode`, `testPresentedErrorMapsUnexpectedResponseIDToProtocolMismatch`, `testPresentedErrorMapsUnsupportedProtocolVersionToVersionCode`, `testPresentedErrorMapsUnknownErrorToClientUnknown`, `testPresentedErrorPreservesHelperPayloadCodeAndRecovery`, `testRefreshFailureSurfacesTimeoutRecoveryToConsumer`); surgical update to `testPresentedErrorFallsBackToDescriptionForGenericErrors` so it asserts `code == "client.unknown"` instead of `code == nil`.
+- `docs/plan.md`, `docs/status.md`, `docs/handoff.md`, `docs/decisions.md`: updated for the structured error mapping checkpoint.
+
+## Previous checkpoint changed files (PR #13, sync lifecycle and structured error presentation)
+- `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`: added `PresentedError`, `lastSyncLabel`, `hasAttentionItems`, clock seam, structured per-task errors.
+- `Sources/AgendumMac/AgendumMacApp.swift`: two-line message+recovery captions globally and per-task; `Last synced` and `Needs attention` indicators in the sync row.
+- `Sources/AgendumMacCore/BackendClient.swift`: public initializer on `BackendErrorPayload` so workflow tests can construct payloads from outside `AgendumMacCore`.
+- `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`: 7 new tests covering `PresentedError.from(_:)` helper-payload extraction, generic-error fallback, refresh/task-action structured recovery, last-sync label formatting, and `hasAttentionItems`.
 
 ## Previous checkpoint changed files (PR #11, manual task creation UX)
 - `Backend/agendum_backend/helper.py`: added `task.createManual` dispatch, `create_manual_task` function, and payload helpers (`_required_string`, `_optional_create_string`, `_optional_tag_list`); imports `create_manual_task` from `agendum.task_api`.
@@ -329,8 +343,8 @@ Surface richer sync lifecycle and structured error presentation on `codex/sync-l
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Run `gh pr view 13` and `gh pr checks 13`, then branch on the result:
-   - CI failing: investigate and push fixes to `codex/sync-lifecycle-presentation`.
+1. Run `gh pr view <N>` and `gh pr checks <N>` for the structured-error-mapping PR once opened, then branch on the result:
+   - CI failing: investigate and push fixes to `codex/structured-error-mapping`.
    - CI green, no review yet: run a blind review pass; address findings as new commits.
    - Review clean, PR still draft: mark ready.
    - Merged: fast-forward local `feature/mac-prototype`, then pick the next checkpoint.

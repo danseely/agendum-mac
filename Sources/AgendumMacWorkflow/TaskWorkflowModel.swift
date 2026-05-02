@@ -134,15 +134,47 @@ public struct PresentedError: Equatable, Sendable {
     }
 
     public static func from(_ error: any Error) -> PresentedError {
-        if let clientError = error as? BackendClientError,
-           case let .helperError(payload) = clientError {
-            return PresentedError(
-                message: payload.message,
-                recovery: payload.recovery ?? payload.detail,
-                code: payload.code
-            )
+        if let clientError = error as? BackendClientError {
+            switch clientError {
+            case .helperError(let payload):
+                return PresentedError(
+                    message: payload.message,
+                    recovery: payload.recovery ?? payload.detail,
+                    code: payload.code
+                )
+            case .invalidResponse:
+                return PresentedError(
+                    message: clientError.description,
+                    recovery: "The backend helper returned an unexpected response. Try refreshing; if the problem persists, restart the app.",
+                    code: "client.protocolMismatch"
+                )
+            case .helperTerminated:
+                return PresentedError(
+                    message: clientError.description,
+                    recovery: "The backend helper crashed. The app will relaunch it on the next request — try refreshing.",
+                    code: "client.helperTerminated"
+                )
+            case .requestTimedOut:
+                return PresentedError(
+                    message: clientError.description,
+                    recovery: "The backend helper is unresponsive. Try refreshing; if it keeps timing out, check whether sync is stuck.",
+                    code: "client.timeout"
+                )
+            case .unexpectedResponseID:
+                return PresentedError(
+                    message: clientError.description,
+                    recovery: "The backend helper got out of sync with the app. Try refreshing.",
+                    code: "client.protocolMismatch"
+                )
+            case .unsupportedProtocolVersion:
+                return PresentedError(
+                    message: clientError.description,
+                    recovery: "This app version is incompatible with the installed backend helper. Update the app or the helper.",
+                    code: "client.unsupportedProtocolVersion"
+                )
+            }
         }
-        return PresentedError(message: String(describing: error))
+        return PresentedError(message: String(describing: error), recovery: nil, code: "client.unknown")
     }
 }
 
