@@ -125,6 +125,10 @@ Implement task detail refresh, task actions, and sync wiring.
 - Ran a focused PR #9 review and fixed two findings:
   - `Backend/agendum_backend/helper.py`: unexpected `run_sync` exceptions now set terminal `error` sync status and return it, instead of leaving `state.sync_status` stuck at `running`.
   - `Sources/AgendumMac/AgendumMacApp.swift`: manual status actions now key off backend source `manual`, so GitHub issue rows grouped under Issues & Manual do not get local manual status controls.
+- Ran a fresh blind review of PR #9 and fixed two sync-state findings:
+  - `Backend/agendum_backend/helper.py`: `workspace.select` now resets `state.sync_status`, `sync.force` starts a background worker and returns `running` immediately, duplicate force-sync requests return the current running state, and sync completions are token-guarded so stale workers cannot overwrite status after workspace switches.
+  - `Sources/AgendumMac/AgendumMacApp.swift`: the force-sync UI path now polls `sync.status` until completion or a bounded timeout before reloading tasks.
+  - `Tests/test_backend_helper.py`: coverage now includes async force-sync completion, duplicate running requests, error/exception completion status, and workspace-select sync reset.
 
 ## Validation
 - `swift build` passes.
@@ -163,6 +167,11 @@ Implement task detail refresh, task actions, and sync wiring.
 - PR #9 review-fix validation: `git diff --check` passes.
 - PR #9 review-fix GitHub Actions `Test` check passed after the fix push.
 - Launch smoke: `swift run AgendumMac` built successfully and the app stayed running until manually interrupted after a brief launch window; no immediate startup crash was observed.
+- PR #9 blind-review fix validation: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 42 tests.
+- PR #9 blind-review fix validation: `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 416/455 lines, 91.4% for `Backend/agendum_backend/helper.py`.
+- PR #9 blind-review fix validation: `swift build` passes.
+- PR #9 blind-review fix validation: `swift test --enable-code-coverage` passes: 11 Swift tests.
+- PR #9 blind-review fix validation: `git diff --check` passes.
 - `.github/workflows/test.yml` parses as YAML with Ruby's stdlib parser.
 - GitHub Actions PR run `25076611284` passed for PR #3 before the checkout v5 update.
 - GitHub Actions PR run `25076677868` passed for PR #3 after the checkout v5 update.
@@ -188,7 +197,7 @@ Implement task detail refresh, task actions, and sync wiring.
 - `swift test --enable-code-coverage` passes: 10 Swift tests.
 - `git diff --check` passes.
 - `python3 -m unittest discover -s Tests` fails in the current shell because `python3` resolves to pyenv Python 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
-- Pending: `swift run AgendumMac`.
+- Launch smoke completed with `swift run AgendumMac`; deeper UI workflow testing remains manual.
 
 ## Changed files
 - `Backend/agendum_backend/helper.py`
@@ -211,9 +220,9 @@ Implement task detail refresh, task actions, and sync wiring.
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
-2. If PR #9 merges, fast-forward `feature/mac-prototype` and clean up the topic branch/worktree artifacts.
-3. Continue toward remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
+1. Push blind-review fixes for PR #9 and confirm GitHub Actions on the new head.
+2. Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
+3. If PR #9 merges, fast-forward `feature/mac-prototype` and clean up the topic branch/worktree artifacts.
 
 ## After checkpoint
 - Continue toward any remaining live-slice gaps, especially manual task creation UX and richer sync lifecycle/error presentation.
@@ -224,3 +233,4 @@ Implement task detail refresh, task actions, and sync wiring.
 - Resolved stack state: `codex/task-list-loading` was temporarily based on PR #6, then rebased onto `feature/mac-prototype` after PR #6 merged.
 - No new unapproved drift found during the PR #9 planning-doc update.
 - No new unapproved drift found during the PR #9 focused review fixes.
+- Blind-review sync-force finding confirmed implementation drift from `docs/backend-contract.md`; fixed by bringing `sync.force` behavior back in line with the contract.

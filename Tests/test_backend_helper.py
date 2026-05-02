@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import stat
 import tempfile
+import time
 import unittest
 from io import StringIO
 from pathlib import Path
@@ -11,6 +13,34 @@ from unittest import mock
 
 from Backend.agendum_backend.helper import HelperState, handle_line, handle_request, run_stdio
 from agendum.db import add_task, init_db, update_task
+
+
+def wait_for_sync_state(state: HelperState, expected: str) -> dict:
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        response = handle_request(
+            {
+                "version": 1,
+                "id": "wait-sync-status",
+                "command": "sync.status",
+                "payload": {},
+            },
+            state,
+        )
+        status = response["payload"]["status"]
+        if status["state"] == expected:
+            return status
+        time.sleep(0.01)
+    self_status = handle_request(
+        {
+            "version": 1,
+            "id": "wait-sync-status-final",
+            "command": "sync.status",
+            "payload": {},
+        },
+        state,
+    )
+    raise AssertionError(f"Timed out waiting for sync state {expected}: {self_status}")
 
 
 class BackendHelperTests(unittest.TestCase):
@@ -585,6 +615,7 @@ class BackendHelperTests(unittest.TestCase):
         async def fake_run_sync(db_path, config):
             self.assertEqual(db_path, root / "agendum.db")
             self.assertEqual(config.orgs, [])
+            await asyncio.sleep(0.05)
             return 3, True, None
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -623,11 +654,47 @@ class BackendHelperTests(unittest.TestCase):
             self.assertTrue(initial["ok"])
             self.assertEqual(initial["payload"]["status"]["state"], "idle")
             self.assertTrue(forced["ok"])
-            self.assertEqual(forced["payload"]["status"]["state"], "idle")
-            self.assertEqual(forced["payload"]["status"]["changes"], 3)
-            self.assertTrue(forced["payload"]["status"]["hasAttentionItems"])
-            self.assertIsNotNone(forced["payload"]["status"]["lastSyncAt"])
-            self.assertEqual(after["payload"]["status"], forced["payload"]["status"])
+            self.assertEqual(forced["payload"]["status"]["state"], "running")
+            self.assertEqual(after["payload"]["status"]["state"], "running")
+            completed = wait_for_sync_state(state, "idle")
+            self.assertEqual(completed["changes"], 3)
+            self.assertTrue(completed["hasAttentionItems"])
+            self.assertIsNotNone(completed["lastSyncAt"])
+
+    def test_force_sync_returns_running_when_sync_is_already_running(self) -> None:
+        async def fake_run_sync(db_path, config):
+            await asyncio.sleep(0.1)
+            return 1, False, None
+
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+
+            with mock.patch("Backend.agendum_backend.helper.run_sync", side_effect=fake_run_sync):
+                first = handle_request(
+                    {
+                        "version": 1,
+                        "id": "sync-force-first",
+                        "command": "sync.force",
+                        "payload": {},
+                    },
+                    state,
+                )
+                second = handle_request(
+                    {
+                        "version": 1,
+                        "id": "sync-force-second",
+                        "command": "sync.force",
+                        "payload": {},
+                    },
+                    state,
+                )
+
+            self.assertTrue(first["ok"])
+            self.assertTrue(second["ok"])
+            self.assertEqual(first["payload"]["status"]["state"], "running")
+            self.assertEqual(second["payload"]["status"]["state"], "running")
+            completed = wait_for_sync_state(state, "idle")
+            self.assertEqual(completed["changes"], 1)
 
     def test_force_sync_reports_error_status(self) -> None:
         async def fake_run_sync(db_path, config):
@@ -648,8 +715,9 @@ class BackendHelperTests(unittest.TestCase):
                 )
 
             self.assertTrue(response["ok"])
-            self.assertEqual(response["payload"]["status"]["state"], "error")
-            self.assertEqual(response["payload"]["status"]["lastError"], "gh credentials expired")
+            self.assertEqual(response["payload"]["status"]["state"], "running")
+            completed = wait_for_sync_state(state, "error")
+            self.assertEqual(completed["lastError"], "gh credentials expired")
 
     def test_force_sync_reports_exception_status_and_helper_continues(self) -> None:
         async def fake_run_sync(db_path, config):
@@ -668,6 +736,11 @@ class BackendHelperTests(unittest.TestCase):
                     },
                     state,
                 )
+
+            self.assertTrue(response["ok"])
+            self.assertEqual(response["payload"]["status"]["state"], "running")
+            completed = wait_for_sync_state(state, "error")
+            self.assertEqual(completed["lastError"], "sync transport failed")
             status = handle_request(
                 {
                     "version": 1,
@@ -677,11 +750,49 @@ class BackendHelperTests(unittest.TestCase):
                 },
                 state,
             )
+            self.assertEqual(status["payload"]["status"], completed)
 
-            self.assertTrue(response["ok"])
-            self.assertEqual(response["payload"]["status"]["state"], "error")
-            self.assertEqual(response["payload"]["status"]["lastError"], "sync transport failed")
-            self.assertEqual(status["payload"]["status"], response["payload"]["status"])
+    def test_workspace_select_resets_sync_status(self) -> None:
+        async def fake_run_sync(db_path, config):
+            return 0, False, "gh credentials expired"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+
+            with mock.patch("Backend.agendum_backend.helper.run_sync", side_effect=fake_run_sync):
+                handle_request(
+                    {
+                        "version": 1,
+                        "id": "sync-force-before-select",
+                        "command": "sync.force",
+                        "payload": {},
+                    },
+                    state,
+                )
+            wait_for_sync_state(state, "error")
+            selection = handle_request(
+                {
+                    "version": 1,
+                    "id": "select-after-sync-error",
+                    "command": "workspace.select",
+                    "payload": {"namespace": "Example-Org"},
+                },
+                state,
+            )
+            status = handle_request(
+                {
+                    "version": 1,
+                    "id": "status-after-select",
+                    "command": "sync.status",
+                    "payload": {},
+                },
+                state,
+            )
+
+            self.assertTrue(selection["ok"])
+            self.assertEqual(selection["payload"]["sync"]["state"], "idle")
+            self.assertIsNone(selection["payload"]["sync"]["lastError"])
+            self.assertEqual(status["payload"]["status"], selection["payload"]["sync"])
 
     def test_auth_status_reports_missing_gh(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -264,6 +264,7 @@ private final class BackendStatusModel: ObservableObject {
 
         do {
             sync = try await client.forceSync()
+            try await pollSyncUntilComplete()
             tasks = try await client.listTasks().map(TaskItem.init)
             errorMessage = nil
         } catch {
@@ -317,6 +318,15 @@ private final class BackendStatusModel: ObservableObject {
             errorMessage = nil
         } catch {
             errorMessage = String(describing: error)
+        }
+    }
+
+    private func pollSyncUntilComplete() async throws {
+        var attempts = 0
+        while sync?.state == "running", attempts < 120 {
+            try await Task.sleep(nanoseconds: 500_000_000)
+            sync = try await client.syncStatus()
+            attempts += 1
         }
     }
 }

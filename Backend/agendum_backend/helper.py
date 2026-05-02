@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,8 @@ class HelperState:
     base_dir: Path
     namespace: str | None = None
     sync_status: dict[str, Any] = field(default_factory=lambda: _sync_status())
+    sync_token: int = 0
+    sync_lock: threading.Lock = field(default_factory=threading.Lock)
 
     @classmethod
     def from_environment(cls) -> "HelperState":
@@ -127,7 +130,7 @@ def handle_request(request: Any, state: HelperState) -> dict[str, Any]:
         if command == "task.remove":
             return _success_response(request_id, remove_task_command(state, payload))
         if command == "sync.status":
-            return _success_response(request_id, {"status": state.sync_status})
+            return _success_response(request_id, {"status": sync_status(state)})
         if command == "sync.force":
             return _success_response(request_id, {"status": force_sync(state)})
     except PayloadError as exc:
@@ -236,10 +239,11 @@ def select_workspace(state: HelperState, payload: dict[str, Any]) -> dict[str, A
 
     ensure_workspace_config(paths, namespace=normalized)
     state.namespace = effective_namespace
+    sync = reset_sync_status(state)
     return {
         "workspace": _workspace_payload(paths, state.namespace, is_current=True),
         "auth": auth_status(state),
-        "sync": _sync_status(),
+        "sync": sync,
     }
 
 
@@ -313,38 +317,69 @@ def remove_task_command(state: HelperState, payload: dict[str, Any]) -> dict[str
 
 
 def force_sync(state: HelperState) -> dict[str, Any]:
-    if state.sync_status["state"] == "running":
-        return state.sync_status
+    with state.sync_lock:
+        if state.sync_status["state"] == "running":
+            return dict(state.sync_status)
 
     paths = state.runtime
     config = ensure_workspace_config(paths, namespace=state.namespace)
     init_db(paths.db_path)
-    state.sync_status = {
-        **state.sync_status,
-        "state": "running",
-        "lastError": None,
-    }
 
-    try:
-        changes, has_attention_items, error_message = asyncio.run(run_sync(paths.db_path, config))
-    except Exception as exc:
+    with state.sync_lock:
+        state.sync_token += 1
+        token = state.sync_token
         state.sync_status = {
+            "state": "running",
+            "lastSyncAt": state.sync_status.get("lastSyncAt"),
+            "lastError": None,
+            "changes": 0,
+            "hasAttentionItems": False,
+        }
+        status = dict(state.sync_status)
+
+    thread = threading.Thread(
+        target=_run_sync_worker,
+        args=(state, token, paths.db_path, config),
+        daemon=True,
+    )
+    thread.start()
+    return status
+
+
+def sync_status(state: HelperState) -> dict[str, Any]:
+    with state.sync_lock:
+        return dict(state.sync_status)
+
+
+def reset_sync_status(state: HelperState) -> dict[str, Any]:
+    with state.sync_lock:
+        state.sync_token += 1
+        state.sync_status = _sync_status()
+        return dict(state.sync_status)
+
+
+def _run_sync_worker(state: HelperState, token: int, db_path: Path, config: Any) -> None:
+    try:
+        changes, has_attention_items, error_message = asyncio.run(run_sync(db_path, config))
+        status = {
+            "state": "error" if error_message else "idle",
+            "lastSyncAt": datetime.now(timezone.utc).isoformat(),
+            "lastError": error_message,
+            "changes": changes,
+            "hasAttentionItems": has_attention_items,
+        }
+    except Exception as exc:
+        status = {
             "state": "error",
             "lastSyncAt": datetime.now(timezone.utc).isoformat(),
             "lastError": str(exc),
             "changes": 0,
             "hasAttentionItems": False,
         }
-        return state.sync_status
 
-    state.sync_status = {
-        "state": "error" if error_message else "idle",
-        "lastSyncAt": datetime.now(timezone.utc).isoformat(),
-        "lastError": error_message,
-        "changes": changes,
-        "hasAttentionItems": has_attention_items,
-    }
-    return state.sync_status
+    with state.sync_lock:
+        if token == state.sync_token:
+            state.sync_status = status
 
 
 def auth_status(state: HelperState) -> dict[str, Any]:

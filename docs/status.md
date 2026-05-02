@@ -95,9 +95,12 @@ Task detail refresh, task actions, and sync wiring are implemented on `codex/tas
 - Local review-fix validation passed: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` ran 40 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` reported 405/428 lines (94.6%), `swift build` passed, `swift test --enable-code-coverage` ran 11 tests, and `git diff --check` passed.
 - PR #9 review fixes were pushed and GitHub Actions `Test` passed on the updated branch.
 - `swift run AgendumMac` built the app and stayed running until manually interrupted after a brief launch smoke test; no immediate startup crash was observed.
+- Fresh blind review of PR #9 found two sync-state issues: workspace selection could leave stale sync status behind, and `sync.force` blocked instead of returning `running` per `docs/backend-contract.md`.
+- Addressed the blind-review findings by resetting sync status on workspace selection, running `sync.force` in a background worker with duplicate-run protection, invalidating old sync completions with a token, and polling `sync.status` from the SwiftUI force-sync path.
+- Blind-review fix validation passed: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` ran 42 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` reported 416/455 lines (91.4%), `swift build` passed, `swift test --enable-code-coverage` ran 11 tests, and `git diff --check` passed.
 
 ## In progress
-- PR #9 is ready for final readiness/merge decision, subject to explicit approval.
+- Blind-review fixes for PR #9 are implemented locally and ready to push.
 
 ## Blocked
 - None.
@@ -106,5 +109,5 @@ Task detail refresh, task actions, and sync wiring are implemented on `codex/tas
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
+- Push blind-review fixes for PR #9 and confirm GitHub Actions on the new head.
 - Keep `feature/mac-prototype` as the broad integration branch.
