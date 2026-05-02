@@ -102,9 +102,10 @@ Task detail refresh, task actions, and sync wiring are implemented on `codex/tas
 - Second fresh blind review of PR #9 found no code-level bugs or contract regressions, but flagged that sync process-boundary behavior needed a real subprocess JSONL test because docs claimed subprocess coverage.
 - Added `Tests/test_backend_helper_process.py` coverage for one long-lived helper process handling `sync.force` followed by `sync.status` polling.
 - Second blind-review fix validation passed: `/opt/homebrew/bin/python3 -m unittest discover -s Tests` ran 43 tests, `/opt/homebrew/bin/python3 Scripts/python_coverage.py` reported 416/455 lines (91.4%), `swift test --enable-code-coverage` ran 11 tests, and `git diff --check` passed.
+- PR #9 second blind-review fix was pushed and GitHub Actions `Test` passed on the updated branch.
 
 ## In progress
-- Second blind-review subprocess coverage fix is implemented locally and ready to push.
+- PR #9 is ready for final readiness/merge decision, subject to explicit approval.
 
 ## Blocked
 - None.
@@ -113,5 +114,5 @@ Task detail refresh, task actions, and sync wiring are implemented on `codex/tas
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Push the second blind-review subprocess coverage fix and confirm GitHub Actions on the new head.
+- Mark PR #9 ready only when requested or when the checkpoint is explicitly approved.
 - Keep `feature/mac-prototype` as the broad integration branch.
