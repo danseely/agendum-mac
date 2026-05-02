@@ -1,7 +1,7 @@
 # Handoff
 
 ## Current objective
-Ship the manual task creation UX checkpoint on `codex/manual-task-creation`. The implementation is complete and locally validated; the remaining external action is opening a draft PR against `feature/mac-prototype` and running the blind review loop.
+Ship the manual task creation UX checkpoint on `codex/manual-task-creation`. The implementation is complete, locally validated, pushed, and opened as draft PR #11 against `feature/mac-prototype`. The remaining external action is the blind review loop and waiting for GitHub Actions `Test` to pass before marking the PR ready.
 
 ## Branch
 `codex/manual-task-creation`, branched from updated `feature/mac-prototype` after PR #10 merged.
@@ -20,7 +20,8 @@ Ship the manual task creation UX checkpoint on `codex/manual-task-creation`. The
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
 - Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
-- Working tree on `codex/manual-task-creation` has the manual task creation checkpoint changes uncommitted/committed locally; nothing has been pushed to the remote yet.
+- Working tree on `codex/manual-task-creation` is clean after committing the checkpoint as `9a1239f` and pushing to `origin/codex/manual-task-creation`.
+- Active PR: `https://github.com/danseely/agendum-mac/pull/11`, draft, targeting `feature/mac-prototype`.
 - Last validation date: 2026-05-02
 
 ## Completed
@@ -154,6 +155,8 @@ Ship the manual task creation UX checkpoint on `codex/manual-task-creation`. The
 - Added `createManualTask(title:project:tags:)` and a `TaskCreateManualRequestPayload` (omits nil project/tags) to `Sources/AgendumMacCore/BackendClient.swift`, plus `testClientCreatesManualTask` in `Tests/AgendumMacCoreTests/BackendClientTests.swift` covering full and minimal request encoding plus response decoding.
 - Added the protocol method to `AgendumBackendServicing`, `BackendStatusModel.createManualTask(...)` returning `Bool`, and workflow tests `testCreateManualTaskSucceedsAndReloadsTasks` / `testCreateManualTaskFailureKeepsExistingTasksAndSurfacesError`.
 - Wired a SwiftUI "New Task" toolbar button in `Sources/AgendumMac/AgendumMacApp.swift` that opens a `CreateManualTaskSheet` form (title, optional project, comma-separated tags); the sheet dismisses only on success and surfaces failures through `BackendStatusModel.errorMessage`.
+- Committed the manual task creation checkpoint as `9a1239f` on `codex/manual-task-creation`.
+- Pushed `codex/manual-task-creation` to `origin` and opened draft PR #11: `https://github.com/danseely/agendum-mac/pull/11`.
 
 ## Validation
 
@@ -288,9 +291,9 @@ Ship the manual task creation UX checkpoint on `codex/manual-task-creation`. The
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Commit the manual task creation checkpoint on `codex/manual-task-creation` and push the branch to `origin`.
-2. Open a draft PR against `feature/mac-prototype` and confirm GitHub Actions `Test` passes.
-3. Run a focused/blind PR review pass; address any findings before marking the PR ready.
+1. Wait for GitHub Actions `Test` to finish on PR #11 and confirm it passes; investigate any failures and push fixes as a new commit on `codex/manual-task-creation`.
+2. Run a focused/blind PR review pass on PR #11; address any findings with new commits before marking the PR ready.
+3. Mark PR #11 ready for review, then merge into `feature/mac-prototype` once review and CI are clean.
 4. After merge, fast-forward local `feature/mac-prototype` and decide on the next live-slice gap (likely richer sync lifecycle/error presentation or per-task error surfacing).
 
 ## After checkpoint

@@ -3,7 +3,7 @@
 Last updated: 2026-05-02
 
 ## Current milestone
-Manual task creation UX is implemented on `codex/manual-task-creation`. The next short-lived branch from updated `feature/mac-prototype` should pick up any remaining live-slice gap once this checkpoint merges.
+Manual task creation UX is implemented on `codex/manual-task-creation` and opened as draft PR #11 against `feature/mac-prototype`. The next short-lived branch from updated `feature/mac-prototype` should pick up any remaining live-slice gap once this checkpoint merges.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -123,16 +123,18 @@ Manual task creation UX is implemented on `codex/manual-task-creation`. The next
 - Added `createManualTask(title:project:tags:)` to `Sources/AgendumMacCore/BackendClient.swift` with a request payload that omits nil `project`/`tags` keys, and added a request/response Swift client test.
 - Added `createManualTask(...)` to `BackendStatusModel` plus `AgendumBackendServicing`, with fake-backed workflow tests covering success/reload and failure-keeps-existing-tasks behavior.
 - Wired a SwiftUI "New Task" toolbar button and `CreateManualTaskSheet` form that submits through `BackendStatusModel.createManualTask` and dismisses only on success.
+- Committed the manual task creation checkpoint as `9a1239f`, pushed `codex/manual-task-creation` to `origin`, and opened draft PR #11 (`https://github.com/danseely/agendum-mac/pull/11`) against `feature/mac-prototype`.
 
 ## In progress
-- None. The manual task creation UX checkpoint is implemented and validated locally on `codex/manual-task-creation`; opening a draft PR against `feature/mac-prototype` is the next external action.
+- Draft PR #11 is open against `feature/mac-prototype`; awaiting GitHub Actions `Test` and the blind review loop before marking ready.
 
 ## Blocked
 - None.
 
 ## Next
-- Push `codex/manual-task-creation` and open a draft PR against `feature/mac-prototype`.
-- Run blind PR review and address findings before marking ready.
+- Wait for GitHub Actions `Test` on PR #11 to pass; fix any failures with new commits on `codex/manual-task-creation`.
+- Run blind PR review and address findings before marking PR #11 ready.
+- Mark PR #11 ready and merge into `feature/mac-prototype` once review and CI are clean.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
