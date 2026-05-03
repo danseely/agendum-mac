@@ -1,5 +1,6 @@
 import AgendumMacWorkflow
 import SwiftUI
+import UserNotifications
 
 @main
 struct AgendumMacApp: App {
@@ -250,8 +251,17 @@ private struct TaskDashboardView: View {
         .task {
             await backendStatus.refresh()
         }
+        .task {
+            // Cold-start hedge: prime the dock badge from current
+            // attention-item state. Subsequent transitions are covered by
+            // the .onChange below.
+            backendStatus.setBadgeForAttentionCount()
+        }
         .onChange(of: selectedTask) { _, newValue in
             backendStatus.setSelectedTaskID(newValue)
+        }
+        .onChange(of: backendStatus.hasAttentionItems) { _, _ in
+            backendStatus.setBadgeForAttentionCount()
         }
     }
 
@@ -690,6 +700,7 @@ private struct CreateManualTaskSheet: View {
 
 private struct SettingsView: View {
     @EnvironmentObject private var backendStatus: BackendStatusModel
+    @State private var notificationAuthorizationStatus: UNAuthorizationStatus?
 
     var body: some View {
         Form {
@@ -735,6 +746,25 @@ private struct SettingsView: View {
                         .accessibilityIdentifier("settings-repair-instructions")
                 }
             }
+            Section("Notifications") {
+                LabeledContent("Status", value: notificationStatusLabel)
+                    .accessibilityIdentifier("settings-notifications-status")
+                if notificationAuthorizationStatus == .notDetermined {
+                    Button("Enable notifications") {
+                        Task {
+                            _ = (try? await UNUserNotificationCenter.current()
+                                .requestAuthorization(options: [.alert, .badge, .sound])) ?? false
+                            await refreshNotificationSettings()
+                        }
+                    }
+                    .accessibilityIdentifier("settings-action-enable-notifications")
+                } else if notificationAuthorizationStatus == .denied {
+                    Text("Open System Settings → Notifications → Agendum to enable notifications.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .accessibilityIdentifier("settings-notifications-denied-hint")
+                }
+            }
             Section {
                 HStack {
                     Button("Refresh") {
@@ -768,6 +798,7 @@ private struct SettingsView: View {
         .frame(width: 520)
         .task {
             await backendStatus.refreshDiagnostics()
+            await refreshNotificationSettings()
         }
     }
 
@@ -779,5 +810,25 @@ private struct SettingsView: View {
     private var authenticatedLabel: String {
         guard let auth = backendStatus.auth else { return "Loading…" }
         return auth.authenticated ? "Yes" : "No"
+    }
+
+    private var notificationStatusLabel: String {
+        switch notificationAuthorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return "Allowed"
+        case .denied:
+            return "Denied"
+        case .notDetermined:
+            return "Not requested"
+        case .none:
+            return "Loading…"
+        @unknown default:
+            return "Unknown"
+        }
+    }
+
+    private func refreshNotificationSettings() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        notificationAuthorizationStatus = settings.authorizationStatus
     }
 }
