@@ -22,7 +22,8 @@ let package = Package(
         ),
         .executableTarget(
             name: "AgendumMac",
-            dependencies: ["AgendumMacCore", "AgendumMacWorkflow"]
+            dependencies: ["AgendumMacCore", "AgendumMacWorkflow"],
+            exclude: ["Info.plist.template"]
         ),
         .testTarget(
             name: "AgendumMacCoreTests",
