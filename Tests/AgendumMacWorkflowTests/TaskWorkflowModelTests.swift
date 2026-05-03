@@ -937,6 +937,172 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertNil(model.errorForTask(id: 23))
         XCTAssertEqual(opener.opened.map(\.absoluteString), ["https://example.com/issue/23"])
     }
+
+    func testRefreshDiagnosticsPopulatesDiagnosticsOnSuccess() async throws {
+        let backend = FakeBackend()
+        let stub = diagnostics(host: "ghe.example.com", helperPath: ["/usr/bin"])
+        await backend.setDiagnostics(stub)
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refreshDiagnostics()
+
+        XCTAssertEqual(model.diagnostics, stub)
+        XCTAssertNil(model.diagnosticsError)
+    }
+
+    func testRefreshDiagnosticsFailureSurfacesStructuredErrorAndKeepsPriorResult() async throws {
+        let backend = FakeBackend()
+        let firstResult = diagnostics(host: "github.com")
+        await backend.setDiagnostics(firstResult)
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refreshDiagnostics()
+        XCTAssertEqual(model.diagnostics, firstResult)
+
+        let payload = BackendErrorPayload(code: "storage.failed", message: "disk denied", detail: nil, recovery: nil)
+        await backend.failNextWithError("authDiagnose", error: BackendClientError.helperError(payload))
+
+        await model.refreshDiagnostics()
+
+        XCTAssertEqual(model.diagnostics, firstResult)
+        XCTAssertEqual(model.diagnosticsError?.code, "storage.failed")
+    }
+
+    func testRefreshDiagnosticsSuccessClearsDiagnosticsError() async throws {
+        let backend = FakeBackend()
+        await backend.setDiagnostics(diagnostics())
+        await backend.failNext("authDiagnose", message: "first failed")
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refreshDiagnostics()
+        XCTAssertNotNil(model.diagnosticsError)
+
+        await model.refreshDiagnostics()
+
+        XCTAssertNil(model.diagnosticsError)
+        XCTAssertNotNil(model.diagnostics)
+    }
+
+    func testRefreshDiagnosticsDoesNotChangeIsLoading() async throws {
+        let backend = FakeBackend()
+        await backend.setDiagnostics(diagnostics())
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        XCTAssertFalse(model.isLoading)
+
+        await model.refreshDiagnostics()
+
+        XCTAssertFalse(model.isLoading)
+    }
+
+    func testCopyAuthLoginCommandWritesHelperFormattedString() async throws {
+        let backend = FakeBackend()
+        let formatted = "GH_CONFIG_DIR='/Users/x/.agendum/gh' gh auth login"
+        await backend.setAuth(authUnauthenticated(repairCommand: formatted))
+        await backend.setTasks([])
+        let pasteboard = RecordingPasteboard()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            pasteboard: { [pasteboard] string in pasteboard.write(string) }
+        )
+        await model.refresh()
+
+        model.copyAuthLoginCommand()
+
+        XCTAssertEqual(pasteboard.writes, [formatted])
+    }
+
+    func testCopyAuthLoginCommandNoOpsWhenAuthMissing() async throws {
+        let backend = FakeBackend()
+        let pasteboard = RecordingPasteboard()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            pasteboard: { [pasteboard] string in pasteboard.write(string) }
+        )
+
+        model.copyAuthLoginCommand()
+
+        XCTAssertTrue(pasteboard.writes.isEmpty)
+    }
+
+    func testCopyAuthLoginCommandIsNoOpWhenRepairCommandIsNil() async throws {
+        let backend = FakeBackend()
+        await backend.setAuth(authUnauthenticated(repairCommand: nil))
+        await backend.setTasks([])
+        let pasteboard = RecordingPasteboard()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            pasteboard: { [pasteboard] string in pasteboard.write(string) }
+        )
+        await model.refresh()
+
+        model.copyAuthLoginCommand()
+
+        XCTAssertTrue(pasteboard.writes.isEmpty)
+    }
+
+    func testOpenGHInstallURLInvokesOpenerWithCanonicalURL() async throws {
+        let backend = FakeBackend()
+        let opener = RecordingURLOpener()
+        opener.setNextResult(true)
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+
+        model.openGHInstallURL()
+
+        XCTAssertEqual(opener.opened.map(\.absoluteString), ["https://cli.github.com/"])
+    }
+
+    func testRefreshDiagnosticsFailureKeepsGlobalErrorClean() async throws {
+        let backend = FakeBackend()
+        await backend.failNext("authDiagnose", message: "diag failed")
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refreshDiagnostics()
+
+        XCTAssertNil(model.error)
+        XCTAssertNotNil(model.diagnosticsError)
+    }
+
+    func testFakeBackendAuthDiagnoseInvocationCount() async throws {
+        let backend = FakeBackend()
+        await backend.setDiagnostics(diagnostics())
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refreshDiagnostics()
+
+        let calls = await backend.calls
+        XCTAssertEqual(calls.filter { $0 == "authDiagnose" }.count, 1)
+    }
+
+    func testRefreshDiagnosticsBeforeRefreshPopulatesDiagnostics() async throws {
+        let backend = FakeBackend()
+        await backend.setDiagnostics(diagnostics())
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refreshDiagnostics()
+
+        XCTAssertNotNil(model.diagnostics)
+        XCTAssertNil(model.auth)
+    }
+}
+
+private final class RecordingPasteboard: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _writes: [String] = []
+
+    var writes: [String] {
+        lock.lock(); defer { lock.unlock() }
+        return _writes
+    }
+
+    func write(_ string: String) {
+        lock.lock(); defer { lock.unlock() }
+        _writes.append(string)
+    }
 }
 
 private final class RecordingURLOpener: @unchecked Sendable {
@@ -991,6 +1157,7 @@ private actor FakeBackend: AgendumBackendServicing {
     private var forceSyncResult = sync(state: "idle")
     private var syncStatusQueue: [SyncStatus] = []
     private var currentTasks: [AgendumTask] = []
+    private var diagnosticsResult: AuthDiagnostics = diagnostics()
 
     func resetCalls() {
         calls = []
@@ -1111,6 +1278,20 @@ private actor FakeBackend: AgendumBackendServicing {
         return currentAuth
     }
 
+    func authDiagnose() async throws -> AuthDiagnostics {
+        calls.append("authDiagnose")
+        try failIfNeeded("authDiagnose")
+        return diagnosticsResult
+    }
+
+    func setDiagnostics(_ value: AuthDiagnostics) {
+        diagnosticsResult = value
+    }
+
+    func setAuth(_ value: AuthStatus) {
+        currentAuth = value
+    }
+
     func createManualTask(title: String, project: String?, tags: [String]?) async throws -> AgendumTask {
         let projectLabel = project ?? "nil"
         let tagsLabel = tags.map { "[" + $0.joined(separator: ",") + "]" } ?? "nil"
@@ -1162,7 +1343,58 @@ private func auth(namespace: String?) -> AuthStatus {
             "authenticated": true,
             "username": "dan",
             "workspaceGhConfigDir": "/tmp/agendum\(namespace.map { "/workspaces/\($0)" } ?? "")/gh",
-            "repairInstructions": null
+            "repairInstructions": null,
+            "repairCommand": null
+        }
+        """
+    )
+}
+
+private func authUnauthenticated(repairCommand: String?) -> AuthStatus {
+    let commandJSON = repairCommand.map { "\"\($0)\"" } ?? "null"
+    return decode(
+        """
+        {
+            "ghFound": true,
+            "ghPath": "/opt/homebrew/bin/gh",
+            "authenticated": false,
+            "username": null,
+            "workspaceGhConfigDir": "/tmp/agendum/gh",
+            "repairInstructions": "Run gh auth login.",
+            "repairCommand": \(commandJSON)
+        }
+        """
+    )
+}
+
+private func diagnostics(
+    found: Bool = true,
+    version: String? = "gh version 2.50.0",
+    host: String = "github.com",
+    helperPath: [String] = ["/usr/bin", "/bin"]
+) -> AuthDiagnostics {
+    let pathJSON = "[" + helperPath.map { "\"\($0)\"" }.joined(separator: ",") + "]"
+    let versionJSON = version.map { "\"\($0)\"" } ?? "null"
+    return decode(
+        """
+        {
+            "gh": {
+                "found": \(found),
+                "path": \(found ? "\"/opt/homebrew/bin/gh\"" : "null"),
+                "version": \(versionJSON),
+                "installed": \(found)
+            },
+            "auth": {
+                "ghFound": true,
+                "ghPath": "/opt/homebrew/bin/gh",
+                "authenticated": true,
+                "username": "dan",
+                "workspaceGhConfigDir": "/tmp/agendum/gh",
+                "repairInstructions": null,
+                "repairCommand": null
+            },
+            "host": "\(host)",
+            "helperPath": \(pathJSON)
         }
         """
     )

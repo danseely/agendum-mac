@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import stat
+import subprocess
 import tempfile
 import time
 import unittest
@@ -11,7 +12,15 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
-from Backend.agendum_backend.helper import HelperState, handle_line, handle_request, run_stdio
+from Backend.agendum_backend.helper import (
+    HelperState,
+    _format_repair_command,
+    _gh_version,
+    auth_status,
+    handle_line,
+    handle_request,
+    run_stdio,
+)
 from agendum.db import add_task, init_db, update_task
 
 
@@ -1021,6 +1030,263 @@ class BackendHelperTests(unittest.TestCase):
             self.assertTrue(response["ok"])
             self.assertTrue(auth["authenticated"])
             self.assertIsNone(auth["username"])
+
+    def test_auth_diagnose_returns_full_payload_when_gh_authenticated(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fake_gh = root / "gh"
+            fake_gh.write_text(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = \"--version\" ]; then echo 'gh version 2.50.0 (2024-04-01)'; exit 0; fi\n"
+                "if [ \"$1 $2\" = \"auth status\" ]; then exit 0; fi\n"
+                "if [ \"$1 $2 $3 $4\" = \"api user --jq .login\" ]; then echo dan; exit 0; fi\n"
+                "exit 1\n"
+            )
+            fake_gh.chmod(fake_gh.stat().st_mode | stat.S_IXUSR)
+
+            state = HelperState(base_dir=root / "agendum")
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "AGENDUM_MAC_GH_PATHS": str(fake_gh),
+                    "PATH": "/usr/bin:/bin",
+                    "GH_HOST": "github.com",
+                },
+                clear=False,
+            ):
+                response = handle_request(
+                    {
+                        "version": 1,
+                        "id": "diagnose-ok",
+                        "command": "auth.diagnose",
+                        "payload": {},
+                    },
+                    state,
+                )
+
+            self.assertTrue(response["ok"])
+            diagnostics = response["payload"]["diagnostics"]
+            self.assertTrue(diagnostics["gh"]["found"])
+            self.assertTrue(diagnostics["gh"]["installed"])
+            self.assertEqual(diagnostics["gh"]["path"], str(fake_gh))
+            self.assertEqual(diagnostics["gh"]["version"], "gh version 2.50.0 (2024-04-01)")
+            self.assertTrue(diagnostics["auth"]["authenticated"])
+            self.assertEqual(diagnostics["host"], "github.com")
+            self.assertEqual(diagnostics["helperPath"], ["/usr/bin", "/bin"])
+
+    def test_auth_diagnose_when_gh_missing_reports_not_found(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+            with mock.patch.dict(
+                os.environ,
+                {"AGENDUM_MAC_GH_PATHS": "", "PATH": "/usr/bin"},
+                clear=False,
+            ):
+                with mock.patch(
+                    "Backend.agendum_backend.helper._find_gh", return_value=None
+                ):
+                    response = handle_request(
+                        {
+                            "version": 1,
+                            "id": "diagnose-missing",
+                            "command": "auth.diagnose",
+                            "payload": {},
+                        },
+                        state,
+                    )
+
+            diagnostics = response["payload"]["diagnostics"]
+            self.assertTrue(response["ok"])
+            self.assertFalse(diagnostics["gh"]["found"])
+            self.assertIsNone(diagnostics["gh"]["path"])
+            self.assertIsNone(diagnostics["gh"]["version"])
+            self.assertFalse(diagnostics["auth"]["ghFound"])
+            self.assertIsNone(diagnostics["auth"]["repairCommand"])
+            self.assertEqual(diagnostics["helperPath"], ["/usr/bin"])
+
+    def test_auth_diagnose_when_gh_installed_but_not_authenticated(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fake_gh = root / "gh"
+            fake_gh.write_text(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = \"--version\" ]; then echo 'gh version 2.50.0'; exit 0; fi\n"
+                "exit 1\n"
+            )
+            fake_gh.chmod(fake_gh.stat().st_mode | stat.S_IXUSR)
+
+            state = HelperState(base_dir=root / "agendum")
+            with mock.patch("Backend.agendum_backend.helper._find_gh", return_value=fake_gh):
+                response = handle_request(
+                    {
+                        "version": 1,
+                        "id": "diagnose-unauth",
+                        "command": "auth.diagnose",
+                        "payload": {},
+                    },
+                    state,
+                )
+
+            diagnostics = response["payload"]["diagnostics"]
+            self.assertTrue(response["ok"])
+            self.assertTrue(diagnostics["gh"]["found"])
+            self.assertEqual(diagnostics["gh"]["version"], "gh version 2.50.0")
+            self.assertFalse(diagnostics["auth"]["authenticated"])
+            expected_command = _format_repair_command((root / "agendum" / "gh"))
+            self.assertEqual(diagnostics["auth"]["repairCommand"], expected_command)
+
+            # Now verify gh-missing branch: repairCommand is None
+            with mock.patch("Backend.agendum_backend.helper._find_gh", return_value=None):
+                response_missing = handle_request(
+                    {
+                        "version": 1,
+                        "id": "diagnose-unauth-missing",
+                        "command": "auth.diagnose",
+                        "payload": {},
+                    },
+                    HelperState(base_dir=root / "agendum2"),
+                )
+            self.assertIsNone(response_missing["payload"]["diagnostics"]["auth"]["repairCommand"])
+
+    def test_auth_diagnose_helper_path_filters_empty_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+            with mock.patch.dict(
+                os.environ,
+                {"AGENDUM_MAC_GH_PATHS": "", "PATH": "/a::/b:"},
+                clear=False,
+            ):
+                with mock.patch(
+                    "Backend.agendum_backend.helper._find_gh", return_value=None
+                ):
+                    response = handle_request(
+                        {
+                            "version": 1,
+                            "id": "diagnose-path",
+                            "command": "auth.diagnose",
+                            "payload": {},
+                        },
+                        state,
+                    )
+
+            self.assertEqual(response["payload"]["diagnostics"]["helperPath"], ["/a", "/b"])
+
+    def test_auth_diagnose_host_uses_gh_host_env(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+            with mock.patch.dict(
+                os.environ,
+                {"AGENDUM_MAC_GH_PATHS": "", "GH_HOST": "ghe.example.com"},
+                clear=False,
+            ):
+                with mock.patch(
+                    "Backend.agendum_backend.helper._find_gh", return_value=None
+                ):
+                    response = handle_request(
+                        {
+                            "version": 1,
+                            "id": "diagnose-host",
+                            "command": "auth.diagnose",
+                            "payload": {},
+                        },
+                        state,
+                    )
+
+            self.assertEqual(response["payload"]["diagnostics"]["host"], "ghe.example.com")
+
+    def test_auth_diagnose_host_defaults_to_github_com(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+            env = {k: v for k, v in os.environ.items() if k != "GH_HOST"}
+            env["AGENDUM_MAC_GH_PATHS"] = ""
+            with mock.patch.dict(os.environ, env, clear=True):
+                with mock.patch(
+                    "Backend.agendum_backend.helper._find_gh", return_value=None
+                ):
+                    response = handle_request(
+                        {
+                            "version": 1,
+                            "id": "diagnose-host-default",
+                            "command": "auth.diagnose",
+                            "payload": {},
+                        },
+                        state,
+                    )
+
+            self.assertEqual(response["payload"]["diagnostics"]["host"], "github.com")
+
+    def test_auth_diagnose_gh_version_returns_first_line(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fake_gh = root / "gh"
+            fake_gh.write_text(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = \"--version\" ]; then\n"
+                "  printf 'gh version 2.50.0 (2024-04-01)\\nhttps://example/cli/releases/v2.50.0\\n'\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 1\n"
+            )
+            fake_gh.chmod(fake_gh.stat().st_mode | stat.S_IXUSR)
+
+            self.assertEqual(_gh_version(fake_gh), "gh version 2.50.0 (2024-04-01)")
+
+    def test_auth_diagnose_gh_version_returns_none_when_command_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fake_gh = root / "gh"
+            fake_gh.write_text("#!/bin/sh\nexit 1\n")
+            fake_gh.chmod(fake_gh.stat().st_mode | stat.S_IXUSR)
+
+            self.assertIsNone(_gh_version(fake_gh))
+
+    def test_auth_diagnose_maps_storage_failure_when_workspace_config_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = HelperState(base_dir=Path(tmp))
+            with mock.patch(
+                "Backend.agendum_backend.helper.ensure_workspace_config",
+                side_effect=OSError("disk denied"),
+            ):
+                response = handle_request(
+                    {
+                        "version": 1,
+                        "id": "diagnose-storage-fail",
+                        "command": "auth.diagnose",
+                        "payload": {},
+                    },
+                    state,
+                )
+
+            self.assertFalse(response["ok"])
+            self.assertEqual(response["error"]["code"], "storage.failed")
+
+    def test_format_repair_command_quotes_paths_with_spaces(self) -> None:
+        with_spaces = _format_repair_command(Path("/Users/x/My Stuff/.agendum/gh"))
+        self.assertIn("'/Users/x/My Stuff/.agendum/gh'", with_spaces)
+
+        plain = _format_repair_command(Path("/Users/x/.agendum/gh"))
+        self.assertEqual(plain, "GH_CONFIG_DIR=/Users/x/.agendum/gh gh auth login")
+
+    def test_auth_status_repair_command_uses_shared_formatter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fake_gh = root / "gh"
+            fake_gh.write_text("#!/bin/sh\nexit 1\n")
+            fake_gh.chmod(fake_gh.stat().st_mode | stat.S_IXUSR)
+
+            base_dir = root / "My Stuff" / "agendum"
+            state = HelperState(base_dir=base_dir)
+            with mock.patch("Backend.agendum_backend.helper._find_gh", return_value=fake_gh):
+                auth = auth_status(state)
+
+            expected = _format_repair_command(base_dir / "gh")
+            self.assertEqual(auth["repairCommand"], expected)
+            self.assertIn(expected, auth["repairInstructions"])
+
+    def test_gh_version_returns_none_for_empty_stdout_on_exit_zero(self) -> None:
+        completed = subprocess.CompletedProcess(args=["gh", "--version"], returncode=0, stdout="", stderr="")
+        with mock.patch("Backend.agendum_backend.helper.subprocess.run", return_value=completed):
+            self.assertIsNone(_gh_version(Path("/usr/bin/gh")))
 
     def test_protocol_errors_are_enveloped(self) -> None:
         response = handle_request(

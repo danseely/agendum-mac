@@ -173,9 +173,13 @@ Workspace semantics:
   "authenticated": true,
   "username": "danseely",
   "workspaceGhConfigDir": "~/.agendum/gh",
-  "repairInstructions": null
+  "repairInstructions": null,
+  "repairCommand": null
 }
 ```
+
+`repairCommand` is populated only in the unauthenticated-with-gh-found
+branch and contains a shell-runnable command produced via `shlex.quote`.
 
 Auth semantics:
 - The helper must search explicit common `gh` paths rather than relying only on Finder-launched app `PATH`.
@@ -345,6 +349,34 @@ Response:
 ```json
 { "auth": {} }
 ```
+
+### `auth.diagnose`
+Request:
+```json
+{}
+```
+Response:
+```json
+{
+  "diagnostics": {
+    "gh": {
+      "found": true,
+      "path": "/opt/homebrew/bin/gh",
+      "version": "gh version 2.50.0 (2024-04-01)",
+      "installed": true
+    },
+    "auth": {},
+    "host": "github.com",
+    "helperPath": ["/opt/homebrew/bin", "/usr/bin", "/bin"]
+  }
+}
+```
+
+The `auth` block matches the `auth.status` payload (including a new
+`repairCommand` field, populated only in the unauthenticated-with-gh-found
+branch). `host` reflects `GH_HOST` or defaults to `github.com`.
+`helperPath` is the helper process's resolved `PATH`, useful for diagnosing
+Finder-launched apps where shell `PATH` is not inherited.
 
 ## Ownership Rules
 - The helper owns SQLite reads and writes.

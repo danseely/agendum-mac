@@ -567,6 +567,63 @@ final class BackendClientTests: XCTestCase {
         await client.close()
     }
 
+    func testClientSendsAuthDiagnoseWithEmptyPayload() async throws {
+        let helper = try writePythonHelper(
+            contents: """
+            import json
+            import sys
+
+            for line in sys.stdin:
+                request = json.loads(line)
+                if request["command"] != "auth.diagnose" or request["payload"] != {}:
+                    print(json.dumps({
+                        "version": 1,
+                        "id": request["id"],
+                        "ok": False,
+                        "error": {"code": "test.failed", "message": "unexpected request"}
+                    }), flush=True)
+                    continue
+                print(json.dumps({
+                    "version": 1,
+                    "id": request["id"],
+                    "ok": True,
+                    "payload": {"diagnostics": {
+                        "gh": {
+                            "found": True,
+                            "path": "/opt/homebrew/bin/gh",
+                            "version": "gh version 2.50.0",
+                            "installed": True
+                        },
+                        "auth": {
+                            "ghFound": True,
+                            "ghPath": "/opt/homebrew/bin/gh",
+                            "authenticated": True,
+                            "username": "dan",
+                            "workspaceGhConfigDir": "/tmp/agendum/gh",
+                            "repairInstructions": None,
+                            "repairCommand": None
+                        },
+                        "host": "github.com",
+                        "helperPath": ["/usr/bin", "/bin"]
+                    }}
+                }), flush=True)
+            """
+        )
+        let client = AgendumBackendClient(configuration: fakeHelperConfiguration(helperURL: helper))
+
+        let diagnostics = try await client.authDiagnose()
+        await client.close()
+
+        XCTAssertTrue(diagnostics.gh.found)
+        XCTAssertEqual(diagnostics.gh.version, "gh version 2.50.0")
+        XCTAssertEqual(diagnostics.gh.path, "/opt/homebrew/bin/gh")
+        XCTAssertTrue(diagnostics.gh.installed)
+        XCTAssertEqual(diagnostics.host, "github.com")
+        XCTAssertEqual(diagnostics.helperPath, ["/usr/bin", "/bin"])
+        XCTAssertTrue(diagnostics.auth.authenticated)
+        XCTAssertEqual(diagnostics.auth.username, "dan")
+    }
+
     func testDiscoverDevelopmentRepositoryRootResolvesThroughAppBundleLayout() throws {
         let fileManager = FileManager.default
         let tmp = fileManager.temporaryDirectory

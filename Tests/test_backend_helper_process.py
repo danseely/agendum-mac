@@ -347,6 +347,30 @@ class BackendHelperProcessTests(unittest.TestCase):
                     process.stderr.close()
                 self.assertEqual(process.returncode, 0, stderr)
 
+    def test_auth_diagnose_round_trips_through_jsonl_process(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            responses = self.run_helper(
+                [
+                    {
+                        "version": 1,
+                        "id": "process-diagnose",
+                        "command": "auth.diagnose",
+                        "payload": {},
+                    }
+                ],
+                base_dir=Path(tmp),
+                extra_env={"AGENDUM_MAC_GH_PATHS": ""},
+            )
+
+            self.assertEqual(len(responses), 1)
+            response = responses[0]
+            self.assertTrue(response["ok"])
+            self.assertNotEqual(response.get("error", {}).get("code"), "payload.invalid")
+            diagnostics = response["payload"]["diagnostics"]
+            self.assertIn("gh", diagnostics)
+            self.assertIn("helperPath", diagnostics)
+            self.assertIsInstance(diagnostics["helperPath"], list)
+
     def test_process_honors_base_dir_and_configured_gh_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

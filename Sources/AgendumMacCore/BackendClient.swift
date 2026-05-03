@@ -16,6 +16,21 @@ public struct AuthStatus: Decodable, Equatable, Sendable {
     public let username: String?
     public let workspaceGhConfigDir: String
     public let repairInstructions: String?
+    public let repairCommand: String?
+}
+
+public struct AuthDiagnostics: Decodable, Equatable, Sendable {
+    public let gh: GHInstallation
+    public let auth: AuthStatus
+    public let host: String
+    public let helperPath: [String]
+
+    public struct GHInstallation: Decodable, Equatable, Sendable {
+        public let found: Bool
+        public let path: String?
+        public let version: String?
+        public let installed: Bool
+    }
 }
 
 public struct SyncStatus: Decodable, Equatable, Sendable {
@@ -292,6 +307,11 @@ public actor AgendumBackendClient {
         return payload.auth
     }
 
+    public func authDiagnose() async throws -> AuthDiagnostics {
+        let payload: AuthDiagnoseResponsePayload = try await send(command: "auth.diagnose")
+        return payload.diagnostics
+    }
+
     func request<ResponsePayload: Decodable>(
         command: String,
         as responsePayload: ResponsePayload.Type = ResponsePayload.self
@@ -544,6 +564,10 @@ private struct WorkspaceSelectRequestPayload: Encodable, Sendable {
 
 private struct AuthStatusResponsePayload: Decodable {
     let auth: AuthStatus
+}
+
+private struct AuthDiagnoseResponsePayload: Decodable {
+    let diagnostics: AuthDiagnostics
 }
 
 private struct TaskListRequestPayload: Encodable, Sendable {

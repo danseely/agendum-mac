@@ -4,6 +4,7 @@ import Combine
 import Foundation
 
 public typealias URLOpening = @Sendable (URL) -> Bool
+public typealias Pasteboarding = @Sendable (String) -> Void
 
 public protocol AgendumBackendServicing: Sendable {
     func currentWorkspace() async throws -> Workspace
@@ -20,6 +21,7 @@ public protocol AgendumBackendServicing: Sendable {
     func syncStatus() async throws -> SyncStatus
     func forceSync() async throws -> SyncStatus
     func authStatus() async throws -> AuthStatus
+    func authDiagnose() async throws -> AuthDiagnostics
     func createManualTask(title: String, project: String?, tags: [String]?) async throws -> AgendumTask
 }
 
@@ -218,6 +220,8 @@ public final class BackendStatusModel: ObservableObject {
     @Published public private(set) var taskActionErrors: [TaskItem.ID: PresentedError] = [:]
     @Published public private(set) var filters: TaskListFilters = .default
     @Published public private(set) var isLoading = false
+    @Published public private(set) var diagnostics: AuthDiagnostics?
+    @Published public private(set) var diagnosticsError: PresentedError?
 
     public var errorMessage: String? { error?.message }
 
@@ -227,6 +231,7 @@ public final class BackendStatusModel: ObservableObject {
     private let sleep: @Sendable (UInt64) async throws -> Void
     private let now: @Sendable () -> Date
     private let openURL: URLOpening
+    private let pasteboard: Pasteboarding
     private let relativeFormatter: RelativeDateTimeFormatter
     private let iso8601Formatter: ISO8601DateFormatter
 
@@ -241,6 +246,7 @@ public final class BackendStatusModel: ObservableObject {
         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) },
         now: @escaping @Sendable () -> Date = Date.init,
         openURL: @escaping URLOpening = BackendStatusModel.defaultURLOpener,
+        pasteboard: @escaping Pasteboarding = BackendStatusModel.defaultPasteboard,
         locale: Locale = .autoupdatingCurrent,
         filters: TaskListFilters = .default
     ) {
@@ -250,6 +256,7 @@ public final class BackendStatusModel: ObservableObject {
         self.sleep = sleep
         self.now = now
         self.openURL = openURL
+        self.pasteboard = pasteboard
         self.filters = filters
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = locale
@@ -438,6 +445,26 @@ public final class BackendStatusModel: ObservableObject {
         }
     }
 
+    public func refreshDiagnostics() async {
+        do {
+            let result = try await client.authDiagnose()
+            diagnostics = result
+            diagnosticsError = nil
+        } catch {
+            diagnosticsError = PresentedError.from(error)
+        }
+    }
+
+    public func copyAuthLoginCommand() {
+        guard let command = auth?.repairCommand else { return }
+        pasteboard(command)
+    }
+
+    public func openGHInstallURL() {
+        let url = URL(string: "https://cli.github.com/")!
+        _ = openURL(url)
+    }
+
     @discardableResult
     public func createManualTask(
         title: String,
@@ -495,5 +522,13 @@ public final class BackendStatusModel: ObservableObject {
 public extension BackendStatusModel {
     static var defaultURLOpener: URLOpening {
         { url in NSWorkspace.shared.open(url) }
+    }
+
+    static var defaultPasteboard: Pasteboarding {
+        { string in
+            let pasteboard = NSPasteboard.general
+            pasteboard.declareTypes([.string], owner: nil)
+            pasteboard.setString(string, forType: .string)
+        }
     }
 }
