@@ -132,6 +132,9 @@ private struct TaskDashboardView: View {
                         if backendStatus.errorForTask(id: task.id) == nil {
                             selectedTask = nil
                         }
+                    },
+                    openInBrowser: {
+                        await backendStatus.openTaskURL(id: task.id)
                     }
                 )
             } else {
@@ -280,8 +283,6 @@ private struct TaskRow: View {
 }
 
 private struct TaskDetail: View {
-    @Environment(\.openURL) private var openURL
-
     let task: TaskItem
     let isLoading: Bool
     let actionError: PresentedError?
@@ -291,6 +292,7 @@ private struct TaskDetail: View {
     let moveToBacklog: () async -> Void
     let markDone: () async -> Void
     let remove: () async -> Void
+    let openInBrowser: () async -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -318,10 +320,11 @@ private struct TaskDetail: View {
             HStack {
                 if task.availableDetailActions.contains(.openBrowser) {
                     Button("Open in Browser") {
-                        if let url = task.url {
-                            openURL(url)
+                        Task {
+                            await openInBrowser()
                         }
                     }
+                    .accessibilityIdentifier("task-action-open-browser")
                 }
                 if task.availableDetailActions.contains(.markSeen) {
                     Button("Mark Seen") {

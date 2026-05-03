@@ -1,14 +1,14 @@
 # Handoff
 
 ## Current objective
-Add `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template` producing an unsigned `.app` smoke bundle on `codex/app-bundle-smoke` → `feature/mac-prototype`. Live PR/CI/review state lives in `gh pr view 16`.
+Route the seven still-deferred packaging decisions in `docs/packaging.md` (channel, signing, notarization, Python helper runtime, helper-process production layout, `gh` posture, `~/.agendum` path) to the user, record answers in `docs/decisions.md`, and only then scope the next code-bearing packaging slice. If the user defers the packaging routing, pick an alternative live-slice checkpoint (e.g. richer task list filtering, settings/auth-repair UI) and start it on a new `codex/*` short-lived branch from current `feature/mac-prototype`.
 
 ## Branch
-`codex/app-bundle-smoke`, branched from updated `feature/mac-prototype` after PR #15 merged.
+On `feature/mac-prototype` at `12cf468` (post-PR-#16 squash merge tip). No short-lived `codex/*` branch is currently open — start one when the next checkpoint is scoped.
 
 ## Repo state
-- HEAD: `codex/app-bundle-smoke`; local branch starts from the post-PR-#15 tip of `feature/mac-prototype`. Working tree was clean before edits (apart from untracked `.claude/`).
-- Integration branch: `feature/mac-prototype`; PR #15 (packaging matrix doc) merged on 2026-05-02 (squash merge `3e4e34a`).
+- HEAD: `feature/mac-prototype` at `12cf468`; in sync with `origin/feature/mac-prototype`. Working tree clean apart from untracked `.claude/`.
+- Integration branch: `feature/mac-prototype`; PR #16 (unsigned `.app` smoke bundle) merged on 2026-05-03 (squash merge `12cf468`).
 - Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/15`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `3e4e34a`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/14`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `e05efa7`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/13`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `30d66d4`).
@@ -22,10 +22,10 @@ Add `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template` p
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`.
 - Earlier merged PRs into `feature/mac-prototype`: #1 (backend helper scaffold), #3 (testing baseline + CI), #4 (branch discipline), #5 (Swift helper-process client).
-- Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge. The `codex/manual-task-creation` local branch was removed by the PR #11 merge flow; remote PR branches `origin/codex/manual-task-creation` and `origin/codex/swiftui-workflow-coverage` were deleted on the remote. Deleted local `codex/per-task-error-surfacing` after PR #12 merge. Deleted local `codex/structured-error-mapping` after PR #14 merge. Deleted local `codex/packaging-matrix-doc` after PR #15 merge.
+- Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge. The `codex/manual-task-creation` local branch was removed by the PR #11 merge flow; remote PR branches `origin/codex/manual-task-creation` and `origin/codex/swiftui-workflow-coverage` were deleted on the remote. Deleted local `codex/per-task-error-surfacing` after PR #12 merge. Deleted local `codex/structured-error-mapping` after PR #14 merge. Deleted local `codex/packaging-matrix-doc` after PR #15 merge. Remote refs `origin/codex/sync-lifecycle-presentation`, `origin/codex/structured-error-mapping`, `origin/codex/per-task-error-surfacing`, `origin/codex/packaging-matrix-doc`, and `origin/codex/app-bundle-smoke` pruned locally on 2026-05-03 after upstream cleanup.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
 - Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
-- Last validation date: 2026-05-02
+- Last validation date: 2026-05-02 (App bundle smoke checkpoint, pre-merge). PR #16 merged 2026-05-03 with the same gate set; no new code since.
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -378,14 +378,12 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Run `gh pr view 16` and `gh pr checks 16` for the app-bundle-smoke PR once opened, then branch on the result:
-   - CI failing: investigate and push fixes to `codex/app-bundle-smoke`.
-   - CI green, no review yet: run a blind review pass; address findings as new commits.
-   - Review clean, PR still draft: mark ready.
-   - Merged: fast-forward local `feature/mac-prototype`, then pick the next checkpoint.
+1. Surface the seven still-deferred packaging decisions in `docs/packaging.md` to the user (channel, signing identity, notarization credentials, Python helper runtime, helper-process production layout, `gh` posture, `~/.agendum` path policy). Present them as a pick-list; do not begin a code-bearing packaging slice before answers land.
+2. Once answers are provided, append a dated entry to `docs/decisions.md` recording each pick and its rationale, then scope the next short-lived `codex/*` branch from current `feature/mac-prototype` for the first code-bearing slice the answers unlock (most likely the Python helper runtime work, or a `gh` discovery UX slice if the channel pick keeps `gh`).
+3. If the user defers the packaging routing, propose an alternative live-slice checkpoint (e.g. richer task list filtering, settings/auth-repair UI, keyboard shortcut coverage) and start it on a new `codex/*` branch from current `feature/mac-prototype`.
 
 ## After checkpoint
-- The seven still-deferred packaging decisions (distribution channel, code signing identity, notarization credentials, Python helper runtime for production, helper-process production layout, `gh` dependency posture, `~/.agendum` path policy) remain open. The next code-bearing packaging slice waits on the user picking from those, especially channel + Python runtime.
+- After the next checkpoint merges, prune any merged `codex/*` remote refs and the matching local branch, fast-forward local `feature/mac-prototype`, and either continue down the packaging-decision queue or return to the live-slice backlog.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.

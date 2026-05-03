@@ -503,6 +503,230 @@ final class TaskWorkflowModelTests: XCTestCase {
         let issue = TaskItem(task: task(id: 4, source: "issue", url: nil))
         XCTAssertEqual(issue.availableDetailActions, [.remove])
     }
+
+    func testOpenTaskURLInvokesOpenerWithTaskURL() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
+        let opener = RecordingURLOpener()
+        opener.setNextResult(true)
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+
+        await model.openTaskURL(id: 17)
+
+        XCTAssertEqual(opener.opened.map(\.absoluteString), ["https://example.com/issue/42"])
+        XCTAssertNil(model.errorForTask(id: 17))
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testOpenTaskURLClearsExistingPerTaskError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
+        let opener = RecordingURLOpener()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+        await backend.failNext("markTaskDone", message: "done failed")
+        await model.markDone(id: 17)
+        XCTAssertEqual(model.errorForTask(id: 17)?.message, "done failed")
+
+        await model.openTaskURL(id: 17)
+
+        XCTAssertNil(model.errorForTask(id: 17))
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testOpenTaskURLSuccessAfterPriorOpenFailureClearsError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
+        let opener = RecordingURLOpener()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+        opener.setNextResult(false)
+        await model.openTaskURL(id: 17)
+        XCTAssertEqual(model.errorForTask(id: 17)?.code, "client.urlOpenFailed")
+
+        opener.setNextResult(true)
+        await model.openTaskURL(id: 17)
+
+        XCTAssertNil(model.errorForTask(id: 17))
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testOpenTaskURLFailureRecordsPerTaskError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
+        let opener = RecordingURLOpener()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+        opener.setNextResult(false)
+        let tasksBefore = model.tasks
+
+        await model.openTaskURL(id: 17)
+
+        XCTAssertEqual(model.errorForTask(id: 17)?.code, "client.urlOpenFailed")
+        XCTAssertNil(model.errorMessage)
+        XCTAssertEqual(model.tasks, tasksBefore)
+        XCTAssertEqual(opener.opened.map(\.absoluteString), ["https://example.com/issue/42"])
+    }
+
+    func testOpenTaskURLNoOpsWhenTaskHasNoURL() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, source: "manual", status: "backlog", url: nil)])
+        let opener = RecordingURLOpener()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+
+        // Self-document the no-URL availability gate.
+        XCTAssertFalse(model.tasks[0].availableDetailActions.contains(.openBrowser))
+
+        await model.openTaskURL(id: 17)
+
+        XCTAssertTrue(opener.opened.isEmpty)
+        XCTAssertEqual(model.errorForTask(id: 17)?.code, "client.taskHasNoURL")
+    }
+
+    func testOpenTaskURLNoOpsForUnknownTaskID() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([])
+        let opener = RecordingURLOpener()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+        let errorsBefore = model.taskActionErrors
+
+        await model.openTaskURL(id: 999)
+
+        XCTAssertTrue(opener.opened.isEmpty)
+        XCTAssertNil(model.taskActionErrors[999])
+        XCTAssertEqual(model.taskActionErrors, errorsBefore)
+    }
+
+    func testOpenTaskURLDoesNotChangeIsLoading() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
+        let opener = RecordingURLOpener()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+        XCTAssertFalse(model.isLoading)
+
+        await model.openTaskURL(id: 17)
+
+        XCTAssertFalse(model.isLoading)
+    }
+
+    func testRefreshClearsOpenTaskURLError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
+        let opener = RecordingURLOpener()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+        opener.setNextResult(false)
+        await model.openTaskURL(id: 17)
+        XCTAssertEqual(model.errorForTask(id: 17)?.code, "client.urlOpenFailed")
+
+        await model.refresh()
+
+        XCTAssertNil(model.errorForTask(id: 17))
+        XCTAssertTrue(model.taskActionErrors.isEmpty)
+    }
+
+    func testSelectWorkspaceClearsOpenTaskURLError() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
+        let opener = RecordingURLOpener()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+        opener.setNextResult(false)
+        await model.openTaskURL(id: 17)
+        XCTAssertEqual(model.errorForTask(id: 17)?.code, "client.urlOpenFailed")
+
+        await backend.setTasks([task(id: 22, title: "Org task", source: "manual")])
+        await model.selectWorkspace(id: "example-org")
+
+        XCTAssertNil(model.errorForTask(id: 17))
+        XCTAssertTrue(model.taskActionErrors.isEmpty)
+    }
+
+    func testTaskActionsIncludingOpenURLDoNotInterfereWithEachOther() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([
+            task(id: 17, title: "First", source: "manual", status: "backlog"),
+            task(id: 23, title: "Second", source: "pr_review", url: "https://example.com/issue/23", seen: false),
+        ])
+        let opener = RecordingURLOpener()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+        await backend.failNext("markTaskDone", message: "done 17 failed")
+        await model.markDone(id: 17)
+        XCTAssertEqual(model.errorForTask(id: 17)?.message, "done 17 failed")
+
+        await model.openTaskURL(id: 23)
+
+        XCTAssertEqual(model.errorForTask(id: 17)?.message, "done 17 failed")
+        XCTAssertNil(model.errorForTask(id: 23))
+        XCTAssertEqual(opener.opened.map(\.absoluteString), ["https://example.com/issue/23"])
+    }
+}
+
+private final class RecordingURLOpener: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _opened: [URL] = []
+    private var _nextResult: Bool = true
+
+    var opened: [URL] {
+        lock.lock(); defer { lock.unlock() }
+        return _opened
+    }
+
+    func setNextResult(_ value: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        _nextResult = value
+    }
+
+    func open(_ url: URL) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        _opened.append(url)
+        return _nextResult
+    }
 }
 
 private actor SleepRecorder {

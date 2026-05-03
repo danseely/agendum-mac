@@ -1,6 +1,9 @@
 import AgendumMacCore
+import AppKit
 import Combine
 import Foundation
+
+public typealias URLOpening = @Sendable (URL) -> Bool
 
 public protocol AgendumBackendServicing: Sendable {
     func currentWorkspace() async throws -> Workspace
@@ -196,6 +199,7 @@ public final class BackendStatusModel: ObservableObject {
     private let maxSyncPollAttempts: Int
     private let sleep: @Sendable (UInt64) async throws -> Void
     private let now: @Sendable () -> Date
+    private let openURL: URLOpening
     private let relativeFormatter: RelativeDateTimeFormatter
     private let iso8601Formatter: ISO8601DateFormatter
 
@@ -209,6 +213,7 @@ public final class BackendStatusModel: ObservableObject {
         maxSyncPollAttempts: Int = 120,
         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) },
         now: @escaping @Sendable () -> Date = Date.init,
+        openURL: @escaping URLOpening = BackendStatusModel.defaultURLOpener,
         locale: Locale = .autoupdatingCurrent
     ) {
         self.client = client
@@ -216,6 +221,7 @@ public final class BackendStatusModel: ObservableObject {
         self.maxSyncPollAttempts = maxSyncPollAttempts
         self.sleep = sleep
         self.now = now
+        self.openURL = openURL
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = locale
         formatter.unitsStyle = .short
@@ -367,6 +373,34 @@ public final class BackendStatusModel: ObservableObject {
         }
     }
 
+    public func openTaskURL(id: TaskItem.ID) async {
+        guard let task = tasks.first(where: { $0.id == id }) else {
+            // Unknown task ID: return without mutating taskActionErrors.
+            // No view can read or clear a stale entry under an id that does
+            // not correspond to a visible task, so writing one would leak
+            // state.
+            return
+        }
+        guard let url = task.url else {
+            taskActionErrors[id] = PresentedError(
+                message: "This task has no URL to open.",
+                recovery: "Manual tasks have no link; remove them or add a URL upstream.",
+                code: "client.taskHasNoURL"
+            )
+            return
+        }
+        let opened = openURL(url)
+        if opened {
+            taskActionErrors.removeValue(forKey: id)
+        } else {
+            taskActionErrors[id] = PresentedError(
+                message: "Could not open the task URL in a browser.",
+                recovery: "Check that a default browser is set, then try again.",
+                code: "client.urlOpenFailed"
+            )
+        }
+    }
+
     @discardableResult
     public func createManualTask(
         title: String,
@@ -418,5 +452,11 @@ public final class BackendStatusModel: ObservableObject {
             includeSeen: true,
             limit: 50
         ).map(TaskItem.init)
+    }
+}
+
+public extension BackendStatusModel {
+    static var defaultURLOpener: URLOpening {
+        { url in NSWorkspace.shared.open(url) }
     }
 }

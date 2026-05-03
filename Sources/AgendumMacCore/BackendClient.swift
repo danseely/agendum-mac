@@ -151,10 +151,11 @@ public struct BackendClientConfiguration: Sendable {
         from url: URL,
         fileManager: FileManager
     ) -> URL? {
-        var candidate = url
+        var candidate = url.standardizedFileURL
         var isDirectory: ObjCBool = false
         if fileManager.fileExists(atPath: candidate.path, isDirectory: &isDirectory), !isDirectory.boolValue {
             candidate.deleteLastPathComponent()
+            candidate = candidate.standardizedFileURL
         }
 
         var seen: Set<String> = []
@@ -162,8 +163,8 @@ public struct BackendClientConfiguration: Sendable {
             if fileManager.fileExists(atPath: candidate.appendingPathComponent(relativePath).path) {
                 return candidate
             }
-            let parent = candidate.deletingLastPathComponent()
-            if parent.path == candidate.path {
+            let parent = candidate.deletingLastPathComponent().standardizedFileURL
+            if parent.path == candidate.path || candidate.path == "/" {
                 return nil
             }
             candidate = parent
