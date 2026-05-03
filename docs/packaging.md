@@ -56,6 +56,6 @@ The following questions should be answered, and the answers recorded in `docs/de
 5. Helper-process production layout: pick one of inside `Agendum.app/Contents/Resources/Backend/` / alongside the `.app` bundle / `~/Library/Application Support/agendum/` / `$PATH`-discoverable.
 6. `gh` dependency posture: require user-installed `gh` with a repair UX, bundle a pinned `gh`, or replace with native GitHub auth later?
 7. `~/.agendum` path policy: keep `~/.agendum`, or migrate to `~/Library/Application Support/agendum/` for sandbox/MAS compatibility?
-8. Bundle identity: pick `CFBundleIdentifier` (for example `com.danseely.agendum-mac`) and `CFBundleName`.
-9. App icon and branding: is an icon asset available now, or use a placeholder for the first slice?
-10. App version policy: fixed `0.1.0` until first release, or pull from git tags?
+8. Bundle identity: pick `CFBundleIdentifier` (for example `com.danseely.agendum-mac`) and `CFBundleName`. (answered 2026-05-02: see decisions.md)
+9. App icon and branding: is an icon asset available now, or use a placeholder for the first slice? (answered 2026-05-02: see decisions.md)
+10. App version policy: fixed `0.1.0` until first release, or pull from git tags? (answered 2026-05-02: see decisions.md)

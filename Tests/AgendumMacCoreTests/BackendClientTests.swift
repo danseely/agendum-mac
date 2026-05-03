@@ -567,6 +567,69 @@ final class BackendClientTests: XCTestCase {
         await client.close()
     }
 
+    func testDiscoverDevelopmentRepositoryRootResolvesThroughAppBundleLayout() throws {
+        let fileManager = FileManager.default
+        let tmp = fileManager.temporaryDirectory
+            .appendingPathComponent("AgendumMacCoreTests")
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? fileManager.removeItem(at: tmp) }
+
+        let repoRoot = tmp.appendingPathComponent("repo")
+        let backendDir = repoRoot.appendingPathComponent("Backend")
+        let macOSDir = repoRoot
+            .appendingPathComponent(".build")
+            .appendingPathComponent("Agendum.app")
+            .appendingPathComponent("Contents")
+            .appendingPathComponent("MacOS")
+        try fileManager.createDirectory(at: backendDir, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: macOSDir, withIntermediateDirectories: true)
+
+        let helperMarker = backendDir.appendingPathComponent("agendum_backend_helper.py")
+        fileManager.createFile(atPath: helperMarker.path, contents: Data())
+
+        let executableURL = macOSDir.appendingPathComponent("Agendum")
+        fileManager.createFile(atPath: executableURL.path, contents: Data())
+
+        let unrelatedCwd = tmp.appendingPathComponent("unrelated")
+        try fileManager.createDirectory(at: unrelatedCwd, withIntermediateDirectories: true)
+
+        let resolved = BackendClientConfiguration.discoverDevelopmentRepositoryRoot(
+            currentDirectoryURL: unrelatedCwd,
+            executableURL: executableURL
+        )
+
+        XCTAssertEqual(
+            resolved.resolvingSymlinksInPath().standardizedFileURL.path,
+            repoRoot.resolvingSymlinksInPath().standardizedFileURL.path
+        )
+    }
+
+    func testDiscoverDevelopmentRepositoryRootFallsBackToCurrentDirectoryWhenNoMarkerFound() throws {
+        let fileManager = FileManager.default
+        let tmp = fileManager.temporaryDirectory
+            .appendingPathComponent("AgendumMacCoreTests")
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? fileManager.removeItem(at: tmp) }
+
+        let cwdRoot = tmp.appendingPathComponent("root")
+        let binDir = tmp.appendingPathComponent("bin")
+        try fileManager.createDirectory(at: cwdRoot, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: binDir, withIntermediateDirectories: true)
+
+        let executableURL = binDir.appendingPathComponent("binary")
+        fileManager.createFile(atPath: executableURL.path, contents: Data())
+
+        let resolved = BackendClientConfiguration.discoverDevelopmentRepositoryRoot(
+            currentDirectoryURL: cwdRoot,
+            executableURL: executableURL
+        )
+
+        XCTAssertEqual(
+            resolved.resolvingSymlinksInPath().standardizedFileURL.path,
+            cwdRoot.resolvingSymlinksInPath().standardizedFileURL.path
+        )
+    }
+
     private func repositoryRoot() -> URL {
         URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     }
