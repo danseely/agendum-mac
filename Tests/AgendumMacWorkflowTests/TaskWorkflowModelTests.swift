@@ -1088,6 +1088,332 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertNotNil(model.diagnostics)
         XCTAssertNil(model.auth)
     }
+
+    // MARK: - Item 4: keyboard shortcuts + menu coverage
+
+    func testSetSelectedTaskIDUpdatesPublishedValue() async throws {
+        let backend = FakeBackend()
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        model.setSelectedTaskID(17)
+        XCTAssertEqual(model.selectedTaskID, 17)
+
+        model.setSelectedTaskID(nil)
+        XCTAssertNil(model.selectedTaskID)
+    }
+
+    func testInitialSelectedTaskIDIsNil() {
+        let backend = FakeBackend()
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        XCTAssertNil(model.selectedTaskID)
+    }
+
+    func testMenuOpenInBrowserCommandInvokesOpenTaskURLForSelectedTask() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 42, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
+        let opener = RecordingURLOpener()
+        opener.setNextResult(true)
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            openURL: { [opener] url in opener.open(url) }
+        )
+        await model.refresh()
+        model.setSelectedTaskID(42)
+
+        await TaskDashboardCommands.standard.menuOpenInBrowser.perform(on: model)
+
+        XCTAssertEqual(opener.opened.map(\.absoluteString), ["https://example.com/issue/42"])
+    }
+
+    func testMenuMarkSeenCommandInvokesMarkSeenForSelectedTask() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 42, source: "pr_review", seen: false)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        model.setSelectedTaskID(42)
+
+        await TaskDashboardCommands.standard.menuMarkSeen.perform(on: model)
+
+        let calls = await backend.calls
+        XCTAssertTrue(calls.contains("markTaskSeen:42"))
+    }
+
+    func testMenuMarkReviewedCommandInvokesMarkReviewedForSelectedTask() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 42, source: "pr_review", seen: false)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        model.setSelectedTaskID(42)
+
+        await TaskDashboardCommands.standard.menuMarkReviewed.perform(on: model)
+
+        let calls = await backend.calls
+        XCTAssertTrue(calls.contains("markTaskReviewed:42"))
+    }
+
+    func testMenuMarkInProgressCommandInvokesMarkInProgressForSelectedTask() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 42, source: "manual", status: "backlog")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        model.setSelectedTaskID(42)
+
+        await TaskDashboardCommands.standard.menuMarkInProgress.perform(on: model)
+
+        let calls = await backend.calls
+        XCTAssertTrue(calls.contains("markTaskInProgress:42"))
+    }
+
+    func testMenuMoveToBacklogCommandInvokesMoveToBacklogForSelectedTask() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 42, source: "manual", status: "in progress")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        model.setSelectedTaskID(42)
+
+        await TaskDashboardCommands.standard.menuMoveToBacklog.perform(on: model)
+
+        let calls = await backend.calls
+        XCTAssertTrue(calls.contains("moveTaskToBacklog:42"))
+    }
+
+    func testMenuMarkDoneCommandInvokesMarkDoneForSelectedTask() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 42, source: "manual", status: "backlog")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        model.setSelectedTaskID(42)
+
+        await TaskDashboardCommands.standard.menuMarkDone.perform(on: model)
+
+        let calls = await backend.calls
+        XCTAssertTrue(calls.contains("markTaskDone:42"))
+    }
+
+    func testMenuRemoveCommandInvokesRemoveTaskForSelectedTask() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 42, source: "manual")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        model.setSelectedTaskID(42)
+
+        await TaskDashboardCommands.standard.menuRemove.perform(on: model)
+
+        let calls = await backend.calls
+        XCTAssertTrue(calls.contains("removeTask:42"))
+    }
+
+    func testMenuPerTaskCommandsNoOpWhenNoSelection() async throws {
+        let perTaskCommands: [(TaskDashboardCommand, String)] = [
+            (.openInBrowser, "openInBrowser"),
+            (.markSeen, "markTaskSeen"),
+            (.markReviewed, "markTaskReviewed"),
+            (.markInProgress, "markTaskInProgress"),
+            (.moveToBacklog, "moveTaskToBacklog"),
+            (.markDone, "markTaskDone"),
+            (.remove, "removeTask"),
+        ]
+
+        for (command, methodToken) in perTaskCommands {
+            let backend = FakeBackend()
+            await backend.setTasks([task(id: 42, source: "manual", url: "https://example.com/x", seen: false)])
+            let opener = RecordingURLOpener()
+            let model = BackendStatusModel(
+                client: backend,
+                sleep: immediateSleep,
+                openURL: { [opener] url in opener.open(url) }
+            )
+            await model.refresh()
+            await backend.resetCalls()
+            // Selection is intentionally nil
+            XCTAssertNil(model.selectedTaskID, "\(methodToken) precondition")
+
+            await command.perform(on: model)
+
+            let calls = await backend.calls
+            XCTAssertFalse(
+                calls.contains(where: { $0.hasPrefix(methodToken) }),
+                "command \(methodToken) should be a no-op when selection is nil; calls=\(calls)"
+            )
+            XCTAssertTrue(opener.opened.isEmpty, "\(methodToken) opener should not fire")
+        }
+    }
+
+    func testMenuMarkSeenCommandTargetsSelectedTaskNotFirstTask() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([
+            task(id: 10, source: "pr_review", seen: false),
+            task(id: 42, source: "pr_review", seen: false),
+        ])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+        model.setSelectedTaskID(42)
+
+        await TaskDashboardCommands.standard.menuMarkSeen.perform(on: model)
+
+        let calls = await backend.calls
+        XCTAssertTrue(calls.contains("markTaskSeen:42"))
+        XCTAssertFalse(calls.contains("markTaskSeen:10"))
+    }
+
+    func testPerTaskCommandAvailabilityFalseWhenNoSelection() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 42, source: "manual", url: "https://example.com/x", seen: false)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        let perTask: [TaskDashboardCommand] = [
+            .openInBrowser, .markSeen, .markReviewed, .markInProgress,
+            .moveToBacklog, .markDone, .remove,
+        ]
+        for command in perTask {
+            XCTAssertFalse(command.availability(on: model), "\(command) should be unavailable with nil selection")
+        }
+    }
+
+    func testPerTaskCommandAvailabilityFalseWhenSelectedTaskNotInList() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 42, source: "manual")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        model.setSelectedTaskID(999)
+
+        let perTask: [TaskDashboardCommand] = [
+            .openInBrowser, .markSeen, .markReviewed, .markInProgress,
+            .moveToBacklog, .markDone, .remove,
+        ]
+        for command in perTask {
+            XCTAssertFalse(command.availability(on: model), "\(command) should be unavailable when selection missing from tasks")
+        }
+    }
+
+    func testOpenInBrowserAvailabilityHonorsAvailableDetailActions() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([
+            task(id: 10, source: "pr_review", url: "https://example.com/10", seen: false),
+            task(id: 11, source: "manual", status: "backlog", url: nil),
+        ])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        model.setSelectedTaskID(10)
+        XCTAssertTrue(TaskDashboardCommands.standard.menuOpenInBrowser.availability(on: model))
+
+        model.setSelectedTaskID(11)
+        XCTAssertFalse(TaskDashboardCommands.standard.menuOpenInBrowser.availability(on: model))
+    }
+
+    func testMarkSeenAvailabilityHonorsAvailableDetailActions() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([
+            task(id: 10, source: "pr_review", seen: false),
+            task(id: 11, source: "pr_review", seen: true),
+        ])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        model.setSelectedTaskID(10)
+        XCTAssertTrue(TaskDashboardCommands.standard.menuMarkSeen.availability(on: model))
+
+        model.setSelectedTaskID(11)
+        XCTAssertFalse(TaskDashboardCommands.standard.menuMarkSeen.availability(on: model))
+    }
+
+    func testMarkReviewedAvailabilityHonorsSourceGate() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([
+            task(id: 10, source: "pr_review", seen: true),
+            task(id: 11, source: "pr_authored", seen: true),
+        ])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        model.setSelectedTaskID(10)
+        XCTAssertTrue(TaskDashboardCommands.standard.menuMarkReviewed.availability(on: model))
+
+        model.setSelectedTaskID(11)
+        XCTAssertFalse(TaskDashboardCommands.standard.menuMarkReviewed.availability(on: model))
+    }
+
+    func testMarkInProgressAndMoveToBacklogAvailabilityToggleByStatus() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([
+            task(id: 10, source: "manual", status: "in progress"),
+            task(id: 11, source: "manual", status: "backlog"),
+        ])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        model.setSelectedTaskID(10)
+        XCTAssertTrue(TaskDashboardCommands.standard.menuMoveToBacklog.availability(on: model))
+        XCTAssertFalse(TaskDashboardCommands.standard.menuMarkInProgress.availability(on: model))
+
+        model.setSelectedTaskID(11)
+        XCTAssertTrue(TaskDashboardCommands.standard.menuMarkInProgress.availability(on: model))
+        XCTAssertFalse(TaskDashboardCommands.standard.menuMoveToBacklog.availability(on: model))
+    }
+
+    func testMarkDoneAndRemoveAvailabilityForManualTask() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([
+            task(id: 10, source: "manual", status: "backlog"),
+            task(id: 11, source: "pr_review", seen: true),
+        ])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        model.setSelectedTaskID(10)
+        XCTAssertTrue(TaskDashboardCommands.standard.menuMarkDone.availability(on: model))
+        XCTAssertTrue(TaskDashboardCommands.standard.menuRemove.availability(on: model))
+
+        model.setSelectedTaskID(11)
+        XCTAssertFalse(TaskDashboardCommands.standard.menuMarkDone.availability(on: model))
+        XCTAssertTrue(TaskDashboardCommands.standard.menuRemove.availability(on: model))
+    }
+
+    func testNewTaskCommandPerformIsNoOp() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 42)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+        await backend.resetCalls()
+
+        await TaskDashboardCommands.standard.menuNewTask.perform(on: model)
+
+        let calls = await backend.calls
+        XCTAssertEqual(calls, [])
+    }
+
+    func testNewTaskCommandAvailabilityTracksIsLoading() async throws {
+        let backend = FakeBackend()
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        XCTAssertFalse(model.isLoading)
+        XCTAssertTrue(TaskDashboardCommands.standard.menuNewTask.availability(on: model))
+    }
+
+    func testStandardCommandsExposesEveryNamedSlot() {
+        let commands = TaskDashboardCommands.standard
+        XCTAssertEqual(commands.toolbarRefresh, .refresh)
+        XCTAssertEqual(commands.toolbarSync, .sync)
+        XCTAssertEqual(commands.menuRefresh, .refresh)
+        XCTAssertEqual(commands.menuSync, .sync)
+        XCTAssertEqual(commands.menuNewTask, .newTask)
+        XCTAssertEqual(commands.menuOpenInBrowser, .openInBrowser)
+        XCTAssertEqual(commands.menuMarkSeen, .markSeen)
+        XCTAssertEqual(commands.menuMarkReviewed, .markReviewed)
+        XCTAssertEqual(commands.menuMarkInProgress, .markInProgress)
+        XCTAssertEqual(commands.menuMoveToBacklog, .moveToBacklog)
+        XCTAssertEqual(commands.menuMarkDone, .markDone)
+        XCTAssertEqual(commands.menuRemove, .remove)
+    }
 }
 
 private final class RecordingPasteboard: @unchecked Sendable {

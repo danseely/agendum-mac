@@ -1,15 +1,16 @@
 # Handoff
 
 ## Current objective
-Deliver item 3 (settings / auth-repair UI) of the five-item live-slice orchestration in `docs/orchestration-plan.md`. Add a SwiftUI `Settings` scene that diagnoses `gh` discovery and `auth.status` failures (the Finder-PATH risk under "Risks / blockers") and helps users repair them through copy/launch actions. Likely introduces at least one new helper command (e.g. `auth.diagnose`) reporting discovered `gh` path/version/install-state, gh-authentication state for the configured host, and the helper-resolved `PATH`; a matching `BackendClient` method; a `SettingsModel` (or extension of `BackendStatusModel`) on `AgendumMacWorkflow`; and a `Settings { SettingsView() }` scene in `Sources/AgendumMac/AgendumMacApp.swift`. The active phase is design: author `docs/design/03-settings-auth-repair.md`, take it through review cycle 1, revise to no findings, then build.
+Deliver item 4 (keyboard shortcuts + menu coverage) of the five-item live-slice orchestration in `docs/orchestration-plan.md`. Extend the macOS menu bar and shortcut surface beyond the existing `Sync Now` (`Sources/AgendumMac/AgendumMacApp.swift:13-23`) so a keyboard-only user can drive the dashboard: refresh, create a manual task, and run every per-task action (mark seen / reviewed / in progress / move to backlog / mark done / remove / open in browser). Likely touches only `Sources/AgendumMac/AgendumMacApp.swift` (`.commands { ... }` block), `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift` (`TaskDashboardCommands` extension and a focus/selection seam if needed for per-task menu items), and `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`. The active phase is design: author `docs/design/04-shortcuts-menus.md`, take it through review cycle 1, revise to no findings, then build.
 
 ## Branch
-On `codex/item-3-settings-auth-repair` (branched from `feature/mac-prototype` at `c29c630`, the post-PR-#18 squash merge tip). The branch carries a planning-doc roll-forward commit and the design doc described in the current objective.
+On `codex/item-4-shortcuts-menus` (branched from `feature/mac-prototype` at `c4a6b5a`, the post-PR-#19 squash merge tip). The branch carries a planning-doc roll-forward commit and the design doc described in the current objective.
 
 ## Repo state
-- HEAD: `codex/item-3-settings-auth-repair`, branched from `feature/mac-prototype` at `c29c630`. `feature/mac-prototype` is in sync with `origin/feature/mac-prototype` at `c29c630`. Working tree clean apart from untracked `.claude/`.
-- Integration branch: `feature/mac-prototype`; PR #18 (item 2 — task list filtering UI) merged on 2026-05-03 (squash merge `c29c630`).
-- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/17`, merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c2a6d97`).
+- HEAD: `codex/item-4-shortcuts-menus`, branched from `feature/mac-prototype` at `c4a6b5a`. `feature/mac-prototype` is in sync with `origin/feature/mac-prototype` at `c4a6b5a`. Working tree clean apart from untracked `.claude/`.
+- Integration branch: `feature/mac-prototype`; PR #19 (item 3 — settings / auth-repair UI) merged on 2026-05-03 (squash merge `c4a6b5a`).
+- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/18`, merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c29c630`).
+- Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/17`, merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c2a6d97`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/16`, merged into `feature/mac-prototype` on 2026-05-03 (squash merge `12cf468`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/15`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `3e4e34a`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/14`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `e05efa7`).
@@ -29,7 +30,8 @@ On `codex/item-3-settings-auth-repair` (branched from `feature/mac-prototype` at
 - Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
 - PR #17 (item 1 — open task URL detail action) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c2a6d97`).
 - PR #18 (item 2 — task list filtering UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c29c630`).
-- Last validation date: 2026-05-03 (item 2 — task list filtering UI, post-build, pre-merge): `swift build` passed; `swift test --enable-code-coverage` passed with 70 Swift tests (14 `AgendumMacCoreTests` + 56 `AgendumMacWorkflowTests`); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 48 Python tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 91.9% for `Backend/agendum_backend/helper.py`; `git diff --check` passed; `swift run AgendumMac` smoke held open ~5s before SIGTERM.
+- PR #19 (item 3 — settings / auth-repair UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c4a6b5a`).
+- Last validation date: 2026-05-03 (item 3 — settings / auth-repair UI, post-build, pre-merge): `swift build` passed; `swift test --enable-code-coverage` passed with 82 Swift tests; `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 61 Python tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 92.4% (500/541 lines) for `Backend/agendum_backend/helper.py`; `git diff --check` passed; `swift run AgendumMac` smoke held open ~5s before SIGTERM.
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -179,6 +181,7 @@ On `codex/item-3-settings-auth-repair` (branched from `feature/mac-prototype` at
 - Added workflow tests `testPresentedErrorExtractsHelperPayloadFields`, `testPresentedErrorFallsBackToDescriptionForGenericErrors`, `testRefreshFailureSurfacesStructuredRecoveryHint`, `testTaskActionFailureSurfacesStructuredRecoveryHint`, `testLastSyncLabelFormatsIso8601Timestamp`, `testLastSyncLabelNilWhenNoTimestamp`, `testHasAttentionItemsReflectsSyncStatus`. Updated existing per-task error assertions to compare against `errorForTask(id:)?.message`.
 - Item 1 (open task URL): added a `URLOpening` typealias and `openURL` initializer parameter on `BackendStatusModel`, an `openTaskURL(id:)` action that records `client.urlOpenFailed`/`client.taskHasNoURL` per-task errors via the existing `taskActionErrors` map, and `defaultURLOpener` wrapping `NSWorkspace.shared.open`. Replaced the SwiftUI detail-pane `Open in Browser` button with one that routes through `backendStatus.openTaskURL(id:)` and added accessibility identifier `task-action-open-browser`. Added new `AgendumMacWorkflowTests` covering availability, opener invocation, success error-clearing, failure error code, no-URL guard, unknown-task-id no-op, isLoading invariance, refresh/workspace-switch clearing, and per-task error isolation. Drive-by fix to `BackendClientConfiguration.firstAncestor` resolved an infinite-loop bug introduced by PR #16's filesystem-walk variant. PR #17 merged on 2026-05-03 (squash merge `c2a6d97`).
 - Item 2 (task list filtering UI): extended `BackendStatusModel` in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift` with `@Published` filter state for `source`, `status`, `project`, `includeSeen`, and `limit`; routed all filter changes through a single `loadTaskItems` path so filter mutations issue a fresh `task.list` request. Added workspace-switch reset semantics so selecting a different workspace clears filter state to defaults. Surfaced filter controls in the SwiftUI dashboard in `Sources/AgendumMac/AgendumMacApp.swift`. Added fake-backed `AgendumMacWorkflowTests` covering filter routing, defaults, and reset behavior. PR #18 merged on 2026-05-03 (squash merge `c29c630`).
+- Item 3 (settings / auth-repair UI): added a new `auth.diagnose` helper command in `Backend/agendum_backend/helper.py` returning `{gh: {found, path, version, installed}, auth, host, helperPath}`, plus `_gh_version`, `_helper_path_entries`, and `_default_gh_host` private helpers. Added `AuthDiagnostics` (with nested `GHDiagnostics`) and `func authDiagnose() async throws -> AuthDiagnostics` to `Sources/AgendumMacCore/BackendClient.swift`, and extended `AuthStatus` with an optional `repairCommand: String?` field populated only in the unauthenticated-with-gh-found branch. Added `@Published diagnostics`/`@Published diagnosticsError` state plus `refreshDiagnostics()`, `copyAuthLoginCommand()`, and `openGHInstallURL()` methods to `BackendStatusModel` in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`, with a new `Pasteboarding` typealias and `defaultPasteboard` static (parallel to `URLOpening` / `defaultURLOpener`). Replaced the SwiftUI `SettingsView` stub in `Sources/AgendumMac/AgendumMacApp.swift` with a real diagnostic + remediation form (gh status / auth status / helper PATH / repair instructions / Refresh / Copy login command / Open install page) bound via `@EnvironmentObject`. Added backend, subprocess JSONL, Swift client, and workflow tests covering the new command and the model methods. In-scope drive-by: unified `repairInstructions` (helper.py:439) behind a single shared `_format_repair_command(gh_config_dir)` helper that uses `shlex.quote(...)` so paths with spaces are safe. PR #19 merged on 2026-05-03 (squash merge `c4a6b5a`).
 
 ## Validation
 
@@ -249,6 +252,15 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes at 91.9% for `Backend/agendum_backend/helper.py` (no backend changes in this checkpoint).
 - `git diff --check` passes.
 - `swift run AgendumMac` smoke held open ~5s before SIGTERM with no immediate startup crash.
+
+### Settings / auth-repair checkpoint (post-PR-#19)
+- `swift build` passes.
+- `swift test --enable-code-coverage` passes: 82 Swift tests.
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 61 Python tests.
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes at 92.4% (500/541 lines) for `Backend/agendum_backend/helper.py`.
+- `git diff --check` passes.
+- `swift run AgendumMac` smoke held open ~5s before SIGTERM with no immediate startup crash.
+- In-scope drive-by: the `repairInstructions` string at `Backend/agendum_backend/helper.py:439` was unified behind the new `_format_repair_command` shared formatter so the new `auth.repairCommand` JSON field and the existing user-facing prose share one source of truth (and `shlex.quote` now safely handles space-bearing `GH_CONFIG_DIR` paths).
 
 ### Per-task error surfacing checkpoint (on `codex/per-task-error-surfacing`, after the changes listed under Completed)
 - `swift build` passes.
@@ -401,14 +413,14 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Item 3 — design phase. Author `docs/design/03-settings-auth-repair.md` on `codex/item-3-settings-auth-repair` covering goal, surface area, backend-helper command shape (e.g. `auth.diagnose`), workflow-target additions (`SettingsModel`/diagnostic state on `BackendStatusModel`), SwiftUI `Settings` scene + `SettingsView` layout and remediation actions, test plan, risks, and out-of-scope items. This is the immediate next step.
-2. Item 3 — design review (cycle 1). Submit the design for blind review per the orchestration plan; revise until no findings remain.
-3. Item 3 — build. Implement per the approved design on `codex/item-3-settings-auth-repair`: helper command(s) in `Backend/agendum_backend/helper.py`, matching `BackendClient` method, workflow `SettingsModel`/state, `Settings { SettingsView() }` scene in `Sources/AgendumMac/AgendumMacApp.swift`, backend + Swift tests, and a smoke launch. Run the full validation gate set and open a draft PR targeting `feature/mac-prototype`.
-4. Item 3 — review and ship. Run blind PR review cycle, validate, mark ready, merge with squash, fast-forward local `feature/mac-prototype`, prune branches.
-5. Start item 4 (keyboard shortcuts + menu coverage) per `docs/orchestration-plan.md` §Items, branched from the post-item-3 tip of `feature/mac-prototype`.
+1. Item 4 — design phase. Author `docs/design/04-shortcuts-menus.md` on `codex/item-4-shortcuts-menus` covering goal, surface area, menu structure (top-level macOS menus, exact item titles, keyboard shortcuts), workflow-target changes (extending `TaskDashboardCommands`, focus/selection seam for per-task menu items), SwiftUI changes (extending the `.commands { ... }` block; `disabled` predicates), test plan, risks, and out-of-scope items. This is the immediate next step.
+2. Item 4 — design review (cycle 1). Submit the design for blind review per the orchestration plan; revise until no findings remain.
+3. Item 4 — build. Implement per the approved design on `codex/item-4-shortcuts-menus`: extend `.commands { ... }` in `Sources/AgendumMac/AgendumMacApp.swift`, extend `TaskDashboardCommands` (and the focus/selection seam if needed) in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`, extend `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`, and run a smoke launch. Run the full validation gate set and open a draft PR targeting `feature/mac-prototype`.
+4. Item 4 — review and ship. Run blind PR review cycle, validate, mark ready, merge with squash, fast-forward local `feature/mac-prototype`, prune branches.
+5. Start item 5 (notifications + dock badge for sync results) per `docs/orchestration-plan.md` §Items, branched from the post-item-4 tip of `feature/mac-prototype`.
 
 ## After checkpoint
-- After item 3 merges, prune any merged `codex/*` remote refs and the matching local branch, fast-forward local `feature/mac-prototype`, and start item 4 (keyboard shortcuts + menu coverage) on a new `codex/item-4-shortcuts-menus` branch. Carry the post-item-3 planning-doc roll-forward into the item-4 PR per `docs/orchestration-plan.md` §Per-Item Phase Machine.
+- After item 4 merges, prune any merged `codex/*` remote refs and the matching local branch, fast-forward local `feature/mac-prototype`, and start item 5 (notifications + dock badge for sync results) on a new `codex/item-5-notifications-badge` branch. Carry the post-item-4 planning-doc roll-forward into the item-5 PR per `docs/orchestration-plan.md` §Per-Item Phase Machine.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.

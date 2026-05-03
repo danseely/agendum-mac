@@ -103,6 +103,14 @@ public enum TaskDetailAction: String, Hashable, Sendable {
 public enum TaskDashboardCommand: Hashable, Sendable {
     case refresh
     case sync
+    case newTask
+    case openInBrowser
+    case markSeen
+    case markReviewed
+    case markInProgress
+    case moveToBacklog
+    case markDone
+    case remove
 
     @MainActor
     public func perform(on model: BackendStatusModel) async {
@@ -111,19 +119,100 @@ public enum TaskDashboardCommand: Hashable, Sendable {
             await model.refresh()
         case .sync:
             await model.forceSync()
+        case .newTask:
+            // Sheet presentation lives in SwiftUI; the command is a no-op
+            // when invoked directly. The SwiftUI layer reads
+            // `commands.menuNewTask` only as an availability + identifier
+            // descriptor and triggers the sheet via a separate @State.
+            return
+        case .openInBrowser:
+            guard let id = model.selectedTaskID else { return }
+            await model.openTaskURL(id: id)
+        case .markSeen:
+            guard let id = model.selectedTaskID else { return }
+            await model.markSeen(id: id)
+        case .markReviewed:
+            guard let id = model.selectedTaskID else { return }
+            await model.markReviewed(id: id)
+        case .markInProgress:
+            guard let id = model.selectedTaskID else { return }
+            await model.markInProgress(id: id)
+        case .moveToBacklog:
+            guard let id = model.selectedTaskID else { return }
+            await model.moveToBacklog(id: id)
+        case .markDone:
+            guard let id = model.selectedTaskID else { return }
+            await model.markDone(id: id)
+        case .remove:
+            guard let id = model.selectedTaskID else { return }
+            await model.removeTask(id: id)
         }
+    }
+
+    @MainActor
+    public func availability(on model: BackendStatusModel) -> Bool {
+        switch self {
+        case .refresh, .sync, .newTask:
+            return !model.isLoading
+        case .openInBrowser:
+            return perTaskAvailable(.openBrowser, on: model)
+        case .markSeen:
+            return perTaskAvailable(.markSeen, on: model)
+        case .markReviewed:
+            return perTaskAvailable(.markReviewed, on: model)
+        case .markInProgress:
+            return perTaskAvailable(.markInProgress, on: model)
+        case .moveToBacklog:
+            return perTaskAvailable(.moveToBacklog, on: model)
+        case .markDone:
+            return perTaskAvailable(.markDone, on: model)
+        case .remove:
+            return perTaskAvailable(.remove, on: model)
+        }
+    }
+
+    @MainActor
+    private func perTaskAvailable(
+        _ action: TaskDetailAction,
+        on model: BackendStatusModel
+    ) -> Bool {
+        guard
+            let id = model.selectedTaskID,
+            let task = model.tasks.first(where: { $0.id == id })
+        else {
+            return false
+        }
+        return task.availableDetailActions.contains(action)
     }
 }
 
 public struct TaskDashboardCommands: Equatable, Sendable {
     public let toolbarRefresh: TaskDashboardCommand
     public let toolbarSync: TaskDashboardCommand
+    public let menuRefresh: TaskDashboardCommand
     public let menuSync: TaskDashboardCommand
+    public let menuNewTask: TaskDashboardCommand
+    public let menuOpenInBrowser: TaskDashboardCommand
+    public let menuMarkSeen: TaskDashboardCommand
+    public let menuMarkReviewed: TaskDashboardCommand
+    public let menuMarkInProgress: TaskDashboardCommand
+    public let menuMoveToBacklog: TaskDashboardCommand
+    public let menuMarkDone: TaskDashboardCommand
+    public let menuRemove: TaskDashboardCommand
 
     public static let standard = TaskDashboardCommands(
         toolbarRefresh: .refresh,
         toolbarSync: .sync,
-        menuSync: .sync
+        menuRefresh: .refresh,
+        menuSync: .sync,
+        menuNewTask: .newTask,
+        menuOpenInBrowser: .openInBrowser,
+        menuMarkSeen: .markSeen,
+        menuMarkReviewed: .markReviewed,
+        menuMarkInProgress: .markInProgress,
+        menuMoveToBacklog: .moveToBacklog,
+        menuMarkDone: .markDone,
+        menuRemove: .remove
     )
 }
 
@@ -222,6 +311,11 @@ public final class BackendStatusModel: ObservableObject {
     @Published public private(set) var isLoading = false
     @Published public private(set) var diagnostics: AuthDiagnostics?
     @Published public private(set) var diagnosticsError: PresentedError?
+    @Published public internal(set) var selectedTaskID: TaskItem.ID?
+
+    public func setSelectedTaskID(_ id: TaskItem.ID?) {
+        selectedTaskID = id
+    }
 
     public var errorMessage: String? { error?.message }
 
