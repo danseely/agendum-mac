@@ -11,11 +11,11 @@ BUILD_DIR=".build"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 PLIST_TEMPLATE="Sources/AgendumMac/Info.plist.template"
 
-# Note: shallow CI clones return truncated rev-list counts. Cosmetic; not a smoke failure.
 SHORT_VERSION="$(git describe --tags --match 'v*' --dirty --always 2>/dev/null | sed 's/^v//' || true)"
 if [ -z "$SHORT_VERSION" ] || ! echo "$SHORT_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+'; then
   SHORT_VERSION="0.1.0+dev"
 fi
+# Note: shallow CI clones return truncated rev-list counts. Cosmetic; not a smoke failure.
 BUNDLE_VERSION="$(git rev-list HEAD --count 2>/dev/null || echo 1)"
 
 rm -rf "$APP_BUNDLE"
