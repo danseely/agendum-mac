@@ -176,9 +176,14 @@ public func forceSync() async {
             // resulting SyncStatus carries state == "error". Treat as failure
             // for notification purposes; do NOT clobber self.error here — the
             // existing error-propagation contract from item 3 already handles
-            // model-level error surfacing.
+            // model-level error surfacing. Route through the shared helper by
+            // synthesizing a PresentedError so the failure-body template lives
+            // in exactly one place.
             let suffix = sync?.lastError ?? "Unknown error."
-            await postSyncCompletedNotification(body: "Sync failed: \(suffix)")
+            await postSyncCompletedNotification(
+                success: false,
+                failure: PresentedError(message: suffix)
+            )
         } else {
             await postSyncCompletedNotification(success: true, failure: nil)
         }
@@ -222,7 +227,7 @@ private func postSyncCompletedNotification(body: String) async {
 Notes:
 
 - The post is the LAST thing `forceSync` does on every terminal path. Test assertions can therefore observe the post deterministically after `await model.forceSync()` returns; no additional polling required.
-- Three terminal paths: (a) `client.forceSync()` returns and the resulting `sync?.state` is anything other than `"error"` — post the success body; (b) `client.forceSync()` returns BUT `sync?.state == "error"` — post a failure-shaped body using `sync?.lastError` (or `"Unknown error."` fallback); (c) `client.forceSync()` throws — post a failure-shaped body using `PresentedError.from(error).message`. All three share the identifier `"agendum.sync.completed"` so macOS coalesces banners across repeated syncs.
+- Three terminal paths: (a) `client.forceSync()` returns and the resulting `sync?.state` is anything other than `"error"` — post the success body; (b) `client.forceSync()` returns BUT `sync?.state == "error"` — synthesize a `PresentedError(message: sync?.lastError ?? "Unknown error.")` and route through the shared `postSyncCompletedNotification(success:failure:)` helper; (c) `client.forceSync()` throws — route through the same shared helper using `PresentedError.from(error)`. Branches (b) and (c) call the SAME `postSyncCompletedNotification(success:failure:)` helper, so the failure-body template (`"Sync failed: \(suffix)"`) lives in exactly one site. All three share the identifier `"agendum.sync.completed"` so macOS coalesces banners across repeated syncs.
 - The (b) branch deliberately does NOT clobber `self.error`. Item 3's error-propagation contract already determines when `self.error` is populated from `sync?.lastError` (see `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift:320` for the `errorMessage` shim that reads `error?.message`). The notification post is an additive surface; it must not interfere with the existing error-state contract.
 - Pluralization is computed inline; no `Foundation.NumberFormatter`-style ceremony.
 - The shared identifier `"agendum.sync.completed"` ensures repeated syncs replace the previous banner instead of cluttering the user's notification center with N copies.
@@ -250,7 +255,7 @@ Notes:
 ### 3.7 Composition with existing flows
 
 - `refresh()` (line 412) is unchanged; it does not post sync notifications because it is an implicit reload, not an explicit user-driven sync.
-- `selectWorkspace(...)` (line 437) is unchanged; the implicit reload also does not post a notification. (`hasAttentionItems` may change as a side-effect; the badge `.onChange` fires regardless of which method drove the change.)
+- `selectWorkspace(...)` (line 437) is unchanged; the implicit reload also does not post a notification. (`hasAttentionItems` may change as a side-effect; the badge `.onChange` fires regardless of which method drove the change.) `.onChange(of: hasAttentionItems)` fires only on value transitions, so concurrent writers (e.g. `selectWorkspace` reload + `forceSync`) converging on the same final value emit at most one badge update.
 - Per-task action methods (`markSeen`, `markReviewed`, etc.) are unchanged.
 - Authorization state is NOT a model concern. The seam decides whether to actually post; the model just hands content to the seam. This keeps the workflow target free of `UNUserNotificationCenter` knowledge except in the seam's default closure.
 
@@ -394,6 +399,8 @@ private final class RecordingBadgeSetter: @unchecked Sendable {
 }
 ```
 
+`record(_:)` is synchronous; the wrapping `[recorder] in await ...` async closure satisfies the `@Sendable async -> Void` seam shape without forcing actor hops inside the recorder.
+
 Each test wires the recorder via inline `[recorder]` capture at the call site, matching the existing `RecordingURLOpener` / `RecordingPasteboard` shape at `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift:1419-1454`:
 
 ```swift
@@ -415,26 +422,27 @@ Notification posts:
 1. `testForceSyncSuccessPostsCompletionNotification` — fake backend returns a successful `sync.force` followed by `sync.status` with `state == "completed"` and `hasAttentionItems == false`; await `model.forceSync()`; assert `notifier.posted.count == 1`, identifier `"agendum.sync.completed"`, title `"Agendum"`, body contains `"Sync complete."`.
 2. `testForceSyncSuccessWithAttentionItemsIncludesCountInBody` — same as #1 but `hasAttentionItems == true`; assert body contains `"1 attention item"` (singular pluralization).
 3. `testForceSyncFailurePostsFailureNotification` — fake `forceSync` throws a structured `BackendClientError`; await `model.forceSync()`; assert `notifier.posted.count == 1`, that the body contains `"Sync failed:"`, and that the body contains the presented message via `XCTAssertTrue(body.contains(presented.message))` (substring rather than equality so future copy-edits to the body template don't break the test). ALSO assert that the existing item-3 error-propagation contract is preserved: `XCTAssertEqual(model.error?.message, presented.message)` after `forceSync()` returns. The notification post must be additive — it must NOT clobber or replace the structured `error` surfacing on the model. Coverage extends to backend-reported error states (the `sync?.state == "error"` branch in §3.5): a sibling test `testForceSyncBackendReportedErrorPostsFailureNotification` exercises the throw-free "state == error" path and asserts the body contains `sync.lastError`.
-4. `testForceSyncSuppressedNotifierDoesNotCrashAndPostsNothing` — use `RecordingNotifier(suppressed: true)`; await `model.forceSync()` on the success path; assert `notifier.posted.isEmpty` and `model.error == nil`.
+4. `testForceSyncSuppressedNotifierDoesNotCrashAndPostsNothing` — use `RecordingNotifier(suppressed: true)`; await `model.forceSync()` on the success path; assert `notifier.posted.isEmpty` and `model.error == nil`. ALSO exercise the failure path with the same suppressed recorder: configure the fake to throw a `BackendClientError` on `forceSync`, await `model.forceSync()`, and assert `notifier.posted.isEmpty` (suppressed seam doesn't crash on the failure branch either) AND `model.error != nil` (the structured-error contract still populates `self.error` even when notifications are suppressed).
 5. `testForceSyncShareSingleNotificationIdentifier` — call `model.forceSync()` twice (both success); assert both posts carry the same identifier `"agendum.sync.completed"` (so macOS coalesces them rather than stacking duplicates).
+6. `testForceSyncPostsSuccessBodyForNonErrorStates` — defensive pin on the §3.5 classifier. Use a `FakeBackend` that returns `sync.state == "idle"` (or another current non-error value used by today's helper) AND that does NOT throw from `forceSync`; await `model.forceSync()`; assert the notification body uses the success template (e.g. `body.contains("Sync complete")` and NOT `body.contains("Sync failed")`). If the helper protocol introduces a new failure-shaped state value (e.g. `"degraded"`, `"partial"`), this test must be updated alongside the classifier in `forceSync`.
 
 Badge updates:
 
-6. `testSetBadgeForAttentionCountWritesZeroWhenNoSync` — fresh model, no `sync` populated; call `model.setBadgeForAttentionCount()`; assert `badge.values == [0]`.
-7. `testSetBadgeForAttentionCountWritesOneWhenAttentionItemsTrue` — set `sync` via a successful refresh whose response carries `hasAttentionItems == true`; call `model.setBadgeForAttentionCount()`; assert `badge.values.last == 1`.
-8. `testSetBadgeForAttentionCountWritesZeroWhenAttentionItemsFalse` — populate `sync` with `hasAttentionItems == false`; call `model.setBadgeForAttentionCount()`; assert `badge.values.last == 0`. Pins the count == 0 contract that the App-layer default seam translates to a nil `badgeLabel`.
-9. `testAttentionItemCountAccessorReflectsSyncBoolean` — table-driven over `(hasAttentionItems: Bool, expectedCount: Int)` for `{(true, 1), (false, 0)}`; assert `model.attentionItemCount` matches.
-10. `testAttentionItemCountIsZeroWhenSyncIsNil` — fresh model; assert `model.attentionItemCount == 0`. Pins the `?? 0` fallback in the accessor.
+7. `testSetBadgeForAttentionCountWritesZeroWhenNoSync` — fresh model, no `sync` populated; call `model.setBadgeForAttentionCount()`; assert `badge.values == [0]`.
+8. `testSetBadgeForAttentionCountWritesOneWhenAttentionItemsTrue` — set `sync` via a successful refresh whose response carries `hasAttentionItems == true`; call `model.setBadgeForAttentionCount()`; assert `badge.values.last == 1`.
+9. `testSetBadgeForAttentionCountWritesZeroWhenAttentionItemsFalse` — populate `sync` with `hasAttentionItems == false`; call `model.setBadgeForAttentionCount()`; assert `badge.values.last == 0`. Pins the count == 0 contract that the App-layer default seam translates to a nil `badgeLabel`.
+10. `testAttentionItemCountAccessorReflectsSyncBoolean` — table-driven over `(hasAttentionItems: Bool, expectedCount: Int)` for `{(true, 1), (false, 0)}`; assert `model.attentionItemCount` matches.
+11. `testAttentionItemCountIsZeroWhenSyncIsNil` — fresh model; assert `model.attentionItemCount == 0`. Pins the `?? 0` fallback in the accessor.
 
 Composition:
 
-11. `testForceSyncDoesNotInvokeBadgeSeamDirectly` — await `model.forceSync()` with a fake that flips `hasAttentionItems`; assert `XCTAssertTrue(badge.values.isEmpty)`. Pins the §3.6 contract that `forceSync` does NOT call `setBadge` directly; the App layer's `.onChange` is the only writer. (Use `values.isEmpty` rather than `values.last == nil`; an empty array's `.last` is also `nil` but the empty-check is the contract under test.)
-12. `testRefreshDoesNotPostNotification` — call `model.refresh()` (success path); assert `notifier.posted.isEmpty`. Pins the §3.7 contract that implicit refreshes don't notify.
-13. `testSelectWorkspaceDoesNotPostNotification` — populate `workspaces`, call `model.selectWorkspace(id:)`; assert `notifier.posted.isEmpty`. Same posture as #12.
+12. `testForceSyncDoesNotInvokeBadgeSeamDirectly` — await `model.forceSync()` with a fake that flips `hasAttentionItems`; assert `XCTAssertTrue(badge.values.isEmpty)`. Pins the §3.6 contract that `forceSync` does NOT call `setBadge` directly; the App layer's `.onChange` is the only writer. (Use `values.isEmpty` rather than `values.last == nil`; an empty array's `.last` is also `nil` but the empty-check is the contract under test.)
+13. `testRefreshDoesNotPostNotification` — call `model.refresh()` (success path); assert `notifier.posted.isEmpty`. Pins the §3.7 contract that implicit refreshes don't notify.
+14. `testSelectWorkspaceDoesNotPostNotification` — populate `workspaces`, call `model.selectWorkspace(id:)`; assert `notifier.posted.isEmpty`. Same posture as #13.
 
 Initializer wiring:
 
-14. `testDefaultNotifierAndBadgeSetterAreUsedByConvenienceInit` — instantiate `BackendStatusModel()`; assert (via mirror reflection on private storage, or via a discoverable-as-non-nil sentinel) that the closures are non-nil. *Lighter alternative:* assert that calling `setBadgeForAttentionCount()` on a freshly-constructed model with the default seam does not crash, since the default seam writes to `NSApplication.shared.dockTile.badgeLabel` which is safe in the test process. We adopt the lighter form to avoid reflecting on private storage; the trade-off is that we exercise the `dockTile` write in the unit test runner. If reviewer flags that as test-side-effect leakage, fall back to a structural assertion (the parameter list compiles unchanged). **OQ3 below covers this.**
+15. `testDefaultNotifierAndBadgeSetterAreUsedByConvenienceInit` — instantiate `BackendStatusModel()`; assert (via mirror reflection on private storage, or via a discoverable-as-non-nil sentinel) that the closures are non-nil. *Lighter alternative:* assert that calling `setBadgeForAttentionCount()` on a freshly-constructed model with the default seam does not crash, since the default seam writes to `NSApplication.shared.dockTile.badgeLabel` which is safe in the test process. We adopt the lighter form to avoid reflecting on private storage; the trade-off is that we exercise the `dockTile` write in the unit test runner. If reviewer flags that as test-side-effect leakage, fall back to a structural assertion (the parameter list compiles unchanged). **OQ3 below covers this.**
 
 ### 5.3 Tests explicitly NOT in scope
 
@@ -453,7 +461,7 @@ Initializer wiring:
 Per `docs/orchestration-plan.md` §Validation Gates:
 
 - `swift build` passes.
-- `swift test --enable-code-coverage` passes; expect `AgendumMacWorkflowTests` count to grow by approximately +13 tests (#1-#14 in §5.2; #14's lighter form may fold into another test).
+- `swift test --enable-code-coverage` passes; expect `AgendumMacWorkflowTests` count to grow by approximately +14 tests (#1-#15 in §5.2; #15's lighter form may fold into another test).
 - `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes (Python helper unchanged).
 - `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes (no helper changes; coverage stays at the post-PR-#19 baseline ≥ 91%).
 - `git diff --check` passes.
@@ -481,6 +489,7 @@ This change is not service-shaped (no new helper command, no new bridge surface,
 - **Notification timing race.** If the user fires a sync, immediately switches workspaces, and the workspace switch's implicit reload settles before the sync completes, the `forceSync` post still fires with the original sync's outcome. The workspace switch does not cancel in-flight notifications. This is acceptable: the user sees a banner reflecting the action they took, even if the dashboard has moved on.
 - **Testing notification posts under different authorization states.** We don't fake `UNUserNotificationCenter` authorization. The §5 tests exercise the seam's contract (suppressed vs not) rather than the system framework's behavior. A future hardening could introduce a `NotificationAuthorizing` seam to fake `getNotificationSettings()`; deferred because the current `RecordingNotifier(suppressed: true)` covers the same behavior with less surface area.
 - **Stale dock badge after app quit.** macOS preserves `dockTile.badgeLabel` until the app is relaunched and explicitly clears it. The §4.1 `.task { backendStatus.setBadgeForAttentionCount() }` prime ensures the badge re-syncs to the live `hasAttentionItems` value on first appear, replacing whatever stale value the dock was showing.
+- **Forward-compatibility of `state == "error"` classifier.** §3.5 treats any non-`"error"` value as a success outcome. If the helper protocol later adds a new failure-shaped state (e.g. `"degraded"`, `"partial"`), users will see a success banner for a partially-failed sync until both the classifier and a sibling test are updated. The fix is one line in `forceSync`; tracked in the orchestrator's External Deltas list when the helper protocol changes.
 - **Notification body on failure leaks structured-error message.** Acceptable. The structured `PresentedError.message` is already user-facing in the dashboard error caption; surfacing it in the notification body is consistent with that. Sensitive-information concerns (e.g. the body containing a token or a path) are not in scope because `PresentedError.message` is curated by the helper or by the `BackendClientError` mapping in `PresentedError.from(_:)`.
 
 ## 8. Open questions for orchestrator
@@ -491,8 +500,8 @@ Three crisp open questions remain after design self-review. Recommendations are 
    - **Recommendation:** ship boolean-driven for item 5; defer the integer-count contract change to a separate follow-up. Reasoning: this item's stated scope (`docs/orchestration-plan.md` §Items, item 5) is "notifications + dock badge," not a backend protocol extension; bundling a contract change into the last live-slice item violates the per-item scope discipline (`docs/orchestration-plan.md` §Branch and PR Discipline). The `attentionItemCount` accessor is shaped to absorb the change without an App-layer diff, so the migration is one PR and zero churn. **Reviewer concurred.** Note: a future change to make `attentionItemCount` carry a real integer (vs the current 0/1) requires a Python helper-protocol change (`Backend/agendum_backend/helper.py`) and a sibling change to the bridge — track this in the orchestrator's External Deltas list rather than bundling into item 5.
 2. **OQ2 — Routing: does `forceSync` directly invoke the badge seam, or only via `.onChange` on `hasAttentionItems`?** §3.6 routes badge updates through the App layer's `.onChange(of: backendStatus.hasAttentionItems)`. An alternative is to call `setBadgeForAttentionCount()` from the success/failure paths of `forceSync` (as a sibling of the notification post), which makes badge updates work even if the App layer forgets to wire `.onChange`.
    - **Recommendation:** keep the `.onChange`-only path (single writer). Reasoning: forcing the model to know about badge updates couples it to a presentation surface; the single-writer rule keeps the workflow target's contract clean. If a future window-less mode (e.g. menu-bar-only) loses the `.onChange`, the badge update can move into the model at that point — not preemptively. **Reviewer concurred.**
-3. **OQ3 — Test for `defaultNotifier` / `defaultBadgeSetter` being wired by `convenience init()`.** §5.2 #14 considered two forms: the lighter form exercises the default `dockTile` seam in the test runner (a real but cheap side effect on the test process's dock tile), and the structural form just ensures the parameter list compiles. The lighter form is more meaningful but writes to a system surface during tests.
-   - **Recommendation:** ship the structural form (no test that touches `dockTile`). Reasoning: `swift test` runs on CI macOS runners that may have unusual dock state; a write that mutates the runner's dock badge during test execution is a low-but-nonzero risk that's not worth the marginal coverage. The structural assertion (the convenience init compiles and `BackendStatusModel()` returns) plus the §5.2 tests #6-#8 covering the recording seam are sufficient. **Reviewer concurred.**
+3. **OQ3 — Test for `defaultNotifier` / `defaultBadgeSetter` being wired by `convenience init()`.** §5.2 #15 considered two forms: the lighter form exercises the default `dockTile` seam in the test runner (a real but cheap side effect on the test process's dock tile), and the structural form just ensures the parameter list compiles. The lighter form is more meaningful but writes to a system surface during tests.
+   - **Recommendation:** ship the structural form (no test that touches `dockTile`). Reasoning: `swift test` runs on CI macOS runners that may have unusual dock state; a write that mutates the runner's dock badge during test execution is a low-but-nonzero risk that's not worth the marginal coverage. The structural assertion (the convenience init compiles and `BackendStatusModel()` returns) plus the §5.2 tests #7-#9 covering the recording seam are sufficient. **Reviewer concurred.**
 
 ### Self-review (five-lens) pass-throughs
 
