@@ -1,15 +1,16 @@
 # Handoff
 
 ## Current objective
-Add `docs/packaging.md` enumerating Mac distribution channels and Python helper runtime options on `codex/packaging-matrix-doc` → `feature/mac-prototype`. Live PR/CI/review state lives in `gh pr view <N>`.
+Add `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template` producing an unsigned `.app` smoke bundle on `codex/app-bundle-smoke` → `feature/mac-prototype`. Live PR/CI/review state lives in `gh pr view <N>`.
 
 ## Branch
-`codex/packaging-matrix-doc`, branched from updated `feature/mac-prototype` after PR #14 merged.
+`codex/app-bundle-smoke`, branched from updated `feature/mac-prototype` after PR #15 merged.
 
 ## Repo state
-- HEAD: `codex/packaging-matrix-doc`; local branch starts from the post-PR-#14 tip of `feature/mac-prototype`. Working tree was clean before edits (apart from untracked `.claude/`).
-- Integration branch: `feature/mac-prototype`; PR #14 (structured error mapping) merged on 2026-05-02 (squash merge `e05efa7`).
-- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/14`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `e05efa7`).
+- HEAD: `codex/app-bundle-smoke`; local branch starts from the post-PR-#15 tip of `feature/mac-prototype`. Working tree was clean before edits (apart from untracked `.claude/`).
+- Integration branch: `feature/mac-prototype`; PR #15 (packaging matrix doc) merged on 2026-05-02 (squash merge `3e4e34a`).
+- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/15`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `3e4e34a`).
+- Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/14`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `e05efa7`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/13`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `30d66d4`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/12`, merged into `feature/mac-prototype` on 2026-05-02.
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/11`, merged into `feature/mac-prototype` on 2026-05-02.
@@ -21,7 +22,7 @@ Add `docs/packaging.md` enumerating Mac distribution channels and Python helper 
 - Remote: `origin` = `git@github.com:danseely/agendum-mac.git`
 - Parent PR #2: `https://github.com/danseely/agendum-mac/pull/2`, draft, targeting `main`.
 - Earlier merged PRs into `feature/mac-prototype`: #1 (backend helper scaffold), #3 (testing baseline + CI), #4 (branch discipline), #5 (Swift helper-process client).
-- Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge. The `codex/manual-task-creation` local branch was removed by the PR #11 merge flow; remote PR branches `origin/codex/manual-task-creation` and `origin/codex/swiftui-workflow-coverage` were deleted on the remote. Deleted local `codex/per-task-error-surfacing` after PR #12 merge. Deleted local `codex/structured-error-mapping` after PR #14 merge.
+- Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge. The `codex/manual-task-creation` local branch was removed by the PR #11 merge flow; remote PR branches `origin/codex/manual-task-creation` and `origin/codex/swiftui-workflow-coverage` were deleted on the remote. Deleted local `codex/per-task-error-surfacing` after PR #12 merge. Deleted local `codex/structured-error-mapping` after PR #14 merge. Deleted local `codex/packaging-matrix-doc` after PR #15 merge.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
 - Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
 - Last validation date: 2026-05-02
@@ -209,6 +210,14 @@ Add `docs/packaging.md` enumerating Mac distribution channels and Python helper 
 - `git diff --check` passes.
 - `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~5s before SIGTERM, exit code 143).
 
+### App bundle smoke checkpoint (on `codex/app-bundle-smoke`, after the changes listed under Completed)
+- `swift build` passes.
+- `swift test --enable-code-coverage` passes: __SWIFT_TESTS__ Swift tests (__CORE_TESTS__ `AgendumMacCoreTests` + 33 `AgendumMacWorkflowTests`).
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 48 tests (no Python changes).
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 464/505 lines (91.9%) for `Backend/agendum_backend/helper.py` (no backend changes).
+- `git diff --check` passes.
+- `Scripts/build_app_bundle.sh` succeeds; `.build/Agendum.app/Contents/MacOS/Agendum` exists and is executable; `plutil -lint .build/Agendum.app/Contents/Info.plist` passes; `plutil -extract` confirms `CFBundleIdentifier=com.danseely.agendum-mac`, `CFBundleExecutable=Agendum`, `CFBundleName=Agendum`, `LSMinimumSystemVersion=14.0`.
+
 ### Packaging matrix doc checkpoint (on `codex/packaging-matrix-doc`, after the changes listed under Completed)
 This checkpoint is docs-only; no new gates were introduced and existing gates match the post-PR-#14 baseline.
 - `swift build` passes.
@@ -315,11 +324,21 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - PR #10 review-fix sanity check: temporarily removed the `tasks = []` clear in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift` `refresh()` catch and reran `swift test --filter TaskWorkflowModelTests/testRefreshFailureClearsTasksAndSurfacesError`; the test failed as expected, then passed again after restoring the line.
 
 ## Changed files
+- `Scripts/build_app_bundle.sh` (new, executable): assembles `.build/Agendum.app` from the SwiftPM `AgendumMac` release product, derives `CFBundleShortVersionString` from `git describe` (fallback `0.1.0+dev`) and `CFBundleVersion` from `git rev-list HEAD --count` (fallback `1`), substitutes both into the plist template, and lints the result with `plutil -lint`.
+- `Sources/AgendumMac/Info.plist.template` (new): source of truth for the bundle plist; defines `CFBundleIdentifier=com.danseely.agendum-mac`, `CFBundleName=Agendum`, `CFBundleExecutable=Agendum`, `CFBundlePackageType=APPL`, `LSMinimumSystemVersion=14.0`, `NSHighResolutionCapable=true`, with `__SHORT_VERSION__` / `__BUNDLE_VERSION__` placeholders.
+- `Package.swift`: added `exclude: ["Info.plist.template"]` to the `AgendumMac` executable target so SwiftPM does not treat the plist template as a resource.
+- `Tests/AgendumMacCoreTests/BackendClientTests.swift`: two new tests pin the existing `BackendClientConfiguration.discoverDevelopmentRepositoryRoot(...)` walker against the `.build/Agendum.app/Contents/MacOS/` layout (positive resolves to repo root via the `Backend/agendum_backend_helper.py` marker; negative falls back to the supplied `currentDirectoryURL` when no marker is found).
+- `.github/workflows/test.yml`: appended a `Build app bundle smoke` step after the existing Swift coverage step, running `Scripts/build_app_bundle.sh` and asserting the bundle layout + `plutil -lint` succeed.
+- `README.md`: appended one paragraph documenting the developer-convenience `.app` build.
+- `docs/decisions.md`: appended the 2026-05-02 Slice A bundle-smoke decision (bundle identity, version policy, helper-discovery contract; still-deferred items).
+- `docs/packaging.md`: annotated deferred decisions 8/9/10 with `(answered 2026-05-02: see decisions.md)`.
+- `docs/plan.md`: rewrote the "Current Implementation Checkpoint" paragraph for the bundle-smoke checkpoint.
+- `docs/status.md`: bumped `Last updated`, replaced the Current milestone, moved PR #15 to Done, replaced In progress with the bundle-smoke bullet, refreshed Next.
+- `docs/handoff.md`: refreshed Current objective / Branch / Repo state / Next actions / After checkpoint, added the cleanup line for `codex/packaging-matrix-doc`, and appended the App bundle smoke checkpoint validation block.
+
+## Previous checkpoint changed files (PR #15, packaging matrix doc)
 - `docs/packaging.md` (new): packaging matrix with distribution-channel and Python helper runtime sections, interactions with prior decisions, prototype-phase recommendation, and 10 deferred decisions.
 - `docs/decisions.md`: appended a 2026-05-02 entry naming `docs/packaging.md` as canonical packaging matrix and recording the prototype-phase posture (continue developer-only `swift run AgendumMac`; defer channel and Python-runtime choices to user input).
-- `docs/plan.md`: rewrote the "Current Implementation Checkpoint" paragraph and the follow-up paragraph for the packaging-matrix doc checkpoint.
-- `docs/status.md`: bumped `Last updated`, replaced the Current milestone, moved PR #14 into Done with squash-merge `e05efa7`, recorded the new branch creation, replaced In progress with the packaging-doc bullet, and refreshed Next.
-- `docs/handoff.md`: refreshed Current objective / Branch / Repo state / Next actions / After checkpoint, added the cleanup line for `codex/structured-error-mapping`, and appended the Packaging matrix doc checkpoint validation block.
 
 ## Previous checkpoint changed files (PR #14, structured error mapping)
 - `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`: extended `PresentedError.from(_:)` to map every `BackendClientError` case to a stable `client.*` code plus a human-readable recovery hint; non-`BackendClientError` types fall back to `client.unknown`.
@@ -359,14 +378,14 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Run `gh pr view <N>` and `gh pr checks <N>` for the packaging-matrix-doc PR once opened, then branch on the result:
-   - CI failing: investigate and push fixes to `codex/packaging-matrix-doc`.
+1. Run `gh pr view <N>` and `gh pr checks <N>` for the app-bundle-smoke PR once opened, then branch on the result:
+   - CI failing: investigate and push fixes to `codex/app-bundle-smoke`.
    - CI green, no review yet: run a blind review pass; address findings as new commits.
    - Review clean, PR still draft: mark ready.
    - Merged: fast-forward local `feature/mac-prototype`, then pick the next checkpoint.
 
 ## After checkpoint
-- Once distribution channel and Python helper runtime are picked, scope the first code-bearing packaging slice (likely Slice A: bundle-from-SwiftPM smoke under `Scripts/build_app_bundle.sh`).
+- The seven still-deferred packaging decisions (distribution channel, code signing identity, notarization credentials, Python helper runtime for production, helper-process production layout, `gh` dependency posture, `~/.agendum` path policy) remain open. The next code-bearing packaging slice waits on the user picking from those, especially channel + Python runtime.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.

@@ -3,7 +3,7 @@
 Last updated: 2026-05-02
 
 ## Current milestone
-Adding `docs/packaging.md` on `codex/packaging-matrix-doc` after PR #14 (structured error mapping) merged. The doc enumerates Mac distribution channels and Python helper runtime options against prior decisions and recommends a prototype-phase posture, but defers channel and runtime choices to the user. No code, CI, or wire-contract changes.
+Adding `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template` on `codex/app-bundle-smoke` after PR #15 (packaging matrix doc) merged. Builds an unsigned developer-convenience `.app` at `.build/Agendum.app` from the SwiftPM `AgendumMac` release product. Bundle identity, version policy, and helper-discovery contract are recorded in `docs/decisions.md`. The seven other packaging decisions remain deferred. CI gains a single bundle-smoke step.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -137,16 +137,18 @@ Adding `docs/packaging.md` on `codex/packaging-matrix-doc` after PR #14 (structu
 - Created `codex/structured-error-mapping` from the post-PR-#13 tip of `feature/mac-prototype` for the structured-error-mapping checkpoint.
 - PR #14 (structured error mapping) was marked ready and merged into `feature/mac-prototype` on 2026-05-02 (squash merge `e05efa7`).
 - Fast-forwarded local `feature/mac-prototype` to `e05efa7` and created `codex/packaging-matrix-doc` from the updated tip for the packaging-matrix doc checkpoint.
+- PR #15 (packaging matrix doc) merged into `feature/mac-prototype` on 2026-05-02 (squash merge `3e4e34a`).
+- Fast-forwarded local `feature/mac-prototype` to `3e4e34a` and created `codex/app-bundle-smoke` from the updated tip for the unsigned `.app` bundle smoke checkpoint.
 
 ## In progress
-- Drafting `docs/packaging.md` on `codex/packaging-matrix-doc`: distribution-channel matrix, Python helper runtime-distribution matrix, interactions with prior decisions, prototype-phase recommendation, deferred-decisions list. Appending the matching 2026-05-02 entry to `docs/decisions.md`. No source, helper, contract, or CI changes.
+- Drafting `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template` plus the helper-discovery regression test on `codex/app-bundle-smoke`. Builds an unsigned developer-convenience `.app` at `.build/Agendum.app` from the SwiftPM release product. Bundle identity, version policy, and helper-discovery contract are recorded in `docs/decisions.md`. The seven other packaging decisions remain deferred.
 
 ## Blocked
 - None.
 
 ## Next
 - Run `gh pr view <N>` (replace `<N>` with the PR number once opened) and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
-- After this checkpoint merges, route the 10 deferred packaging decisions in `docs/packaging.md` to the user before scoping the first code-bearing packaging slice.
+- After this checkpoint merges, route the seven still-deferred packaging decisions (channel, signing, notarization, Python runtime, helper layout, `gh` posture, `~/.agendum` path) to the user before scoping the next code-bearing packaging slice.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
