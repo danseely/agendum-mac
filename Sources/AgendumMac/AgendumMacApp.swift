@@ -1,6 +1,6 @@
 import AgendumMacWorkflow
 import SwiftUI
-import UserNotifications
+@preconcurrency import UserNotifications
 
 @main
 struct AgendumMacApp: App {
