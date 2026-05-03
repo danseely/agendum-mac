@@ -4,21 +4,100 @@ import SwiftUI
 @main
 struct AgendumMacApp: App {
     @StateObject private var backendStatus = BackendStatusModel()
+    @State private var isShowingCreateManualTask = false
+    @State private var selectedTask: TaskItem.ID? = nil
     private let commands = TaskDashboardCommands.standard
 
     var body: some Scene {
         WindowGroup {
-            TaskDashboardView(backendStatus: backendStatus, commands: commands)
+            TaskDashboardView(
+                backendStatus: backendStatus,
+                commands: commands,
+                isShowingCreateManualTask: $isShowingCreateManualTask,
+                selectedTask: $selectedTask
+            )
         }
         .commands {
-            CommandGroup(after: .appInfo) {
+            CommandGroup(replacing: .newItem) {
+                Button("New Task") {
+                    isShowingCreateManualTask = true
+                }
+                .keyboardShortcut("n", modifiers: [.command])
+                .disabled(!commands.menuNewTask.availability(on: backendStatus))
+                .accessibilityIdentifier("menu-action-new-task")
+
+                Button("Refresh") {
+                    selectedTask = nil
+                    Task {
+                        await commands.menuRefresh.perform(on: backendStatus)
+                    }
+                }
+                .keyboardShortcut("r", modifiers: [.command])
+                .disabled(!commands.menuRefresh.availability(on: backendStatus))
+                .accessibilityIdentifier("menu-action-refresh")
+
                 Button("Sync Now") {
                     Task {
                         await commands.menuSync.perform(on: backendStatus)
                     }
                 }
-                    .keyboardShortcut("r", modifiers: [.command])
-                    .disabled(backendStatus.isLoading)
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                .disabled(!commands.menuSync.availability(on: backendStatus))
+                .accessibilityIdentifier("menu-action-sync")
+            }
+
+            CommandMenu("Task") {
+                taskMenuButton(
+                    title: "Open in Browser",
+                    command: commands.menuOpenInBrowser,
+                    backendStatus: backendStatus,
+                    shortcut: ("l", [.command, .shift]),
+                    identifier: "menu-action-open-browser"
+                )
+                Divider()
+                taskMenuButton(
+                    title: "Mark Seen",
+                    command: commands.menuMarkSeen,
+                    backendStatus: backendStatus,
+                    shortcut: ("m", [.command, .option]),
+                    identifier: "menu-action-mark-seen"
+                )
+                taskMenuButton(
+                    title: "Mark Reviewed",
+                    command: commands.menuMarkReviewed,
+                    backendStatus: backendStatus,
+                    shortcut: ("r", [.command, .option]),
+                    identifier: "menu-action-mark-reviewed"
+                )
+                taskMenuButton(
+                    title: "Mark In Progress",
+                    command: commands.menuMarkInProgress,
+                    backendStatus: backendStatus,
+                    shortcut: ("i", [.command, .option]),
+                    identifier: "menu-action-mark-in-progress"
+                )
+                taskMenuButton(
+                    title: "Move to Backlog",
+                    command: commands.menuMoveToBacklog,
+                    backendStatus: backendStatus,
+                    shortcut: ("b", [.command, .option]),
+                    identifier: "menu-action-move-to-backlog"
+                )
+                taskMenuButton(
+                    title: "Mark Done",
+                    command: commands.menuMarkDone,
+                    backendStatus: backendStatus,
+                    shortcut: ("d", [.command, .option]),
+                    identifier: "menu-action-mark-done"
+                )
+                Divider()
+                taskMenuButton(
+                    title: "Remove",
+                    command: commands.menuRemove,
+                    backendStatus: backendStatus,
+                    shortcut: (KeyEquivalent.delete, [.command, .shift]),
+                    identifier: "menu-action-remove"
+                )
             }
         }
 
@@ -29,12 +108,31 @@ struct AgendumMacApp: App {
     }
 }
 
+@MainActor
+@ViewBuilder
+private func taskMenuButton(
+    title: String,
+    command: TaskDashboardCommand,
+    backendStatus: BackendStatusModel,
+    shortcut: (key: KeyEquivalent, modifiers: EventModifiers),
+    identifier: String
+) -> some View {
+    Button(title) {
+        Task {
+            await command.perform(on: backendStatus)
+        }
+    }
+    .keyboardShortcut(shortcut.key, modifiers: shortcut.modifiers)
+    .disabled(!command.availability(on: backendStatus))
+    .accessibilityIdentifier(identifier)
+}
+
 private struct TaskDashboardView: View {
     @State private var selection: TaskSource? = .authored
-    @State private var selectedTask: TaskItem.ID?
-    @State private var isShowingCreateManualTask = false
     @ObservedObject var backendStatus: BackendStatusModel
     let commands: TaskDashboardCommands
+    @Binding var isShowingCreateManualTask: Bool
+    @Binding var selectedTask: TaskItem.ID?
 
     var body: some View {
         NavigationSplitView {
@@ -151,6 +249,9 @@ private struct TaskDashboardView: View {
         }
         .task {
             await backendStatus.refresh()
+        }
+        .onChange(of: selectedTask) { _, newValue in
+            backendStatus.setSelectedTaskID(newValue)
         }
     }
 
