@@ -67,7 +67,7 @@ public struct TaskListFilters: Equatable, Sendable {
 Notes:
 - `source` and `status` are stored as the raw backend strings (`"pr_authored"`, `"review received"`, etc.) to keep the model layer agnostic of UI presentation. The SwiftUI layer maps them to display labels (§4.2).
 - Defaults (`includeSeen: true`, `limit: 50`) match the literals removed from `loadTaskItems()` so behavior is byte-identical when no filter is set.
-- `allowedLimits` mirrors the helper's `1 < limit <= 200` validation (`helper.py:266-268`); a `Picker` is used (rather than a free `Stepper`) to keep payloads bounded and avoid accidental large-fetch UX.
+- `allowedLimits` mirrors the helper's `0 < limit <= 200` validation (`helper.py:265-268`); a `Picker` is used (rather than a free `Stepper`) to keep payloads bounded and avoid accidental large-fetch UX.
 - `Equatable` lets tests assert filter state cleanly and lets the SwiftUI commit path detect no-op changes.
 
 ### 3.2 Model state
@@ -157,7 +157,7 @@ Rationale:
 
 `applyFilters(_:)` invokes `refresh()`, which on failure populates the global `self.error: PresentedError?` and empties `tasks` (lines 294-298). It does NOT touch `self.filters`, so the user's filter state survives the error and they can retry, edit, or clear the filters from the same UI state. Filter-induced errors flow through the existing `BackendStatusPanel` error UI (no SwiftUI changes needed for error rendering).
 
-`taskActionErrors` is intentionally untouched by filter mutations: a filter change is a list-level operation, not a per-task action, and reusing the per-task error map for a list-level failure would mis-bucket the error.
+`applyFilters` does not need to clear `taskActionErrors` itself because the `refresh()` it calls already resets the map on both its success and failure branches (`TaskWorkflowModel.swift` ~lines 293, 296). A filter change is therefore a list-level operation that piggybacks on `refresh()`'s existing reset semantics; reusing the per-task error map for a list-level failure would mis-bucket the error, and the explicit pre-`refresh` window in `applyFilters` is too narrow to matter.
 
 ## 4. SwiftUI changes
 
@@ -177,15 +177,15 @@ A new private `TaskListFiltersPanel` view is added, rendered immediately after t
 
 | Field          | Control                                              | Accessibility identifier            |
 | -------------- | ---------------------------------------------------- | ----------------------------------- |
-| `status`       | `Picker` with `nil` "All" + every value listed in `Backend/external/agendum/agendum/widgets.py:19-28` (`review received`, `review requested`, `re-review requested`, `backlog`, `in progress`, `done`, plus `merged`, `closed` from `agendum/db.py:6` `TERMINAL_STATUSES`) | `task-list-filter-status`           |
+| `status`       | `Picker` with `nil` "All" + every value listed in `../agendum/src/agendum/widgets.py:14-29` `STATUS_STYLES` (`draft`, `open`, `awaiting review`, `changes requested`, `review received`, `approved`, `merged`, `review requested`, `reviewed`, `re-review requested`, `backlog`, `in progress`, `closed`, `done`) — note `merged`, `closed`, `done` are the terminal statuses per `../agendum/src/agendum/db.py:6` `TERMINAL_STATUSES = {"merged", "closed", "done"}`. The sibling-checkout requirement is documented in `docs/handoff.md` and CI replicates it via `.github/workflows/test.yml`. Verified against `../agendum` sibling at the time of writing; build phase must re-verify if `../agendum` changes meaningfully. | `task-list-filter-status`           |
 | `source`       | `Picker` with `nil` "All" + `pr_authored`, `pr_review`, `issue`, `manual` (per `docs/backend-contract.md` §Shared Types §Task) | `task-list-filter-source`           |
-| `project`      | `TextField` (free-form; projects are user-defined per `agendum/task_api.py:167`) — empty string maps to `nil` | `task-list-filter-project`          |
+| `project`      | `TextField` (free-form; projects are user-defined per `../agendum/src/agendum/task_api.py:152-169`) — empty string maps to `nil`. Match semantics are exact, case-sensitive (see §7); placeholder text is "Exact match" so users do not assume substring/`LIKE` semantics. | `task-list-filter-project`          |
 | `includeSeen`  | `Toggle("Include seen items")`                       | `task-list-filter-include-seen`     |
 | `limit`        | `Picker` with `[25, 50, 100, 200]` (matches `TaskListFilters.allowedLimits`) | `task-list-filter-limit`            |
 | Clear all      | `Button("Clear filters")` calling `applyFilters(.default)` | `task-list-filter-clear`            |
 
 Rationale for the limit `Picker` (vs `Stepper`):
-- The helper validates `1 < limit <= 200` (`helper.py:266-268`); arbitrary user input would be a foot-gun.
+- The helper validates `0 < limit <= 200` (`helper.py:265-268`); arbitrary user input would be a foot-gun.
 - A `Picker` with four sensible values keeps payload bounded and matches the macOS convention for "page size" controls.
 - 25/50/100/200 spans the typical small/default/large/max axis without exposing the user to the helper's 200-cap as a UX surprise.
 
@@ -206,7 +206,11 @@ We deliberately do NOT add an explicit "Apply" button. The existing `Picker`/`To
 
 We do not add an "active filter" chip count or banner. The control values themselves are the indication: "Status: Review received, Source: All, Project: agendum, …" is visible in the sidebar at all times (when the `DisclosureGroup` is expanded). Adding a chip-count would duplicate that information. The Clear button is always enabled (no-op on default state) so the discoverability cost of finding the reset path stays low. If real users find this confusing in the prototype phase, an inline "N filters active" badge on the `DisclosureGroup` label is a one-line follow-up.
 
-### 4.5 Interaction with the existing `TaskSource` sidebar list
+### 4.5 `isLoading` disablement
+
+Filter controls (`Picker`s for status/source/limit, the `Toggle` for `includeSeen`, the `project` `TextField`, and the Clear `Button`) remain ENABLED during `isLoading`. This is a deliberate departure from the existing toolbar buttons (New/Refresh/Sync), which are disabled while a reload is in flight. Rationale: (a) filter controls only mutate workflow state (`self.filters`); the resulting `refresh()` reuses the existing serial `@MainActor` discipline and the equality short-circuit in §3.3, so a control mutation during loading is at worst one extra reload, never a torn state; (b) blocking input during reloads degrades UX more than the rare interleaving cost — a user who notices results are stale and wants to refine the filter should not have to wait for the previous reload to settle; (c) the in-flight overlap race captured in §7 is the residual risk and is explicitly accepted at the prototype bar; (d) the toolbar's New/Refresh/Sync buttons stay disabled because they trigger fresh server work (helper-side `task.create`, `sync.force`, full reload), which is a different concern from filter mutation — those actions are not idempotent under rapid re-fire and can produce duplicate network traffic, while filter mutations are idempotent and bounded.
+
+### 4.6 Interaction with the existing `TaskSource` sidebar list
 
 The leading `List(TaskSource.allCases, ...)` (line 40) is a client-side grouping (`filteredTasks` at line 153 partitions `backendStatus.tasks` by `source`), not a server-side filter. It stays exactly as today. The new `source` filter in the panel is the server-side filter and is independent: the user can server-filter to `pr_review` AND select the "Issues & Manual" sidebar group, which would correctly produce zero rows in the content list. We accept this composition — both filters are useful and orthogonal, the empty result is honest, and the prototype phase does not need to reconcile them. A future checkpoint could either auto-sync the sidebar selection to the server-side `source` filter or hide the sidebar group when a `source` filter is active. Not in scope for item 2.
 
@@ -241,12 +245,13 @@ private(set) var lastListTasksCall: ListTasksCall?
 5. `testApplyFiltersComposesAllFiveFields` — covered by #1; the assertion is the composition. Documented separately so the brief's "filters compose" line item maps to a named test.
 6. `testSelectWorkspaceResetsFilters` — apply non-default filters, then `selectWorkspace(id: "example-org")`; assert `model.filters == .default` and `lastListTasksCall == ListTasksCall(source: nil, status: nil, project: nil, includeSeen: true, limit: 50)`. Pins §3.5.
 7. `testSelectWorkspaceFailureAlsoResetsFilters` — apply non-default filters, then fail `selectWorkspace` via `backend.failNext("selectWorkspace", ...)`; assert `model.filters == .default` and `model.error != nil`. Pins the catch-branch reset.
-8. `testApplyFiltersFailureSetsGlobalErrorAndPreservesFilters` — apply non-default filters, then fail the next `listTasks` via `backend.failNext("listTasks", ...)` and apply a different filter set; assert `model.error?.message != nil`, `model.taskActionErrors == [:]`, and `model.filters` reflects the *attempted* (latest) filter set so the user can retry/clear from the same UI state. Pins §3.6.
+8. `testApplyFiltersFailureSetsGlobalErrorAndPreservesFilters` — apply non-default filters, then fail the next `listTasks` via `backend.failNext("listTasks", ...)` and apply a different filter set; assert `model.error?.message != nil`, `model.taskActionErrors == [:]` (anchored to `refresh()`'s catch-branch reset at `TaskWorkflowModel.swift:296`, not to a claim that filter mutations leave the map untouched), and `model.filters` reflects the *attempted* (latest) filter set so the user can retry/clear from the same UI state. Pins §3.6.
 9. `testRefreshUsesCurrentFilters` — apply non-default filters, `backend.resetCalls()`, call `refresh()`; assert `lastListTasksCall` reflects the previously-applied filters. Pins §3.4 "every reload path picks up active filters."
 10. `testForceSyncUsesCurrentFilters` — analogous to #9 but for `forceSync()`. Same pin, different reload path.
 11. `testPerformTaskActionReloadUsesCurrentFilters` — analogous to #9 but triggered by `markSeen(id:)`. Confirms per-task actions also respect the active filters via the shared `loadTaskItems()`.
-12. `testInitialFiltersAreDefault` — assert `BackendStatusModel().filters == .default` (single line; pins the public initializer contract).
-13. `testListTasksDefaultIsByteIdenticalToPriorBehavior` — fresh model, `refresh()`, assert `lastListTasksCall == ListTasksCall(source: nil, status: nil, project: nil, includeSeen: true, limit: 50)`. Guards against accidental default drift.
+12. `testCreateManualTaskReloadHonorsActiveFilters` — apply non-default filters, `backend.resetCalls()`, call `createManualTask(title: "new", project: nil, tags: nil)` on the success path; assert the resulting reload's `lastListTasksCall` reflects the active (non-default) filters and `tasks` updates accordingly. Confirms `createManualTask`'s post-create reload (`TaskWorkflowModel.swift:415`) also flows through `loadTaskItems()` and therefore respects active filters.
+13. `testInitialFiltersAreDefault` — assert `BackendStatusModel().filters == .default` (single line; pins the public initializer contract).
+14. `testListTasksDefaultIsByteIdenticalToPriorBehavior` — fresh model, `refresh()`, assert `lastListTasksCall == ListTasksCall(source: nil, status: nil, project: nil, includeSeen: true, limit: 50)`. Guards against accidental default drift.
 
 Existing tests left untouched (verify still pass without modification):
 - `testRefreshSuccessLoadsTasks` (line 8) — uses default filters, expects `["currentWorkspace", "listWorkspaces", "authStatus", "syncStatus", "listTasks"]`.
@@ -272,7 +277,7 @@ The five accessibility identifiers and the `pendingFilters` `.onChange` / `.onSu
 Per `docs/orchestration-plan.md` §Validation Gates:
 
 - `swift build` passes.
-- `swift test --enable-code-coverage` passes; expect `AgendumMacWorkflowTests` test count to grow by +12 tests (#1, #2, #3, #4, #6, #7, #8, #9, #10, #11, #12, #13; #5 is documentation that overlaps with #1). `AgendumMacCoreTests` count is unchanged.
+- `swift test --enable-code-coverage` passes; expect `AgendumMacWorkflowTests` test count to grow by +13 tests (#1, #2, #3, #4, #6, #7, #8, #9, #10, #11, #12, #13, #14; #5 is documentation that overlaps with #1). `AgendumMacCoreTests` count is unchanged.
 - `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes (Python helper unchanged; expect identical test count to the post-PR-#17 baseline).
 - `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes (no helper changes; helper coverage stays at the post-PR-#17 baseline ≥ 91%).
 - `git diff --check` passes.
@@ -291,17 +296,19 @@ This change is not service-shaped (no new helper command, no new bridge surface,
 - **URL-querystring filter sync.** The app has no deep-link surface today; adding one is out of scope.
 - **Helper-side filter additions.** This slice does not change `Backend/agendum_backend/helper.py` or extend the bridge protocol. The five existing filters are sufficient.
 - **`source` value drift.** The Picker's `source` options are hard-coded against the four values listed in `docs/backend-contract.md` §Shared Types §Task. If agendum adds a new source value upstream (e.g. `discussion`), the Picker will silently miss it until the Mac app is updated. Acceptable for the prototype; mitigation is the tests in §5 fail closed if the upstream-defined enumeration shifts.
-- **`status` value drift.** Same risk as source. The status Picker reads from a hard-coded list derived from `Backend/external/agendum/agendum/widgets.py:19-28` plus `agendum/db.py:6` `TERMINAL_STATUSES`. Future status values added upstream would need a Mac-app update. Acceptable; failure mode is a missing option in the dropdown, not a wrong query.
+- **`status` value drift.** Same risk as source. The status Picker reads from a hard-coded list derived from `../agendum/src/agendum/widgets.py:14-29` (`STATUS_STYLES`) plus `../agendum/src/agendum/db.py:6` `TERMINAL_STATUSES = {"merged", "closed", "done"}`. The sibling-checkout requirement is documented in `docs/handoff.md` and CI replicates it via `.github/workflows/test.yml`. Verified against `../agendum` sibling at the time of writing; build phase must re-verify if `../agendum` changes meaningfully. Future status values added upstream would need a Mac-app update. Acceptable; failure mode is a missing option in the dropdown, not a wrong query.
 - **Empty-project-string sentinel.** The `project` `TextField` maps `""` → `nil` (no filter). Users who intentionally have a project literally named `""` (impossible per agendum normalization, see `Backend/agendum_backend/helper.py:295`) would not be able to filter to it. Not a real-world risk.
 - **`@AppStorage` cross-version compatibility.** The `task-list-filters-expanded` key is new; no collision with existing `UserDefaults` keys (existing app uses none today).
 - **Back-pressure on rapid filter changes.** A user toggling `Picker`s rapidly produces a series of `applyFilters(...)` calls, each of which awaits a full `refresh()`. The early-return on equal filters prevents duplicate fires for the same value, but rapid distinct values still serialize through `refresh()`. The `BackendStatusPanel.isLoading` indicator already reflects this (lines 56-87 disable refresh/sync during reload). Acceptable for the prototype; debounce can be added in a follow-up if real users complain.
 - **Initial-launch filter race.** `TaskDashboardView` calls `await backendStatus.refresh()` in `.task` (line 148); `pendingFilters` is initialized from `backendStatus.filters` on view appear. If the user mutates a control before that initial refresh completes, the resulting `applyFilters` short-circuits if equal or fires a redundant reload. The model's serial-actor execution makes this safe (no torn state); the only visible artifact is one extra reload, which is benign.
+- **In-flight `applyFilters` overlap race (deferred).** If `applyFilters(B)` arrives while `applyFilters(A)`'s `refresh()` is still in flight, the two reloads can race. (a) `applyFilters` writes `self.filters` then calls `refresh()`; (b) `BackendStatusModel` is `@MainActor`-isolated, so `refresh()` runs serially per actor hop, but two interleaved `refresh()` calls can still issue overlapping `client.listTasks` requests because each `await` cedes the actor. (c) The resulting behavior — the task list reflects the LATEST filter set, but in-flight responses can interleave so the user briefly sees results from filter A before filter B's results land — is acceptable for the prototype: `self.filters` is correct, the displayed `tasks` converge to the latest filter's response, and no torn state is visible. (d) Future hardening could cancel an in-flight request when filters change (e.g. by tracking the most-recent task and discarding earlier results), deferred to a later checkpoint. We deliberately do not add a test for this; it matches the §7 risk-deferral pattern and the prototype-acceptable bar.
+- **`project` filter match semantics.** Verified against `../agendum/src/agendum/task_api.py:84` (`if project is not None and task.get("project") != project: continue`): the `project` filter is **exact-match, case-sensitive** Python string equality on the stored `project` column (a typo or different casing yields an empty list). It is NOT substring/`LIKE`. This semantic is reflected in the §4.2 `TextField` placeholder ("Exact match") so the user is not surprised when typing `Agendum` against a project named `agendum` returns nothing. If we later want substring or case-insensitive semantics, that is a helper-side change (and a contract change), so it is out of scope for item 2.
 
 ## 8. Open questions
 
 1. Should `forceSync` reset filters to `.default`? Recommendation in this design: NO. `forceSync` is "pull fresh data from GitHub for the current view," not "start over." Item 2 leaves `forceSync()` (line 326) untouched. Confirm.
-2. Should the per-source `TaskSource` sidebar List (line 40) be hidden when a server-side `source` filter is active? Recommendation: NO — see §4.5; both filters compose meaningfully and the prototype should not over-engineer the UX. Confirm.
-3. Should `applyFilters(_:)` clear `taskActionErrors`? Recommendation: NO — `refresh()` already does (line 293), and the explicit pre-`refresh` window is too narrow to matter. Confirm only if reviewer disagrees.
+2. Should the per-source `TaskSource` sidebar List (line 40) be hidden when a server-side `source` filter is active? Recommendation: NO — see §4.6; both filters compose meaningfully and the prototype should not over-engineer the UX. Confirm.
+3. Should `applyFilters(_:)` clear `taskActionErrors`? Recommendation: NO — `refresh()` already resets it on both branches (`TaskWorkflowModel.swift:293, 296`), so `applyFilters` inherits the reset for free; adding a duplicate clear in `applyFilters` would be redundant. Confirm only if reviewer disagrees.
 
 ### Self-review (five-lens) pass-throughs
 
