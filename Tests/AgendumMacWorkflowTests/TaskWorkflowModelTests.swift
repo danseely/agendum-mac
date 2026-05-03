@@ -1399,6 +1399,297 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertTrue(TaskDashboardCommands.standard.menuNewTask.availability(on: model))
     }
 
+    // MARK: - Item 5: notifications + dock badge
+
+    func testForceSyncSuccessPostsCompletionNotification() async throws {
+        let backend = FakeBackend()
+        await backend.setForceSyncStatus(sync(state: "completed", hasAttentionItems: false))
+        let notifier = RecordingNotifier()
+        let badge = RecordingBadgeSetter()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            notifier: { [notifier] content in notifier.record(content) },
+            setBadge: { [badge] count in badge.record(count) }
+        )
+
+        await model.forceSync()
+
+        XCTAssertEqual(notifier.posted.count, 1)
+        XCTAssertEqual(notifier.posted.first?.identifier, "agendum.sync.completed")
+        XCTAssertEqual(notifier.posted.first?.title, "Agendum")
+        XCTAssertTrue(notifier.posted.first?.body.contains("Sync complete.") == true)
+        XCTAssertFalse(notifier.posted.first?.body.contains("attention item") == true)
+    }
+
+    func testForceSyncSuccessWithAttentionItemsIncludesCountInBody() async throws {
+        let backend = FakeBackend()
+        await backend.setForceSyncStatus(sync(state: "completed", hasAttentionItems: true))
+        let notifier = RecordingNotifier()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            notifier: { [notifier] content in notifier.record(content) },
+            setBadge: { _ in }
+        )
+
+        await model.forceSync()
+
+        XCTAssertEqual(notifier.posted.count, 1)
+        let body = notifier.posted.first?.body ?? ""
+        XCTAssertTrue(body.contains("1 attention item"))
+        XCTAssertFalse(body.contains("attention items"))
+    }
+
+    func testForceSyncFailurePostsFailureNotification() async throws {
+        let backend = FakeBackend()
+        await backend.failNextWithError(
+            "forceSync",
+            error: BackendClientError.helperError(
+                .init(code: "helper.boom", message: "GitHub auth needed.", detail: nil, recovery: "Run gh auth login.")
+            )
+        )
+        let notifier = RecordingNotifier()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            notifier: { [notifier] content in notifier.record(content) },
+            setBadge: { _ in }
+        )
+
+        await model.forceSync()
+
+        XCTAssertEqual(notifier.posted.count, 1)
+        let body = notifier.posted.first?.body ?? ""
+        XCTAssertTrue(body.contains("Sync failed:"))
+        XCTAssertTrue(body.contains("GitHub auth needed."))
+        XCTAssertEqual(notifier.posted.first?.identifier, "agendum.sync.completed")
+        XCTAssertEqual(model.error?.message, "GitHub auth needed.")
+    }
+
+    func testForceSyncBackendReportedErrorPostsFailureNotification() async throws {
+        let backend = FakeBackend()
+        await backend.setForceSyncStatus(sync(state: "error", lastError: "remote 500"))
+        let notifier = RecordingNotifier()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            notifier: { [notifier] content in notifier.record(content) },
+            setBadge: { _ in }
+        )
+
+        await model.forceSync()
+
+        XCTAssertEqual(notifier.posted.count, 1)
+        let body = notifier.posted.first?.body ?? ""
+        XCTAssertTrue(body.contains("Sync failed:"))
+        XCTAssertTrue(body.contains("remote 500"))
+        // Branch (b) intentionally leaves self.error untouched.
+        XCTAssertNil(model.error)
+    }
+
+    func testForceSyncSuppressedNotifierDoesNotCrashAndPostsNothing() async throws {
+        // Success branch: suppressed notifier should not record and model.error stays nil.
+        let backendOK = FakeBackend()
+        await backendOK.setForceSyncStatus(sync(state: "completed"))
+        let notifierOK = RecordingNotifier(suppressed: true)
+        let modelOK = BackendStatusModel(
+            client: backendOK,
+            sleep: immediateSleep,
+            notifier: { [notifierOK] content in notifierOK.record(content) },
+            setBadge: { _ in }
+        )
+        await modelOK.forceSync()
+        XCTAssertTrue(notifierOK.posted.isEmpty)
+        XCTAssertNil(modelOK.error)
+
+        // Throwing branch: suppressed notifier still doesn't crash; model.error is set.
+        let backendThrow = FakeBackend()
+        await backendThrow.failNextWithError(
+            "forceSync",
+            error: BackendClientError.helperError(
+                .init(code: "boom", message: "boom", detail: nil, recovery: nil)
+            )
+        )
+        let notifierThrow = RecordingNotifier(suppressed: true)
+        let modelThrow = BackendStatusModel(
+            client: backendThrow,
+            sleep: immediateSleep,
+            notifier: { [notifierThrow] content in notifierThrow.record(content) },
+            setBadge: { _ in }
+        )
+        await modelThrow.forceSync()
+        XCTAssertTrue(notifierThrow.posted.isEmpty)
+        XCTAssertNotNil(modelThrow.error)
+
+        // Branch (b): suppressed notifier with state == "error" non-throwing.
+        let backendBranchB = FakeBackend()
+        await backendBranchB.setForceSyncStatus(sync(state: "error", lastError: "x"))
+        let notifierB = RecordingNotifier(suppressed: true)
+        let modelB = BackendStatusModel(
+            client: backendBranchB,
+            sleep: immediateSleep,
+            notifier: { [notifierB] content in notifierB.record(content) },
+            setBadge: { _ in }
+        )
+        await modelB.forceSync()
+        XCTAssertTrue(notifierB.posted.isEmpty)
+        XCTAssertNil(modelB.error)
+    }
+
+    func testForceSyncShareSingleNotificationIdentifier() async throws {
+        let backend = FakeBackend()
+        await backend.setForceSyncStatus(sync(state: "completed"))
+        let notifier = RecordingNotifier()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            notifier: { [notifier] content in notifier.record(content) },
+            setBadge: { _ in }
+        )
+
+        await model.forceSync()
+        await model.forceSync()
+
+        XCTAssertEqual(notifier.posted.count, 2)
+        XCTAssertEqual(Set(notifier.posted.map(\.identifier)), Set(["agendum.sync.completed"]))
+    }
+
+    func testForceSyncPostsSuccessBodyForNonErrorStates() async throws {
+        let backend = FakeBackend()
+        await backend.setForceSyncStatus(sync(state: "idle"))
+        let notifier = RecordingNotifier()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            notifier: { [notifier] content in notifier.record(content) },
+            setBadge: { _ in }
+        )
+
+        await model.forceSync()
+
+        let body = notifier.posted.first?.body ?? ""
+        XCTAssertTrue(body.contains("Sync complete"))
+        XCTAssertFalse(body.contains("Sync failed"))
+    }
+
+    func testSetBadgeForAttentionCountWritesZeroWhenNoSync() async throws {
+        let backend = FakeBackend()
+        let badge = RecordingBadgeSetter()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            setBadge: { [badge] count in badge.record(count) }
+        )
+
+        model.setBadgeForAttentionCount()
+
+        XCTAssertEqual(badge.values, [0])
+    }
+
+    func testSetBadgeForAttentionCountWritesOneWhenAttentionItemsTrue() async throws {
+        let backend = FakeBackend()
+        await backend.setSyncStatusOverride(sync(state: "idle", hasAttentionItems: true))
+        let badge = RecordingBadgeSetter()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            setBadge: { [badge] count in badge.record(count) }
+        )
+        await model.refresh()
+
+        model.setBadgeForAttentionCount()
+
+        XCTAssertEqual(badge.values.last, 1)
+    }
+
+    func testSetBadgeForAttentionCountWritesZeroWhenAttentionItemsFalse() async throws {
+        let backend = FakeBackend()
+        await backend.setSyncStatusOverride(sync(state: "idle", hasAttentionItems: false))
+        let badge = RecordingBadgeSetter()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            setBadge: { [badge] count in badge.record(count) }
+        )
+        await model.refresh()
+
+        model.setBadgeForAttentionCount()
+
+        XCTAssertEqual(badge.values.last, 0)
+    }
+
+    func testAttentionItemCountAccessorReflectsSyncBoolean() async throws {
+        let backend = FakeBackend()
+        await backend.setSyncStatusOverride(sync(state: "idle", hasAttentionItems: true))
+        let modelTrue = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await modelTrue.refresh()
+        XCTAssertEqual(modelTrue.attentionItemCount, 1)
+
+        let backend2 = FakeBackend()
+        await backend2.setSyncStatusOverride(sync(state: "idle", hasAttentionItems: false))
+        let modelFalse = BackendStatusModel(client: backend2, sleep: immediateSleep)
+        await modelFalse.refresh()
+        XCTAssertEqual(modelFalse.attentionItemCount, 0)
+    }
+
+    func testAttentionItemCountIsZeroWhenSyncIsNil() async throws {
+        let backend = FakeBackend()
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        XCTAssertEqual(model.attentionItemCount, 0)
+    }
+
+    func testForceSyncDoesNotInvokeBadgeSeamDirectly() async throws {
+        let backend = FakeBackend()
+        await backend.setForceSyncStatus(sync(state: "completed", hasAttentionItems: true))
+        let badge = RecordingBadgeSetter()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            setBadge: { [badge] count in badge.record(count) }
+        )
+
+        await model.forceSync()
+
+        XCTAssertTrue(badge.values.isEmpty)
+    }
+
+    func testRefreshDoesNotPostNotification() async throws {
+        let backend = FakeBackend()
+        let notifier = RecordingNotifier()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            notifier: { [notifier] content in notifier.record(content) }
+        )
+
+        await model.refresh()
+
+        XCTAssertTrue(notifier.posted.isEmpty)
+    }
+
+    func testSelectWorkspaceDoesNotPostNotification() async throws {
+        let backend = FakeBackend()
+        let notifier = RecordingNotifier()
+        let model = BackendStatusModel(
+            client: backend,
+            sleep: immediateSleep,
+            notifier: { [notifier] content in notifier.record(content) }
+        )
+        await model.refresh()
+
+        await model.selectWorkspace(id: "example-org")
+
+        XCTAssertTrue(notifier.posted.isEmpty)
+    }
+
+    func testConvenienceInitDoesNotCrashWhenConstructed() {
+        // Structural pin per OQ3: constructing via the convenience init must
+        // succeed (defaults wired) without touching the dock tile.
+        let model = BackendStatusModel()
+        XCTAssertEqual(model.attentionItemCount, 0)
+    }
+
     func testStandardCommandsExposesEveryNamedSlot() {
         let commands = TaskDashboardCommands.standard
         XCTAssertEqual(commands.toolbarRefresh, .refresh)
@@ -1413,6 +1704,40 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertEqual(commands.menuMoveToBacklog, .moveToBacklog)
         XCTAssertEqual(commands.menuMarkDone, .markDone)
         XCTAssertEqual(commands.menuRemove, .remove)
+    }
+}
+
+private final class RecordingNotifier: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _posted: [NotificationContent] = []
+    private let suppressed: Bool
+
+    init(suppressed: Bool = false) { self.suppressed = suppressed }
+
+    var posted: [NotificationContent] {
+        lock.lock(); defer { lock.unlock() }
+        return _posted
+    }
+
+    func record(_ content: NotificationContent) {
+        if suppressed { return }
+        lock.lock(); defer { lock.unlock() }
+        _posted.append(content)
+    }
+}
+
+private final class RecordingBadgeSetter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _values: [Int] = []
+
+    var values: [Int] {
+        lock.lock(); defer { lock.unlock() }
+        return _values
+    }
+
+    func record(_ count: Int) {
+        lock.lock(); defer { lock.unlock() }
+        _values.append(count)
     }
 }
 

@@ -2,9 +2,24 @@ import AgendumMacCore
 import AppKit
 import Combine
 import Foundation
+import UserNotifications
 
 public typealias URLOpening = @Sendable (URL) -> Bool
 public typealias Pasteboarding = @Sendable (String) -> Void
+public typealias Notifying = @Sendable (NotificationContent) async -> Void
+public typealias BadgeSetting = @Sendable (Int) -> Void
+
+public struct NotificationContent: Equatable, Sendable {
+    public let identifier: String
+    public let title: String
+    public let body: String
+
+    public init(identifier: String, title: String, body: String) {
+        self.identifier = identifier
+        self.title = title
+        self.body = body
+    }
+}
 
 public protocol AgendumBackendServicing: Sendable {
     func currentWorkspace() async throws -> Workspace
@@ -326,6 +341,8 @@ public final class BackendStatusModel: ObservableObject {
     private let now: @Sendable () -> Date
     private let openURL: URLOpening
     private let pasteboard: Pasteboarding
+    private let notifier: Notifying
+    private let setBadge: BadgeSetting
     private let relativeFormatter: RelativeDateTimeFormatter
     private let iso8601Formatter: ISO8601DateFormatter
 
@@ -341,6 +358,8 @@ public final class BackendStatusModel: ObservableObject {
         now: @escaping @Sendable () -> Date = Date.init,
         openURL: @escaping URLOpening = BackendStatusModel.defaultURLOpener,
         pasteboard: @escaping Pasteboarding = BackendStatusModel.defaultPasteboard,
+        notifier: @escaping Notifying = BackendStatusModel.defaultNotifier,
+        setBadge: @escaping BadgeSetting = BackendStatusModel.defaultBadgeSetter,
         locale: Locale = .autoupdatingCurrent,
         filters: TaskListFilters = .default
     ) {
@@ -351,6 +370,8 @@ public final class BackendStatusModel: ObservableObject {
         self.now = now
         self.openURL = openURL
         self.pasteboard = pasteboard
+        self.notifier = notifier
+        self.setBadge = setBadge
         self.filters = filters
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = locale
@@ -403,6 +424,17 @@ public final class BackendStatusModel: ObservableObject {
 
     public var hasAttentionItems: Bool {
         sync?.hasAttentionItems ?? false
+    }
+
+    public var attentionItemCount: Int {
+        // Today the backend payload exposes a boolean (hasAttentionItems);
+        // tomorrow it may carry an explicit integer. The accessor adapts so
+        // the SwiftUI .onChange wiring doesn't need to know.
+        return hasAttentionItems ? 1 : 0
+    }
+
+    public func setBadgeForAttentionCount() {
+        setBadge(attentionItemCount)
     }
 
     public func errorForTask(id: TaskItem.ID) -> PresentedError? {
@@ -470,9 +502,52 @@ public final class BackendStatusModel: ObservableObject {
             try await pollSyncUntilComplete()
             tasks = try await loadTaskItems()
             self.error = nil
+            if sync?.state == "error" {
+                // Backend-reported error path: forceSync did not throw, but
+                // sync.state == "error". Route through the shared helper
+                // by synthesizing a PresentedError so the failure-body
+                // template lives in exactly one place. Do NOT clobber
+                // self.error: branch (b) deliberately leaves the model's
+                // structured-error surface untouched (see design §3.5).
+                let suffix = sync?.lastError ?? "Unknown error."
+                await postSyncCompletedNotification(
+                    success: false,
+                    failure: PresentedError(message: suffix)
+                )
+            } else {
+                await postSyncCompletedNotification(success: true, failure: nil)
+            }
         } catch {
-            self.error = PresentedError.from(error)
+            let presented = PresentedError.from(error)
+            self.error = presented
+            await postSyncCompletedNotification(success: false, failure: presented)
         }
+    }
+
+    private func postSyncCompletedNotification(
+        success: Bool,
+        failure: PresentedError?
+    ) async {
+        let body: String
+        if success {
+            let count = attentionItemCount
+            if count > 0 {
+                body = "Sync complete. \(count) attention item\(count == 1 ? "" : "s")."
+            } else {
+                body = "Sync complete."
+            }
+        } else {
+            let suffix = failure?.message ?? "Unknown error."
+            body = "Sync failed: \(suffix)"
+        }
+        // Shared identifier across success and failure shapes so macOS
+        // coalesces repeated banners (the user sees the latest, not a
+        // stack of N).
+        await notifier(NotificationContent(
+            identifier: "agendum.sync.completed",
+            title: "Agendum",
+            body: body
+        ))
     }
 
     public func markSeen(id: TaskItem.ID) async {
@@ -623,6 +698,42 @@ public extension BackendStatusModel {
             let pasteboard = NSPasteboard.general
             pasteboard.declareTypes([.string], owner: nil)
             pasteboard.setString(string, forType: .string)
+        }
+    }
+
+    static var defaultNotifier: Notifying {
+        { content in
+            // UNUserNotificationCenter.current() raises an Obj-C exception
+            // when the host process is not a proper application bundle
+            // (e.g. the swift-test xctest runner whose main bundle is
+            // `/Applications/Xcode.app/Contents/Developer/usr/bin/`).
+            // Skip the post in that case so the default seam is safe to
+            // invoke from any process.
+            guard Bundle.main.bundleURL.pathExtension == "app" else { return }
+            let center = UNUserNotificationCenter.current()
+            let settings = await center.notificationSettings()
+            guard settings.authorizationStatus == .authorized
+                || settings.authorizationStatus == .provisional else {
+                return
+            }
+            let mutable = UNMutableNotificationContent()
+            mutable.title = content.title
+            mutable.body = content.body
+            let request = UNNotificationRequest(
+                identifier: content.identifier,
+                content: mutable,
+                trigger: nil
+            )
+            try? await center.add(request)
+        }
+    }
+
+    static var defaultBadgeSetter: BadgeSetting {
+        { count in
+            MainActor.assumeIsolated {
+                let label: String? = count > 0 ? String(count) : nil
+                NSApplication.shared.dockTile.badgeLabel = label
+            }
         }
     }
 }
