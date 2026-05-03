@@ -42,6 +42,14 @@ jobs:
         run: swift test --enable-code-coverage
         working-directory: agendum-mac
 
+      - name: Build app bundle smoke
+        run: |
+          Scripts/build_app_bundle.sh
+          test -d .build/Agendum.app
+          test -x .build/Agendum.app/Contents/MacOS/Agendum
+          plutil -lint .build/Agendum.app/Contents/Info.plist
+        working-directory: agendum-mac
+
       - name: Check whitespace
         run: git diff --check
         working-directory: agendum-mac
