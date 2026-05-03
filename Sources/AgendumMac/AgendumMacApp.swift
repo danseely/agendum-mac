@@ -24,6 +24,7 @@ struct AgendumMacApp: App {
 
         Settings {
             SettingsView()
+                .environmentObject(backendStatus)
         }
     }
 }
@@ -587,13 +588,95 @@ private struct CreateManualTaskSheet: View {
 }
 
 private struct SettingsView: View {
+    @EnvironmentObject private var backendStatus: BackendStatusModel
+
     var body: some View {
         Form {
-            TextField("GitHub organizations", text: .constant("example-org"))
-            TextField("Sync interval", text: .constant("120"))
-            Toggle("Mark items seen when app is focused", isOn: .constant(true))
+            Section("GitHub CLI") {
+                LabeledContent("Status", value: ghStatusLabel)
+                    .accessibilityIdentifier("settings-gh-status")
+                LabeledContent("Path", value: backendStatus.diagnostics?.gh.path ?? "—")
+                    .accessibilityIdentifier("settings-gh-path")
+                LabeledContent("Version", value: backendStatus.diagnostics?.gh.version ?? "—")
+                    .accessibilityIdentifier("settings-gh-version")
+            }
+            Section("Authentication") {
+                LabeledContent("Authenticated", value: authenticatedLabel)
+                    .accessibilityIdentifier("settings-auth-status")
+                LabeledContent("Username", value: backendStatus.auth?.username ?? "—")
+                    .accessibilityIdentifier("settings-auth-username")
+                LabeledContent("Host", value: backendStatus.diagnostics?.host ?? "—")
+                    .accessibilityIdentifier("settings-auth-host")
+                LabeledContent("GH_CONFIG_DIR", value: backendStatus.auth?.workspaceGhConfigDir ?? "—")
+                    .accessibilityIdentifier("settings-gh-config-dir")
+            }
+            Section("Helper PATH") {
+                if let path = backendStatus.diagnostics?.helperPath, !path.isEmpty {
+                    ForEach(Array(path.enumerated()), id: \.offset) { _, entry in
+                        Text(entry)
+                            .font(.system(.caption, design: .monospaced))
+                            .accessibilityIdentifier("settings-helper-path-row")
+                    }
+                } else {
+                    Text("—").accessibilityIdentifier("settings-helper-path-empty")
+                }
+                if backendStatus.diagnostics?.gh.found == false {
+                    Text("Relaunch Agendum if you've just installed gh — the helper's PATH is captured at launch and won't pick up new installs until restart.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .accessibilityIdentifier("settings-helper-path-relaunch-hint")
+                }
+            }
+            if let prose = backendStatus.auth?.repairInstructions {
+                Section("Repair") {
+                    Text(prose)
+                        .font(.caption)
+                        .accessibilityIdentifier("settings-repair-instructions")
+                }
+            }
+            Section {
+                HStack {
+                    Button("Refresh") {
+                        Task { await backendStatus.refreshDiagnostics() }
+                    }
+                    .accessibilityIdentifier("settings-action-refresh")
+                    Button("Copy gh auth login command") {
+                        backendStatus.copyAuthLoginCommand()
+                    }
+                    .disabled(backendStatus.auth?.repairCommand == nil)
+                    .accessibilityIdentifier("settings-action-copy-login")
+                    Button("Open install page") {
+                        backendStatus.openGHInstallURL()
+                    }
+                    .accessibilityIdentifier("settings-action-open-install")
+                }
+                if let err = backendStatus.diagnosticsError {
+                    Text(err.message)
+                        .foregroundColor(.red)
+                        .accessibilityIdentifier("settings-diagnostics-error")
+                    if let recovery = err.recovery {
+                        Text(recovery)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .accessibilityIdentifier("settings-diagnostics-error-recovery")
+                    }
+                }
+            }
         }
         .padding(20)
-        .frame(width: 420)
+        .frame(width: 520)
+        .task {
+            await backendStatus.refreshDiagnostics()
+        }
+    }
+
+    private var ghStatusLabel: String {
+        guard let gh = backendStatus.diagnostics?.gh else { return "Loading…" }
+        return gh.found ? "Installed" : "Not found"
+    }
+
+    private var authenticatedLabel: String {
+        guard let auth = backendStatus.auth else { return "Loading…" }
+        return auth.authenticated ? "Yes" : "No"
     }
 }

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shlex
 import shutil
 import sqlite3
 import subprocess
@@ -120,6 +121,8 @@ def handle_request(request: Any, state: HelperState) -> dict[str, Any]:
             return _success_response(request_id, select_workspace(state, payload))
         if command == "auth.status":
             return _success_response(request_id, {"auth": auth_status(state)})
+        if command == "auth.diagnose":
+            return _success_response(request_id, {"diagnostics": auth_diagnose(state)})
         if command == "task.list":
             return _success_response(request_id, {"tasks": list_tasks(state, payload)})
         if command == "task.get":
@@ -418,6 +421,7 @@ def auth_status(state: HelperState) -> dict[str, Any]:
             "username": None,
             "workspaceGhConfigDir": _display_path(paths.gh_config_dir),
             "repairInstructions": "Install GitHub CLI with Homebrew, then authenticate with gh auth login.",
+            "repairCommand": None,
         }
 
     env = os.environ.copy()
@@ -430,13 +434,15 @@ def auth_status(state: HelperState) -> dict[str, Any]:
         check=False,
     )
     if auth.returncode != 0:
+        repair_command = _format_repair_command(paths.gh_config_dir)
         return {
             "ghFound": True,
             "ghPath": str(gh_path),
             "authenticated": False,
             "username": None,
             "workspaceGhConfigDir": _display_path(paths.gh_config_dir),
-            "repairInstructions": f"Run GH_CONFIG_DIR={paths.gh_config_dir} gh auth login in Terminal.",
+            "repairInstructions": f"Run {repair_command} in Terminal.",
+            "repairCommand": repair_command,
         }
 
     return {
@@ -446,7 +452,50 @@ def auth_status(state: HelperState) -> dict[str, Any]:
         "username": _gh_username(gh_path, env),
         "workspaceGhConfigDir": _display_path(paths.gh_config_dir),
         "repairInstructions": None,
+        "repairCommand": None,
     }
+
+
+def auth_diagnose(state: HelperState) -> dict[str, Any]:
+    gh_path = _find_gh()
+    gh_block: dict[str, Any] = {
+        "found": gh_path is not None,
+        "path": str(gh_path) if gh_path is not None else None,
+        "version": _gh_version(gh_path) if gh_path is not None else None,
+        "installed": gh_path is not None,
+    }
+    return {
+        "gh": gh_block,
+        "auth": auth_status(state),
+        "host": _default_gh_host(),
+        "helperPath": _helper_path_entries(),
+    }
+
+
+def _format_repair_command(gh_config_dir: Path) -> str:
+    return f"GH_CONFIG_DIR={shlex.quote(str(gh_config_dir))} gh auth login"
+
+
+def _gh_version(gh_path: Path) -> str | None:
+    result = subprocess.run(
+        [str(gh_path), "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    first_line = (result.stdout or "").splitlines()[0] if result.stdout else ""
+    return first_line.strip() or None
+
+
+def _helper_path_entries() -> list[str]:
+    raw = os.environ.get("PATH", "")
+    return [entry for entry in raw.split(os.pathsep) if entry]
+
+
+def _default_gh_host() -> str:
+    return os.environ.get("GH_HOST", "github.com")
 
 
 def _find_gh() -> Path | None:

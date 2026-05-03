@@ -3,7 +3,7 @@
 Last updated: 2026-05-03
 
 ## Current milestone
-Item 2 (task list filtering UI) of the five-item live-slice orchestration in `docs/orchestration-plan.md` is the active checkpoint. The goal is to surface the existing `task.list` filter parameters (`source`, `status`, `project`, `includeSeen`, `limit`) as user controls in the SwiftUI dashboard. The backend helper already implements all five filters (`Backend/agendum_backend/helper.py::list_tasks`) and the Swift client already exposes them through `BackendClient.listTasks(source:status:project:includeSeen:limit:)`; the work is Swift-only — workflow-model state in `AgendumMacWorkflow` plus SwiftUI controls in `Sources/AgendumMac/AgendumMacApp.swift`. No helper protocol changes are expected.
+Item 3 (settings / auth-repair UI) of the five-item live-slice orchestration in `docs/orchestration-plan.md` is the active checkpoint. The goal is a Settings scene that diagnoses `gh` discovery (path, version, install state) and the `auth.status` repair flow, addressing the Finder-PATH risk recorded in `docs/handoff.md` (Finder-launched apps do not inherit shell `PATH`, so `gh` discovery cannot assume the terminal environment). Likely adds at least one new helper command (e.g. `auth.diagnose`) reporting discovered `gh` path, gh version, gh-authentication state for the configured host, and the helper-resolved `PATH`, plus a corresponding `BackendClient` method, a `SettingsModel` (or extension of `BackendStatusModel`) on `AgendumMacWorkflow`, and a SwiftUI `Settings { SettingsView() }` scene that surfaces diagnostics and offers remediation actions (copy a prepared `gh auth login` command, open the gh install URL, refresh diagnostics).
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -143,17 +143,19 @@ Item 2 (task list filtering UI) of the five-item live-slice orchestration in `do
 - Fast-forwarded local `feature/mac-prototype` to `12cf468` and pruned the merged `codex/app-bundle-smoke` and earlier merged `codex/*` remote refs.
 - PR #17 (item 1 — open task URL detail action) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c2a6d97`). Item 1 of the five-item orchestration in `docs/orchestration-plan.md` is complete; the detail-pane "Open in Browser" action now routes through `BackendStatusModel.openTaskURL(id:)` with structured per-task error reporting and an injectable `URLOpening` seam. The PR also included an in-scope drive-by fix to `BackendClientConfiguration.firstAncestor` that resolved an infinite-loop bug introduced in PR #16.
 - Fast-forwarded local `feature/mac-prototype` to `c2a6d97` after the PR #17 merge and created `codex/item-2-task-list-filtering` from the updated tip for the item-2 design phase.
+- PR #18 (item 2 — task list filtering UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c29c630`). Item 2 of the five-item orchestration is complete; `BackendStatusModel` now owns filter state for `source`, `status`, `project`, `includeSeen`, and `limit`, the SwiftUI dashboard exposes filter controls with workspace-switch reset semantics, and fake-backed `AgendumMacWorkflowTests` cover filter routing through `loadTaskItems`.
+- Fast-forwarded local `feature/mac-prototype` to `c29c630` after the PR #18 merge and created `codex/item-3-settings-auth-repair` from the updated tip for the item-3 design phase.
 
 ## In progress
-- Item 2 (task list filtering UI) is in the design phase on `codex/item-2-task-list-filtering`. The design doc `docs/design/02-task-list-filtering.md` is being authored to cover filter state shape on `BackendStatusModel`, SwiftUI control placement, the workspace-switch reset rule, and the test plan. No implementation work has started; the build phase begins after the design clears review cycle 1.
+- Item 3 (settings / auth-repair UI) is in the design phase on `codex/item-3-settings-auth-repair`. The design doc `docs/design/03-settings-auth-repair.md` is being authored to cover the new helper command shape (e.g. `auth.diagnose`), the matching `BackendClient` method, a `SettingsModel` (or extension of `BackendStatusModel`) carrying diagnostic state, and a SwiftUI `Settings { SettingsView() }` scene with remediation actions (copy `gh auth login`, open install URL, refresh diagnostics). No implementation work has started; the build phase begins after the design clears review cycle 1.
 
 ## Blocked
-- None at the implementation level. Packaging-decision routing is still deferred per `docs/packaging.md` but is not blocking item-2 work.
+- None at the implementation level. Packaging-decision routing is still deferred per `docs/packaging.md` but is not blocking item-3 work.
 
 ## Next
-- Complete the item-2 design doc and submit it for cycle-1 review. Revise per reviewer findings until none remain.
-- Once design is approved, build item 2 on `codex/item-2-task-list-filtering`: workflow-model filter state plus SwiftUI controls, fake-backed tests, and a smoke launch.
-- Review the item-2 PR (blind cycle), then validate the standard project gates (`swift build`, `swift test --enable-code-coverage`, `/opt/homebrew/bin/python3 -m unittest discover -s Tests`, `/opt/homebrew/bin/python3 Scripts/python_coverage.py`, `git diff --check`, `swift run AgendumMac` smoke).
-- Ship item 2 (squash merge into `feature/mac-prototype`, fast-forward local, prune branches).
-- Start item 3 (settings / auth-repair UI) per `docs/orchestration-plan.md` §Items.
+- Complete the item-3 design doc and submit it for cycle-1 review. Revise per reviewer findings until none remain.
+- Once design is approved, build item 3 on `codex/item-3-settings-auth-repair`: helper command(s), Swift client method, workflow `SettingsModel`, SwiftUI `Settings` scene + `SettingsView`, backend + Swift tests, and a smoke launch.
+- Review the item-3 PR (blind cycle), then validate the standard project gates (`swift build`, `swift test --enable-code-coverage`, `/opt/homebrew/bin/python3 -m unittest discover -s Tests`, `/opt/homebrew/bin/python3 Scripts/python_coverage.py`, `git diff --check`, `swift run AgendumMac` smoke).
+- Ship item 3 (squash merge into `feature/mac-prototype`, fast-forward local, prune branches).
+- Start item 4 (keyboard shortcuts + menu coverage) per `docs/orchestration-plan.md` §Items.
 - Keep CI aligned with local validation as new test layers are added; keep `main` README-only until the prototype is ready; keep `feature/mac-prototype` as the broad integration branch and use short-lived `codex/*` branches and PRs for all changes targeting it.
