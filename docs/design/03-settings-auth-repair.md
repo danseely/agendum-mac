@@ -6,7 +6,7 @@ Scope reference: `docs/orchestration-plan.md` §Items, item 3.
 
 ## 1. Goal
 
-After this lands, a user who launches Agendum from Finder and hits "GitHub CLI missing" or "GitHub auth needed" in the existing `BackendStatusPanel` (`Sources/AgendumMac/AgendumMacApp.swift:271-282`, `authLabel`) can open the macOS Settings scene (`Cmd-,`) and see, for the currently-selected workspace: whether `gh` is installed, the discovered absolute path, the gh executable version, whether `gh auth status` succeeds for the workspace's `GH_CONFIG_DIR`, the GitHub host the helper checked, and the helper-resolved `PATH`. The Settings UI offers three remediation actions when relevant: copy a prepared `GH_CONFIG_DIR=… gh auth login` command to the pasteboard (the same shape the helper already returns as `repairInstructions` at `Backend/agendum_backend/helper.py:439`), open the gh install URL (`https://cli.github.com/`), and refresh the diagnostics. This addresses the Finder-PATH risk recorded in `docs/handoff.md` ("Finder-launched apps do not inherit shell `PATH`, so `gh` discovery cannot assume the terminal environment") by making the actual `PATH` the helper sees observable to the user.
+After this lands, a user who launches Agendum from Finder and hits "GitHub CLI missing" or "GitHub auth needed" in the existing `BackendStatusPanel` (`Sources/AgendumMac/AgendumMacApp.swift:291`; the `authLabel` property is in `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift:271`) can open the macOS Settings scene (`Cmd-,`) and see, for the currently-selected workspace: whether `gh` is installed, the discovered absolute path, the gh executable version, whether `gh auth status` succeeds for the workspace's `GH_CONFIG_DIR`, the GitHub host the helper checked, and the helper-resolved `PATH`. The Settings UI offers three remediation actions when relevant: copy a prepared `GH_CONFIG_DIR=… gh auth login` command to the pasteboard (the same shape the helper already returns as `repairInstructions` at `Backend/agendum_backend/helper.py:439`), open the gh install URL (`https://cli.github.com/`), and refresh the diagnostics. This addresses the Finder-PATH risk recorded in `docs/handoff.md` ("Finder-launched apps do not inherit shell `PATH`, so `gh` discovery cannot assume the terminal environment") by making the actual `PATH` the helper sees observable to the user.
 
 The current `Sources/AgendumMac/AgendumMacApp.swift` already declares `Settings { SettingsView() }` (lines 25-27) but `SettingsView` is a static stub with three hard-coded fields backed by `.constant(...)` (lines 589-599) — no diagnostic data flows in, no actions wire up to the workflow, and no helper call backs it. Item 3 replaces that stub with a real diagnostic + remediation surface.
 
@@ -20,10 +20,13 @@ Files this implementation will touch:
   - Add a private `_gh_version(gh_path: Path) -> str | None` helper (parallel to `_gh_username` at line 477).
   - Add a private `_helper_path_entries() -> list[str]` helper that returns `os.environ.get("PATH", "").split(os.pathsep)` filtered for empty strings.
   - Add a private `_default_gh_host() -> str` helper that returns `os.environ.get("GH_HOST", "github.com")`. The Mac app currently has no per-workspace host configuration, so reporting the resolved host is sufficient for the prototype.
-  - **Fix existing bug at helper.py:439:** the existing `repairInstructions` interpolates `paths.gh_config_dir` unquoted (`f"Run GH_CONFIG_DIR={paths.gh_config_dir} gh auth login in Terminal."`). Replace with a single shared formatter (e.g. `_format_repair_command(gh_config_dir: Path) -> str` returning `f"GH_CONFIG_DIR={shlex.quote(str(gh_config_dir))} gh auth login"`) used both by `auth_status` (the existing `repairInstructions` field) and by anywhere else the copy-login string is produced. Settings reads the helper-formatted string verbatim — no Swift-side string assembly.
+  - **Fix existing bug at helper.py:439:** the existing `repairInstructions` interpolates `paths.gh_config_dir` unquoted (`f"Run GH_CONFIG_DIR={paths.gh_config_dir} gh auth login in Terminal."`). Introduce a single shared formatter (e.g. `_format_repair_command(gh_config_dir: Path) -> str` returning `f"GH_CONFIG_DIR={shlex.quote(str(gh_config_dir))} gh auth login"`) that produces a runnable shell command.
+  - **New field on `AuthStatus`: `repairCommand: Optional[str]`.** Populated **only** in the unauthenticated-with-gh-found branch (helper.py:439) where `_format_repair_command(paths.gh_config_dir)` produces a runnable command. In the gh-missing branch (helper.py:420) `repairCommand` is `None` because the human-readable prose ("Install GitHub CLI with Homebrew, then authenticate with gh auth login.") is not a shell-runnable command and pasting it would not work. In the already-authenticated branch (helper.py:448) `repairCommand` is `None`.
+  - The existing `repairInstructions` field is preserved as user-facing prose (rendered as caption text in Settings) since it has recovery value even when no command exists. In the unauthenticated-with-gh-found branch, `repairInstructions` is replaced with a human-readable instruction that references the command (the runnable form lives in `repairCommand`); both fields still reflect a single source of truth for the command shape via `_format_repair_command`. Settings reads the helper-formatted strings verbatim — no Swift-side string assembly.
   - No change to `_find_gh` (line 452); the diagnostic just reports its result.
 - `Sources/AgendumMacCore/BackendClient.swift`
-  - Add `AuthDiagnostics` (Decodable, Equatable, Sendable) with nested `GHDiagnostics` (`found`, `path`, `version`, `installed`), the existing `AuthStatus`, `host: String`, and `helperPath: [String]`.
+  - Extend the existing `AuthStatus` (lines 12-19) with a new optional `repairCommand: String?` field decoded from the helper's `repairCommand` JSON key. The field is `nil` when the helper omits it (gh-missing or already-authenticated branches) and populated in the unauthenticated-with-gh-found branch.
+  - Add `AuthDiagnostics` (Decodable, Equatable, Sendable) with nested `GHDiagnostics` (`found`, `path`, `version`, `installed`), the existing `AuthStatus` (now carrying `repairCommand`), `host: String`, and `helperPath: [String]`.
   - Add `func authDiagnose() async throws -> AuthDiagnostics` and a private `AuthDiagnoseResponsePayload` decodable shaped as `{ diagnostics: AuthDiagnostics }` that mirrors the wrapped helper response; `authDiagnose()` decodes the wrapper and returns the inner `diagnostics`.
 - `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`
   - Extend `AgendumBackendServicing` (line 8) with `func authDiagnose() async throws -> AuthDiagnostics`.
@@ -162,9 +165,16 @@ Notes:
 
 ### 4.3 `copyAuthLoginCommand()`
 
+The `Pasteboarding` typealias and `defaultPasteboard` static mirror the placement of `URLOpening` (file scope, line 6) and `defaultURLOpener` (inside the `public extension BackendStatusModel` block at line 495). Specifically:
+
+- `public typealias Pasteboarding = @Sendable (String) -> Void` is declared at file scope alongside `URLOpening` (around line 6 of `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`).
+- `public static var defaultPasteboard: Pasteboarding { ... }` lives inside the existing `public extension BackendStatusModel` block (around line 495), alongside `defaultURLOpener`.
+
 ```swift
+// File scope, alongside URLOpening (line 6):
 public typealias Pasteboarding = @Sendable (String) -> Void
 
+// Inside `public extension BackendStatusModel` (line 495), alongside defaultURLOpener:
 public static var defaultPasteboard: Pasteboarding {
     { string in
         let pasteboard = NSPasteboard.general
@@ -173,8 +183,9 @@ public static var defaultPasteboard: Pasteboarding {
     }
 }
 
+// Method on BackendStatusModel:
 public func copyAuthLoginCommand() {
-    guard let command = auth?.repairInstructions else { return }
+    guard let command = auth?.repairCommand else { return }
     pasteboard(command)
 }
 ```
@@ -187,9 +198,9 @@ The `pasteboard` seam is a defaulted initializer parameter parallel to `openURL`
 pasteboard: @escaping Pasteboarding = BackendStatusModel.defaultPasteboard,
 ```
 
-Stored as `private let pasteboard: Pasteboarding`. The convenience `init()` (line 233) keeps using the default. The command uses `auth?.repairInstructions` (the helper-formatted login command, available on the existing `AuthStatus`) rather than re-assembling the string in Swift, so the user can copy the command even before `refreshDiagnostics()` settles, as long as the dashboard already loaded `auth` via `refresh()`. If `auth` has not settled, or `repairInstructions` is `nil` (gh not installed, or already authenticated), the call no-ops; the SwiftUI button is disabled in that case (§5.2).
+Stored as `private let pasteboard: Pasteboarding`. The convenience `init()` (line 233) keeps using the default. The command uses `auth?.repairCommand` (the helper-formatted runnable login command, populated only in the unauthenticated-with-gh-found branch) rather than re-assembling the string in Swift, so the user can copy the command even before `refreshDiagnostics()` settles, as long as the dashboard already loaded `auth` via `refresh()`. If `auth` has not settled, or `repairCommand` is `nil` (gh not installed, or already authenticated), the call no-ops; the SwiftUI button is disabled in that case (§5.2).
 
-The command shape is produced helper-side by `_format_repair_command` (§2 helper.py:439 fix), which uses `shlex.quote(str(gh_config_dir))` to quote the directory. The Swift side never assembles or quotes the string. Both the existing `auth.status.repairInstructions` field and any future copy-login surface read from the same formatter — single source of truth.
+The command shape is produced helper-side by `_format_repair_command` (§2 helper.py:439 fix), which uses `shlex.quote(str(gh_config_dir))` to quote the directory. The Swift side never assembles or quotes the string. The `repairCommand` field on `AuthStatus` carries the formatter output — single source of truth.
 
 ### 4.4 `openGHInstallURL()`
 
@@ -271,6 +282,19 @@ struct SettingsView: View {
                 } else {
                     Text("—").accessibilityIdentifier("settings-helper-path-empty")
                 }
+                if backendStatus.diagnostics?.gh.found == false {
+                    Text("Relaunch Agendum if you've just installed gh — the helper's PATH is captured at launch and won't pick up new installs until restart.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .accessibilityIdentifier("settings-helper-path-relaunch-hint")
+                }
+            }
+            if let prose = backendStatus.auth?.repairInstructions {
+                Section("Repair") {
+                    Text(prose)
+                        .font(.caption)
+                        .accessibilityIdentifier("settings-repair-instructions")
+                }
             }
             Section {
                 HStack {
@@ -281,7 +305,7 @@ struct SettingsView: View {
                     Button("Copy gh auth login command") {
                         backendStatus.copyAuthLoginCommand()
                     }
-                    .disabled(backendStatus.auth?.repairInstructions == nil)
+                    .disabled(backendStatus.auth?.repairCommand == nil)
                     .accessibilityIdentifier("settings-action-copy-login")
                     Button("Open install page") {
                         backendStatus.openGHInstallURL()
@@ -337,7 +361,7 @@ All test names below. One-line intent each. Tests live in the indicated file.
 
 1. `test_auth_diagnose_returns_full_payload_when_gh_authenticated` — fake `gh` on PATH that exits 0 for `auth status` and `--version`; assert `gh.found`, `gh.installed`, `gh.path`, `gh.version`, `auth.authenticated`, `host == "github.com"`, and `helperPath` matches `os.environ["PATH"].split(os.pathsep)` filtered for empty entries.
 2. `test_auth_diagnose_when_gh_missing_reports_not_found` — clear `AGENDUM_MAC_GH_PATHS` and override `_find_gh` to return `None` (matching existing test patterns at the other `auth.status` tests); assert `gh.found is False`, `gh.path is None`, `gh.version is None`, `auth.ghFound is False`, and helperPath still populated.
-3. `test_auth_diagnose_when_gh_installed_but_not_authenticated` — fake `gh` whose `auth status` exits non-zero; assert `gh.found is True`, `gh.version` populated, `auth.authenticated is False`, and the unauthenticated `auth.repairInstructions` field exactly equals `_format_repair_command(GH_CONFIG_DIR)` output (post-fix shape with `shlex.quote` applied), pinning that the diagnose payload's `auth` block carries the post-cycle-1 shared-formatter output verbatim.
+3. `test_auth_diagnose_when_gh_installed_but_not_authenticated` — fake `gh` whose `auth status` exits non-zero; assert `gh.found is True`, `gh.version` populated, `auth.authenticated is False`, that the unauthenticated `auth.repairCommand` field exactly equals `_format_repair_command(GH_CONFIG_DIR)` output (post-fix shape with `shlex.quote` applied), and that in the gh-missing branch (separate fixture) `auth.repairCommand is None`. Pins that `repairCommand` is populated only when a runnable command exists and that the diagnose payload's `auth` block carries the shared-formatter output verbatim.
 4. `test_auth_diagnose_helper_path_filters_empty_entries` — set `PATH` to `"/a::/b:"` (with empty middle), assert `helperPath == ["/a", "/b"]`.
 5. `test_auth_diagnose_host_uses_gh_host_env` — set `GH_HOST=ghe.example.com`, assert `host == "ghe.example.com"`.
 6. `test_auth_diagnose_host_defaults_to_github_com` — clear `GH_HOST`, assert `host == "github.com"`.
@@ -345,9 +369,10 @@ All test names below. One-line intent each. Tests live in the indicated file.
 8. `test_auth_diagnose_gh_version_returns_none_when_command_fails` — fake `gh --version` exit 1; assert `gh.version is None` while `gh.found is True`.
 9. `test_auth_diagnose_maps_storage_failure_when_workspace_config_raises` — monkeypatch `ensure_workspace_config` to raise `OSError`; dispatch an `auth.diagnose` request through `handle_request`; assert the response is an error envelope with code `storage.failed` (the existing `except OSError` branch at helper.py:159 already maps this; the test pins the contract that the diagnose path participates in it).
 10. `test_format_repair_command_quotes_paths_with_spaces` — assert that for `GH_CONFIG_DIR = "/Users/x/My Stuff/.agendum/gh"`, `_format_repair_command(...)` returns a string containing `'/Users/x/My Stuff/.agendum/gh'` (single-quoted by `shlex.quote`), and that for `GH_CONFIG_DIR = "/Users/x/.agendum/gh"` (no spaces / no shell metacharacters) the returned string is byte-identical to the pre-fix shape — i.e. `shlex.quote` returns the value unchanged and the formatter emits `GH_CONFIG_DIR=/Users/x/.agendum/gh gh auth login` verbatim.
-11. `test_auth_status_repair_instructions_use_shared_formatter` — call `auth.status` in the unauthenticated branch with a `GH_CONFIG_DIR` containing spaces; assert the `repairInstructions` field exactly equals `_format_repair_command(GH_CONFIG_DIR)`. Pins that the helper.py:439 string went through the shared formatter post-fix (single source of truth).
+11. `test_auth_status_repair_command_uses_shared_formatter` — call `auth.status` in the unauthenticated branch with a `GH_CONFIG_DIR` containing spaces; assert the `repairCommand` field exactly equals `_format_repair_command(GH_CONFIG_DIR)`. Pins that the helper.py:439 string went through the shared formatter post-fix (single source of truth).
+12. `test_gh_version_returns_none_for_empty_stdout_on_exit_zero` — monkeypatch `subprocess.run` so `gh --version` returns exit code 0 with stdout `""`; assert `_gh_version(...)` returns `None` (not `""`). Pins the `first_line.strip() or None` branch in `_gh_version`.
 
-(+3 new Python tests from cycle-1 / cycle-2 (1 from cycle-1, 2 from cycle-2); total Python count for §6.1 is 11.)
+(+4 new Python tests from cycle-1 / cycle-2 / cycle-3 (1 from cycle-1, 2 from cycle-2, 1 from cycle-3); total Python count for §6.1 is 12.)
 
 ### 6.2 `Tests/test_backend_helper_process.py`
 
@@ -363,14 +388,15 @@ All test names below. One-line intent each. Tests live in the indicated file.
 2. `testRefreshDiagnosticsFailureSurfacesStructuredErrorAndKeepsPriorResult` — first call succeeds, second call fails via `failNext("authDiagnose", ...)`; assert `model.diagnostics` still equals the first result and `model.diagnosticsError?.code` matches the mapped helper-payload code.
 3. `testRefreshDiagnosticsSuccessClearsDiagnosticsError` — preload a `diagnosticsError` via a failed call, then succeed; assert `model.diagnosticsError == nil` and `model.diagnostics` populated.
 4. `testRefreshDiagnosticsDoesNotChangeIsLoading` — pin the §4.2 contract.
-5. `testCopyAuthLoginCommandWritesHelperFormattedString` — populate `auth.repairInstructions = "GH_CONFIG_DIR='/Users/x/.agendum/gh' gh auth login"` via a fake `refresh()`; call `copyAuthLoginCommand()`; assert the recording pasteboard saw the verbatim helper-formatted string (no Swift-side reassembly).
-6. `testCopyAuthLoginCommandNoOpsWhenAuthMissing` — without calling `refresh()` (or with `repairInstructions == nil`), call `copyAuthLoginCommand()`; assert the recording pasteboard saw zero writes.
-7. `testOpenGHInstallURLInvokesOpenerWithCanonicalURL` — `model.openGHInstallURL()`; assert `RecordingURLOpener` (reused from item 1's tests at design 01 §5.1) recorded one URL equal to `https://cli.github.com/`.
-8. `testRefreshDiagnosticsFailureKeepsGlobalErrorClean` — fail diagnose; assert `model.error == nil` (the existing global error is reserved for dashboard failures, per §4.1).
-9. `testFakeBackendAuthDiagnoseInvocationCount` — pin that `refreshDiagnostics()` issues exactly one `authDiagnose` call to the fake (no double-fetch / no missing fetch).
-10. `testRefreshDiagnosticsBeforeRefreshPopulatesDiagnostics` — with a fresh `BackendStatusModel` (no `refresh()` called), invoke `refreshDiagnostics()` directly; assert `model.diagnostics` is populated and `model.auth` (the model's separate property fed by `refresh()`) remains `nil`/untouched. Pins the first-run path where Settings opens before the dashboard's `refresh()` settles.
+5. `testCopyAuthLoginCommandWritesHelperFormattedString` — populate `auth.repairCommand = "GH_CONFIG_DIR='/Users/x/.agendum/gh' gh auth login"` via a fake `refresh()`; call `copyAuthLoginCommand()`; assert the recording pasteboard saw the verbatim helper-formatted string (no Swift-side reassembly).
+6. `testCopyAuthLoginCommandNoOpsWhenAuthMissing` — without calling `refresh()` (so `auth == nil`), call `copyAuthLoginCommand()`; assert the recording pasteboard saw zero writes.
+7. `testCopyAuthLoginCommandIsNoOpWhenRepairCommandIsNil` — populate `auth` with `repairCommand == nil` (gh-missing branch shape, where `repairInstructions` carries prose but no runnable command exists); call `copyAuthLoginCommand()`; assert the recording pasteboard saw zero writes. Pins the cycle-3 finding that prose-only auth states must not emit a paste.
+8. `testOpenGHInstallURLInvokesOpenerWithCanonicalURL` — `model.openGHInstallURL()`; assert `RecordingURLOpener` (reused from item 1's tests at design 01 §5.1) recorded one URL equal to `https://cli.github.com/`.
+9. `testRefreshDiagnosticsFailureKeepsGlobalErrorClean` — fail diagnose; assert `model.error == nil` (the existing global error is reserved for dashboard failures, per §4.1).
+10. `testFakeBackendAuthDiagnoseInvocationCount` — pin that `refreshDiagnostics()` issues exactly one `authDiagnose` call to the fake (no double-fetch / no missing fetch).
+11. `testRefreshDiagnosticsBeforeRefreshPopulatesDiagnostics` — with a fresh `BackendStatusModel` (no `refresh()` called), invoke `refreshDiagnostics()` directly; assert `model.diagnostics` is populated and `model.auth` (the model's separate property fed by `refresh()`) remains `nil`/untouched. Pins the first-run path where Settings opens before the dashboard's `refresh()` settles.
 
-(+1 new Swift test from cycle-1; total Swift workflow count for §6.4 is 10.)
+(+2 new Swift tests from cycle-1 / cycle-3 (1 from cycle-1, 1 from cycle-3); total Swift workflow count for §6.4 is 11.)
 
 ### 6.5 SwiftUI coverage gap
 
@@ -384,6 +410,7 @@ The `SettingsView` rendering — accessibility identifiers, `LabeledContent` tex
 - **First-run onboarding wizard.** Out of scope. Item 3 is a Settings pane (Cmd-,), not a modal first-run flow. A wizard would compose with this work in a later checkpoint.
 - **Sandbox / Mac App Store implications.** Deferred per `docs/packaging.md` deferred decisions 1, 8, 9, 10. The Settings UI as designed makes no sandbox-incompatible calls (`NSPasteboard.general.setString` is sandbox-safe; `NSWorkspace.shared.open(URL)` is sandbox-safe; `subprocess.run("gh", ...)` is helper-side and sandbox boundaries are the helper's concern, not the app's). No new entitlements introduced. The Finder-launched `PATH` issue is still real and `PATH` will look different inside an MAS-sandboxed bundle than today's developer-build bundle; the diagnostic surface in §5.2 is specifically designed to make that visible to the user, not to fix it.
 - **Editing settings (organizations, sync interval, "mark seen on focus").** Out of scope. The current stub `SettingsView` (lines 589-599) shows three fake editable fields. Item 3 explicitly removes them: none of the three has a backing model field, none is wired to a backend command, and none belongs in a "diagnose / repair gh" pane. Re-introducing real settings is a separate item once the underlying configuration model exists.
+- **Helper-process PATH staleness.** Helper-process PATH is captured at process spawn (`os.environ['PATH']`); clicking Settings → Refresh re-runs `auth.diagnose` inside the same helper process, so PATH changes since launch (e.g. user installs gh after launching the app, or runs `launchctl setenv PATH ...`) will NOT be reflected. The user-visible symptom is a Settings panel that continues to show "GitHub CLI missing" even after a successful install. Mitigation: SettingsView caption (§5.2, "Relaunch Agendum if you've just installed gh — the helper's PATH is captured at launch and won't pick up new installs until restart.") tells the user to relaunch Agendum to pick up a new PATH. Future hardening: re-spawn the helper subprocess from within the app on Refresh, or wire a "Restart helper" action; deferred.
 - **Stale `diagnostics` after workspace switch.** Accepted (§4.7). The user can click Refresh.
 - **Pasteboard contents for multi-byte / spaces in workspace gh-config-dir.** Resolved this slice via the helper-side `shlex.quote(...)` fix at helper.py:439 (§2). The copied command is now safe for paths containing spaces. The Swift side never assembles the string. For paths without shell metacharacters or spaces, `shlex.quote` returns the value unchanged, so the displayed/copied `repairInstructions` is byte-identical to the pre-fix shape. For paths with spaces or shell metacharacters (rare in practice), the string now wraps in single quotes — a deliberate, safer change.
 - **Env-only auth-host mismatch.** If a user authenticates against a non-default host (e.g. `gh auth login --hostname ghe.example.com`) without setting `GH_HOST`, Settings will report `github.com` (from `_default_gh_host`) while `gh auth status` shows `ghe.example.com`. The user-visible symptom is a host mismatch between the displayed host and the auth state. Future hardening: parse `~/.config/gh/hosts.yml` (or the workspace's `GH_CONFIG_DIR/hosts.yml`) to resolve the host. Deferred to a future packaging-decisions checkpoint. Anchored to §8 OQ1 (the env-only recommendation).
