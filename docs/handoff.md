@@ -212,7 +212,7 @@ Add `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template` p
 
 ### App bundle smoke checkpoint (on `codex/app-bundle-smoke`, after the changes listed under Completed)
 - `swift build` passes.
-- `swift test --enable-code-coverage` passes: __SWIFT_TESTS__ Swift tests (__CORE_TESTS__ `AgendumMacCoreTests` + 33 `AgendumMacWorkflowTests`).
+- `swift test --enable-code-coverage` passes: 47 Swift tests (14 `AgendumMacCoreTests` + 33 `AgendumMacWorkflowTests`).
 - `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 48 tests (no Python changes).
 - `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 464/505 lines (91.9%) for `Backend/agendum_backend/helper.py` (no backend changes).
 - `git diff --check` passes.
