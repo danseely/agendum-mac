@@ -42,11 +42,11 @@ Per the existing project gates (see `docs/testing.md` + recent handoff entries):
 
 ## Current State
 
-- Anchor commit: `feature/mac-prototype` at `c4a6b5a` (post-PR-#19 squash merge tip).
-- Active item: **4** (keyboard shortcuts + menu coverage).
-- Active branch: `codex/item-4-shortcuts-menus`, branched from `c4a6b5a`.
+- Anchor commit: `feature/mac-prototype` at `158954c` (post-PR-#20 squash merge tip).
+- Active item: **5** (notifications + dock badge for sync results) — the LAST item in the orchestration.
+- Active branch: `codex/item-5-notifications-badge`, branched from `158954c`.
 - Phase: **design** — awaiting `crew:reviewer` cycle-1 dispatch on the in-flight design doc.
-- Pending working-tree contents on this branch: planning-doc roll-forward (`docs/status.md`, `docs/handoff.md`, `docs/plan.md`, `docs/orchestration-plan.md`) absorbed from the post-PR-#19 update; the design doc `docs/design/04-shortcuts-menus.md` will be authored next.
+- Pending working-tree contents on this branch: planning-doc roll-forward (`docs/status.md`, `docs/handoff.md`, `docs/plan.md`, `docs/orchestration-plan.md`) absorbed from the post-PR-#20 update; the design doc `docs/design/05-notifications-badge.md` is authored on this branch.
 
 ## Progress Log
 
@@ -56,3 +56,4 @@ Append a one-line entry per phase transition with timestamp, item index, phase, 
 - 2026-05-03: item 1 PR #17 (open task URL action) merged into `feature/mac-prototype` (squash merge `c2a6d97`); item 2 branch `codex/item-2-task-list-filtering` created from `c2a6d97`; item 2 design phase started with `docs/design/02-task-list-filtering.md`.
 - 2026-05-03: item 2 PR #18 (task list filtering UI) merged into `feature/mac-prototype` (squash merge `c29c630`); item 3 branch `codex/item-3-settings-auth-repair` created from `c29c630`; item 3 design phase started with `docs/design/03-settings-auth-repair.md`.
 - 2026-05-03: item 3 PR #19 (settings / auth-repair UI) merged into `feature/mac-prototype` (squash merge `c4a6b5a`); item 4 branch `codex/item-4-shortcuts-menus` created from `c4a6b5a`; item 4 design phase started.
+- 2026-05-03: item 4 PR #20 (keyboard shortcuts + menu coverage) merged into `feature/mac-prototype` (squash merge `158954c`); item 5 branch `codex/item-5-notifications-badge` created from `158954c`; item 5 design phase started with `docs/design/05-notifications-badge.md`.
