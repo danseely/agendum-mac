@@ -120,10 +120,10 @@ static var defaultBadgeSetter: BadgeSetting {
         MainActor.assumeIsolated {
             let label: String? = count > 0 ? String(count) : nil
             NSApplication.shared.dockTile.badgeLabel = label
-            // dockTile.display() is unnecessary for badgeLabel writes; the
-            // dock tile re-renders automatically when badgeLabel changes.
-            // We omit the call to keep the seam allocation-free and
-            // predictable in tests.
+            // macOS redraws the dock tile automatically on `badgeLabel`
+            // writes from the main actor; `display()` is required only when
+            // drawing custom content via `setContentView(_:)`. We are not
+            // setting custom content, so it is omitted.
         }
     }
 }
@@ -133,7 +133,7 @@ Notes:
 
 - `MainActor.assumeIsolated` is safe because the App-layer call site (`.onChange(of: ...)` on a SwiftUI body) is already main-actor-bound; the assumption is documentation, not a runtime contract change. If a future caller invokes this from a non-main context, `assumeIsolated` traps in debug builds and we add an `await MainActor.run { ... }` wrapper instead. For item 5 every call site is main-actor, so the trap path is unreachable.
 - `count > 0 ? String(count) : nil` enforces the badge-clearing rule (count == 0 ⇒ no badge).
-- `dockTile.display()` is intentionally omitted — `badgeLabel` is a published property that triggers redraw on its own. Writing it through `display()` would also work but adds a second main-actor call per badge change.
+- `dockTile.display()` is intentionally omitted — macOS redraws the dock tile automatically on `badgeLabel` writes from the main actor; `display()` is required only when drawing custom content via `setContentView(_:)`. We are not setting custom content, so it is omitted.
 
 ### 3.4 Initializer parameters
 
@@ -228,7 +228,7 @@ Notes:
 
 - The post is the LAST thing `forceSync` does on every terminal path. Test assertions can therefore observe the post deterministically after `await model.forceSync()` returns; no additional polling required.
 - Three terminal paths: (a) `client.forceSync()` returns and the resulting `sync?.state` is anything other than `"error"` — post the success body; (b) `client.forceSync()` returns BUT `sync?.state == "error"` — synthesize a `PresentedError(message: sync?.lastError ?? "Unknown error.")` and route through the shared `postSyncCompletedNotification(success:failure:)` helper; (c) `client.forceSync()` throws — route through the same shared helper using `PresentedError.from(error)`. Branches (b) and (c) call the SAME `postSyncCompletedNotification(success:failure:)` helper, so the failure-body template (`"Sync failed: \(suffix)"`) lives in exactly one site. All three share the identifier `"agendum.sync.completed"` so macOS coalesces banners across repeated syncs.
-- The (b) branch deliberately does NOT clobber `self.error`. Item 3's error-propagation contract already determines when `self.error` is populated from `sync?.lastError` (see `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift:320` for the `errorMessage` shim that reads `error?.message`). The notification post is an additive surface; it must not interfere with the existing error-state contract.
+- The (b) branch deliberately does NOT clobber `self.error`. Item 3's error-propagation contract already determines when `self.error` is populated from `sync?.lastError` (see `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift:320` for the `errorMessage` shim that reads `error?.message`). The notification post is an additive surface; it must not interfere with the existing error-state contract. Branch (b) intentionally leaves `self.error` untouched to preserve item-3's contract; the notification is the user-visible signal for backend-reported sync errors. The dashboard error caption stays empty on this branch on purpose — see §7's "Synthesized `PresentedError` on branch (b) is notification-only" bullet for the full rationale.
 - Pluralization is computed inline; no `Foundation.NumberFormatter`-style ceremony.
 - The shared identifier `"agendum.sync.completed"` ensures repeated syncs replace the previous banner instead of cluttering the user's notification center with N copies.
 
@@ -272,8 +272,14 @@ Add to `TaskDashboardView.body` after the existing `.onChange(of: selectedTask)`
     backendStatus.setBadgeForAttentionCount()
 }
 .task {
-    // Prime the badge on first appear so a relaunch with attention items
-    // already in flight shows the dock badge without waiting for a sync.
+    // Prime on first appear runs alongside the existing
+    // `await backendStatus.refresh()` `.task`. SwiftUI does not order
+    // multiple `.task` blocks, so the prime typically clears any stale
+    // badge value (since `attentionItemCount == 0` until a sync result
+    // arrives) and the subsequent `.onChange(of: hasAttentionItems)`
+    // repopulates the badge once `refresh()` settles. Net behavior is
+    // correct; this `.task` is a cheap cold-start hedge, not a
+    // load-bearing populator.
     backendStatus.setBadgeForAttentionCount()
 }
 ```
@@ -421,10 +427,10 @@ Notification posts:
 
 1. `testForceSyncSuccessPostsCompletionNotification` — fake backend returns a successful `sync.force` followed by `sync.status` with `state == "completed"` and `hasAttentionItems == false`; await `model.forceSync()`; assert `notifier.posted.count == 1`, identifier `"agendum.sync.completed"`, title `"Agendum"`, body contains `"Sync complete."`.
 2. `testForceSyncSuccessWithAttentionItemsIncludesCountInBody` — same as #1 but `hasAttentionItems == true`; assert body contains `"1 attention item"` (singular pluralization).
-3. `testForceSyncFailurePostsFailureNotification` — fake `forceSync` throws a structured `BackendClientError`; await `model.forceSync()`; assert `notifier.posted.count == 1`, that the body contains `"Sync failed:"`, and that the body contains the presented message via `XCTAssertTrue(body.contains(presented.message))` (substring rather than equality so future copy-edits to the body template don't break the test). ALSO assert that the existing item-3 error-propagation contract is preserved: `XCTAssertEqual(model.error?.message, presented.message)` after `forceSync()` returns. The notification post must be additive — it must NOT clobber or replace the structured `error` surfacing on the model. Coverage extends to backend-reported error states (the `sync?.state == "error"` branch in §3.5): a sibling test `testForceSyncBackendReportedErrorPostsFailureNotification` exercises the throw-free "state == error" path and asserts the body contains `sync.lastError`.
-4. `testForceSyncSuppressedNotifierDoesNotCrashAndPostsNothing` — use `RecordingNotifier(suppressed: true)`; await `model.forceSync()` on the success path; assert `notifier.posted.isEmpty` and `model.error == nil`. ALSO exercise the failure path with the same suppressed recorder: configure the fake to throw a `BackendClientError` on `forceSync`, await `model.forceSync()`, and assert `notifier.posted.isEmpty` (suppressed seam doesn't crash on the failure branch either) AND `model.error != nil` (the structured-error contract still populates `self.error` even when notifications are suppressed).
+3. `testForceSyncFailurePostsFailureNotification` — fake `forceSync` throws a structured `BackendClientError`; await `model.forceSync()`; assert `notifier.posted.count == 1`, that the body contains `"Sync failed:"`, and that the body contains the presented message via `XCTAssertTrue(body.contains(presented.message))` (substring rather than equality so future copy-edits to the body template don't break the test). ALSO assert that the existing item-3 error-propagation contract is preserved: `XCTAssertEqual(model.error?.message, presented.message)` after `forceSync()` returns. The notification post must be additive — it must NOT clobber or replace the structured `error` surfacing on the model. Coverage extends to backend-reported error states (the `sync?.state == "error"` branch in §3.5): a sibling test `testForceSyncBackendReportedErrorPostsFailureNotification` exercises the throw-free "state == error" path and asserts the body contains `"Sync failed:"` and the value of `sync.lastError`. That sibling test ALSO asserts `XCTAssertNil(model.error)` after `forceSync()` returns (or `XCTAssertEqual(model.error?.message, priorErrorMessage)` if the test seeded an existing error before the call) to pin the intentional `self.error == nil` gap on branch (b) per §3.5.
+4. `testForceSyncSuppressedNotifierDoesNotCrashAndPostsNothing` — use `RecordingNotifier(suppressed: true)`; await `model.forceSync()` on the success path; assert `notifier.posted.isEmpty` and `model.error == nil`. ALSO exercise the failure path with the same suppressed recorder: configure the fake to throw a `BackendClientError` on `forceSync`, await `model.forceSync()`, and assert `notifier.posted.isEmpty` (suppressed seam doesn't crash on the failure branch either) AND `model.error != nil` (the structured-error contract still populates `self.error` even when notifications are suppressed). ALSO exercise branch (b) with the same suppressed recorder: configure a fake whose `forceSync` returns `SyncStatus(state: "error", lastError: "...")` without throwing, await `model.forceSync()`, and assert `notifier.posted.isEmpty` AND `model.error == nil` (matching the §3.5 intentional-gap contract from finding 1).
 5. `testForceSyncShareSingleNotificationIdentifier` — call `model.forceSync()` twice (both success); assert both posts carry the same identifier `"agendum.sync.completed"` (so macOS coalesces them rather than stacking duplicates).
-6. `testForceSyncPostsSuccessBodyForNonErrorStates` — defensive pin on the §3.5 classifier. Use a `FakeBackend` that returns `sync.state == "idle"` (or another current non-error value used by today's helper) AND that does NOT throw from `forceSync`; await `model.forceSync()`; assert the notification body uses the success template (e.g. `body.contains("Sync complete")` and NOT `body.contains("Sync failed")`). If the helper protocol introduces a new failure-shaped state value (e.g. `"degraded"`, `"partial"`), this test must be updated alongside the classifier in `forceSync`.
+6. `testForceSyncPostsSuccessBodyForNonErrorStates` — defensive pin on the §3.5 classifier; intent is bidirectional so a polarity flip in the classifier (success vs failure routing) fails at least one assertion in the pair below. Use a `FakeBackend` that returns `sync.state == "idle"` (or another current non-error value used by today's helper) AND that does NOT throw from `forceSync`; await `model.forceSync()`; assert the notification body uses the success template (`body.contains("Sync complete")` AND NOT `body.contains("Sync failed")`). ALSO add an explicit "error direction" assertion (either inline as a second sub-case or folded into the branch-(b) sibling test from #3): with `forceSync` returning `SyncStatus(state: "error", lastError: "boom")` non-throwingly, assert the body contains `"Sync failed:"` AND the value of `sync.lastError` (e.g. `"boom"`). The two directions together pin the bidirectional classifier. If the helper protocol introduces a new failure-shaped state value (e.g. `"degraded"`, `"partial"`), this test must be updated alongside the classifier in `forceSync`.
 
 Badge updates:
 
@@ -461,7 +467,7 @@ Initializer wiring:
 Per `docs/orchestration-plan.md` §Validation Gates:
 
 - `swift build` passes.
-- `swift test --enable-code-coverage` passes; expect `AgendumMacWorkflowTests` count to grow by approximately +14 tests (#1-#15 in §5.2; #15's lighter form may fold into another test).
+- `swift test --enable-code-coverage` passes; expect `AgendumMacWorkflowTests` count to grow by approximately +15 tests (#1-#15 in §5.2 plus the `testForceSyncBackendReportedErrorPostsFailureNotification` sibling under #3; #15's lighter form may fold into another test).
 - `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes (Python helper unchanged).
 - `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes (no helper changes; coverage stays at the post-PR-#19 baseline ≥ 91%).
 - `git diff --check` passes.
@@ -490,6 +496,7 @@ This change is not service-shaped (no new helper command, no new bridge surface,
 - **Testing notification posts under different authorization states.** We don't fake `UNUserNotificationCenter` authorization. The §5 tests exercise the seam's contract (suppressed vs not) rather than the system framework's behavior. A future hardening could introduce a `NotificationAuthorizing` seam to fake `getNotificationSettings()`; deferred because the current `RecordingNotifier(suppressed: true)` covers the same behavior with less surface area.
 - **Stale dock badge after app quit.** macOS preserves `dockTile.badgeLabel` until the app is relaunched and explicitly clears it. The §4.1 `.task { backendStatus.setBadgeForAttentionCount() }` prime ensures the badge re-syncs to the live `hasAttentionItems` value on first appear, replacing whatever stale value the dock was showing.
 - **Forward-compatibility of `state == "error"` classifier.** §3.5 treats any non-`"error"` value as a success outcome. If the helper protocol later adds a new failure-shaped state (e.g. `"degraded"`, `"partial"`), users will see a success banner for a partially-failed sync until both the classifier and a sibling test are updated. The fix is one line in `forceSync`; tracked in the orchestrator's External Deltas list when the helper protocol changes.
+- **Synthesized `PresentedError` on branch (b) is notification-only.** §3.5 routes branch (b) through the shared `postSyncCompletedNotification(success:failure:)` helper by synthesizing `PresentedError(message: suffix)` with no `code` and no `recovery`. This synthesized error is intentionally never assigned to `self.error` — it exists only to feed the failure-body template. Item 3's structured-error surface remains the contract for thrown errors only; branch (b) deliberately diverges so the dashboard error caption is not painted by backend-reported sync states. Future hardening (e.g. per-state UX) is deferred to a later checkpoint.
 - **Notification body on failure leaks structured-error message.** Acceptable. The structured `PresentedError.message` is already user-facing in the dashboard error caption; surfacing it in the notification body is consistent with that. Sensitive-information concerns (e.g. the body containing a token or a path) are not in scope because `PresentedError.message` is curated by the helper or by the `BackendClientError` mapping in `PresentedError.from(_:)`.
 
 ## 8. Open questions for orchestrator
