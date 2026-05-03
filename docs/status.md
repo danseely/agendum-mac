@@ -147,7 +147,7 @@ Adding `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template
 - None.
 
 ## Next
-- Run `gh pr view <N>` (replace `<N>` with the PR number once opened) and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
+- Run `gh pr view 16` (replace `16` with the PR number once opened) and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
 - After this checkpoint merges, route the seven still-deferred packaging decisions (channel, signing, notarization, Python runtime, helper layout, `gh` posture, `~/.agendum` path) to the user before scoping the next code-bearing packaging slice.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.

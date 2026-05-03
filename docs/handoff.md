@@ -1,7 +1,7 @@
 # Handoff
 
 ## Current objective
-Add `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template` producing an unsigned `.app` smoke bundle on `codex/app-bundle-smoke` → `feature/mac-prototype`. Live PR/CI/review state lives in `gh pr view <N>`.
+Add `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template` producing an unsigned `.app` smoke bundle on `codex/app-bundle-smoke` → `feature/mac-prototype`. Live PR/CI/review state lives in `gh pr view 16`.
 
 ## Branch
 `codex/app-bundle-smoke`, branched from updated `feature/mac-prototype` after PR #15 merged.
@@ -378,7 +378,7 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Run `gh pr view <N>` and `gh pr checks <N>` for the app-bundle-smoke PR once opened, then branch on the result:
+1. Run `gh pr view 16` and `gh pr checks 16` for the app-bundle-smoke PR once opened, then branch on the result:
    - CI failing: investigate and push fixes to `codex/app-bundle-smoke`.
    - CI green, no review yet: run a blind review pass; address findings as new commits.
    - Review clean, PR still draft: mark ready.
