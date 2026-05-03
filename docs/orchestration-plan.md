@@ -42,11 +42,10 @@ Per the existing project gates (see `docs/testing.md` + recent handoff entries):
 
 ## Current State
 
-- Anchor commit: `feature/mac-prototype` at `158954c` (post-PR-#20 squash merge tip).
-- Active item: **5** (notifications + dock badge for sync results) — the LAST item in the orchestration.
-- Active branch: `codex/item-5-notifications-badge`, branched from `158954c`.
-- Phase: **design** — awaiting `crew:reviewer` cycle-1 dispatch on the in-flight design doc.
-- Pending working-tree contents on this branch: planning-doc roll-forward (`docs/status.md`, `docs/handoff.md`, `docs/plan.md`, `docs/orchestration-plan.md`) absorbed from the post-PR-#20 update; the design doc `docs/design/05-notifications-badge.md` is authored on this branch.
+- Anchor commit: `feature/mac-prototype` at `4172378` (post-PR-#21 squash merge tip).
+- Active item: **none — orchestration complete**.
+- Active branch: **none** (a short-lived `codex/post-orchestration-handoff` branch carries this docs PR but does not advance any item).
+- Phase: **closed**.
 
 ## Progress Log
 
@@ -57,3 +56,4 @@ Append a one-line entry per phase transition with timestamp, item index, phase, 
 - 2026-05-03: item 2 PR #18 (task list filtering UI) merged into `feature/mac-prototype` (squash merge `c29c630`); item 3 branch `codex/item-3-settings-auth-repair` created from `c29c630`; item 3 design phase started with `docs/design/03-settings-auth-repair.md`.
 - 2026-05-03: item 3 PR #19 (settings / auth-repair UI) merged into `feature/mac-prototype` (squash merge `c4a6b5a`); item 4 branch `codex/item-4-shortcuts-menus` created from `c4a6b5a`; item 4 design phase started.
 - 2026-05-03: item 4 PR #20 (keyboard shortcuts + menu coverage) merged into `feature/mac-prototype` (squash merge `158954c`); item 5 branch `codex/item-5-notifications-badge` created from `158954c`; item 5 design phase started with `docs/design/05-notifications-badge.md`.
+- 2026-05-03: item 5 PR #21 (notifications + dock badge for sync results) merged into feature/mac-prototype (squash merge 4172378); five-item orchestration COMPLETE. No further items in queue. Final test totals: 119 Swift / 61 Python / 92.4% backend coverage.
