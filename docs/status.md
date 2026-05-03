@@ -1,9 +1,9 @@
 # Status
 
-Last updated: 2026-05-02
+Last updated: 2026-05-03
 
 ## Current milestone
-Adding `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template` on `codex/app-bundle-smoke` after PR #15 (packaging matrix doc) merged. Builds an unsigned developer-convenience `.app` at `.build/Agendum.app` from the SwiftPM `AgendumMac` release product. Bundle identity, version policy, and helper-discovery contract are recorded in `docs/decisions.md`. The seven other packaging decisions remain deferred. CI gains a single bundle-smoke step.
+PR #16 (`Add unsigned .app smoke bundle`) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `12cf468`). The unsigned developer-convenience `.app` builder is in place; bundle identity, version policy, and helper-discovery contract are recorded in `docs/decisions.md`. The next code-bearing packaging slice is gated on user input for the seven still-deferred packaging decisions in `docs/packaging.md` (channel, signing, notarization, Python runtime, helper layout, `gh` posture, `~/.agendum` path). Alternative non-packaging checkpoints (e.g. richer task list filtering, settings UI for auth repair) remain available if the user prefers to defer the packaging-decision routing.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -139,16 +139,18 @@ Adding `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template
 - Fast-forwarded local `feature/mac-prototype` to `e05efa7` and created `codex/packaging-matrix-doc` from the updated tip for the packaging-matrix doc checkpoint.
 - PR #15 (packaging matrix doc) merged into `feature/mac-prototype` on 2026-05-02 (squash merge `3e4e34a`).
 - Fast-forwarded local `feature/mac-prototype` to `3e4e34a` and created `codex/app-bundle-smoke` from the updated tip for the unsigned `.app` bundle smoke checkpoint.
+- PR #16 (unsigned `.app` smoke bundle) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `12cf468`).
+- Fast-forwarded local `feature/mac-prototype` to `12cf468` and pruned the merged `codex/app-bundle-smoke` and earlier merged `codex/*` remote refs.
 
 ## In progress
-- Drafting `Scripts/build_app_bundle.sh` and `Sources/AgendumMac/Info.plist.template` plus the helper-discovery regression test on `codex/app-bundle-smoke`. Builds an unsigned developer-convenience `.app` at `.build/Agendum.app` from the SwiftPM release product. Bundle identity, version policy, and helper-discovery contract are recorded in `docs/decisions.md`. The seven other packaging decisions remain deferred.
+- None. Awaiting user routing on the seven still-deferred packaging decisions in `docs/packaging.md` before scoping the next code-bearing packaging slice. No short-lived branch is open.
 
 ## Blocked
-- None.
+- None at the implementation level. The next code-bearing packaging slice is decision-gated; alternative non-packaging checkpoints remain available.
 
 ## Next
-- Run `gh pr view 16` and branch on PR/CI/review state: CI failing → push fixes; green and unreviewed → run review; review clean and draft → mark ready; merged → fast-forward and pick next checkpoint.
-- After this checkpoint merges, route the seven still-deferred packaging decisions (channel, signing, notarization, Python runtime, helper layout, `gh` posture, `~/.agendum` path) to the user before scoping the next code-bearing packaging slice.
+- Route the seven still-deferred packaging decisions in `docs/packaging.md` (channel, signing, notarization, Python runtime, helper layout, `gh` posture, `~/.agendum` path) to the user. Record answers in `docs/decisions.md`.
+- Or, if the user defers the packaging routing, pick an alternative checkpoint (e.g. richer task list filtering, settings/auth-repair UI) and create a new `codex/*` short-lived branch from current `feature/mac-prototype`.
 - Keep CI aligned with local validation as new test layers are added.
 - Keep `main` README-only until the prototype is ready.
 - Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
