@@ -42,14 +42,15 @@ Per the existing project gates (see `docs/testing.md` + recent handoff entries):
 
 ## Current State
 
-- Anchor commit: `feature/mac-prototype` at `12cf468` (post-PR-#16 squash merge tip).
-- Active item: **1** (open task URL).
-- Active branch: `codex/item-1-open-task-url`, branched from `12cf468`.
-- Phase: **design** — awaiting `crew:builder` design-author dispatch.
-- Pending working-tree contents on this branch before any item-1 design work: planning-doc roll-forward (`docs/status.md`, `docs/handoff.md`, `docs/plan.md`) absorbed from the post-PR-#16 update.
+- Anchor commit: `feature/mac-prototype` at `c2a6d97` (post-PR-#17 squash merge tip).
+- Active item: **2** (task list filtering UI).
+- Active branch: `codex/item-2-task-list-filtering`, branched from `c2a6d97`.
+- Phase: **design** — awaiting `crew:reviewer` cycle-1 dispatch on the in-flight design doc.
+- Pending working-tree contents on this branch: planning-doc roll-forward (`docs/status.md`, `docs/handoff.md`, `docs/plan.md`, `docs/orchestration-plan.md`) absorbed from the post-PR-#17 update, plus the new `docs/design/02-task-list-filtering.md` design doc.
 
 ## Progress Log
 
 Append a one-line entry per phase transition with timestamp, item index, phase, and pointer (PR, commit, or doc).
 
 - 2026-05-03: orchestration plan created on `codex/item-1-open-task-url`; planning docs rolled forward; item 1 design phase about to start.
+- 2026-05-03: item 1 PR #17 (open task URL action) merged into `feature/mac-prototype` (squash merge `c2a6d97`); item 2 branch `codex/item-2-task-list-filtering` created from `c2a6d97`; item 2 design phase started with `docs/design/02-task-list-filtering.md`.

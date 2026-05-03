@@ -3,7 +3,7 @@
 Last updated: 2026-05-03
 
 ## Current milestone
-PR #16 (`Add unsigned .app smoke bundle`) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `12cf468`). The unsigned developer-convenience `.app` builder is in place; bundle identity, version policy, and helper-discovery contract are recorded in `docs/decisions.md`. The next code-bearing packaging slice is gated on user input for the seven still-deferred packaging decisions in `docs/packaging.md` (channel, signing, notarization, Python runtime, helper layout, `gh` posture, `~/.agendum` path). Alternative non-packaging checkpoints (e.g. richer task list filtering, settings UI for auth repair) remain available if the user prefers to defer the packaging-decision routing.
+Item 2 (task list filtering UI) of the five-item live-slice orchestration in `docs/orchestration-plan.md` is the active checkpoint. The goal is to surface the existing `task.list` filter parameters (`source`, `status`, `project`, `includeSeen`, `limit`) as user controls in the SwiftUI dashboard. The backend helper already implements all five filters (`Backend/agendum_backend/helper.py::list_tasks`) and the Swift client already exposes them through `BackendClient.listTasks(source:status:project:includeSeen:limit:)`; the work is Swift-only — workflow-model state in `AgendumMacWorkflow` plus SwiftUI controls in `Sources/AgendumMac/AgendumMacApp.swift`. No helper protocol changes are expected.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -141,17 +141,19 @@ PR #16 (`Add unsigned .app smoke bundle`) merged into `feature/mac-prototype` on
 - Fast-forwarded local `feature/mac-prototype` to `3e4e34a` and created `codex/app-bundle-smoke` from the updated tip for the unsigned `.app` bundle smoke checkpoint.
 - PR #16 (unsigned `.app` smoke bundle) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `12cf468`).
 - Fast-forwarded local `feature/mac-prototype` to `12cf468` and pruned the merged `codex/app-bundle-smoke` and earlier merged `codex/*` remote refs.
+- PR #17 (item 1 — open task URL detail action) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c2a6d97`). Item 1 of the five-item orchestration in `docs/orchestration-plan.md` is complete; the detail-pane "Open in Browser" action now routes through `BackendStatusModel.openTaskURL(id:)` with structured per-task error reporting and an injectable `URLOpening` seam. The PR also included an in-scope drive-by fix to `BackendClientConfiguration.firstAncestor` that resolved an infinite-loop bug introduced in PR #16.
+- Fast-forwarded local `feature/mac-prototype` to `c2a6d97` after the PR #17 merge and created `codex/item-2-task-list-filtering` from the updated tip for the item-2 design phase.
 
 ## In progress
-- None. Awaiting user routing on the seven still-deferred packaging decisions in `docs/packaging.md` before scoping the next code-bearing packaging slice. No short-lived branch is open.
+- Item 2 (task list filtering UI) is in the design phase on `codex/item-2-task-list-filtering`. The design doc `docs/design/02-task-list-filtering.md` is being authored to cover filter state shape on `BackendStatusModel`, SwiftUI control placement, the workspace-switch reset rule, and the test plan. No implementation work has started; the build phase begins after the design clears review cycle 1.
 
 ## Blocked
-- None at the implementation level. The next code-bearing packaging slice is decision-gated; alternative non-packaging checkpoints remain available.
+- None at the implementation level. Packaging-decision routing is still deferred per `docs/packaging.md` but is not blocking item-2 work.
 
 ## Next
-- Route the seven still-deferred packaging decisions in `docs/packaging.md` (channel, signing, notarization, Python runtime, helper layout, `gh` posture, `~/.agendum` path) to the user. Record answers in `docs/decisions.md`.
-- Or, if the user defers the packaging routing, pick an alternative checkpoint (e.g. richer task list filtering, settings/auth-repair UI) and create a new `codex/*` short-lived branch from current `feature/mac-prototype`.
-- Keep CI aligned with local validation as new test layers are added.
-- Keep `main` README-only until the prototype is ready.
-- Use short-lived branches and PRs for all changes targeting `feature/mac-prototype`.
-- Keep `feature/mac-prototype` as the broad integration branch.
+- Complete the item-2 design doc and submit it for cycle-1 review. Revise per reviewer findings until none remain.
+- Once design is approved, build item 2 on `codex/item-2-task-list-filtering`: workflow-model filter state plus SwiftUI controls, fake-backed tests, and a smoke launch.
+- Review the item-2 PR (blind cycle), then validate the standard project gates (`swift build`, `swift test --enable-code-coverage`, `/opt/homebrew/bin/python3 -m unittest discover -s Tests`, `/opt/homebrew/bin/python3 Scripts/python_coverage.py`, `git diff --check`, `swift run AgendumMac` smoke).
+- Ship item 2 (squash merge into `feature/mac-prototype`, fast-forward local, prune branches).
+- Start item 3 (settings / auth-repair UI) per `docs/orchestration-plan.md` §Items.
+- Keep CI aligned with local validation as new test layers are added; keep `main` README-only until the prototype is ready; keep `feature/mac-prototype` as the broad integration branch and use short-lived `codex/*` branches and PRs for all changes targeting it.

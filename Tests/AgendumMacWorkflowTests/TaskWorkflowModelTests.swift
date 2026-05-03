@@ -682,6 +682,238 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertTrue(model.taskActionErrors.isEmpty)
     }
 
+    func testApplyFiltersSendsExactPayload() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        let filters = TaskListFilters(
+            source: "pr_review",
+            status: "review received",
+            project: "agendum",
+            includeSeen: false,
+            limit: 100
+        )
+        await model.applyFilters(filters)
+
+        let call = await backend.lastListTasksCall
+        XCTAssertEqual(
+            call,
+            ListTasksCall(source: "pr_review", status: "review received", project: "agendum", includeSeen: false, limit: 100)
+        )
+    }
+
+    func testApplyFiltersTriggersExactlyOneReload() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        let callsBefore = await backend.calls
+        let listCountBefore = callsBefore.filter { $0 == "listTasks" }.count
+
+        await model.applyFilters(TaskListFilters(status: "open"))
+
+        let callsAfter = await backend.calls
+        let listCountAfter = callsAfter.filter { $0 == "listTasks" }.count
+        XCTAssertEqual(listCountAfter, listCountBefore + 1)
+        XCTAssertEqual(callsAfter.last, "listTasks")
+    }
+
+    func testApplyFiltersIsNoOpWhenFiltersUnchanged() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        let callsBefore = await backend.calls
+        let listCountBefore = callsBefore.filter { $0 == "listTasks" }.count
+
+        await model.applyFilters(.default)
+
+        let callsAfter = await backend.calls
+        let listCountAfter = callsAfter.filter { $0 == "listTasks" }.count
+        XCTAssertEqual(listCountAfter, listCountBefore)
+    }
+
+    func testApplyFiltersDefaultClearsAllFilters() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        await model.applyFilters(TaskListFilters(
+            source: "pr_review",
+            status: "open",
+            project: "agendum",
+            includeSeen: false,
+            limit: 100
+        ))
+        await model.applyFilters(.default)
+
+        let call = await backend.lastListTasksCall
+        XCTAssertEqual(
+            call,
+            ListTasksCall(source: nil, status: nil, project: nil, includeSeen: true, limit: 50)
+        )
+    }
+
+    func testSelectWorkspaceResetsFilters() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        await model.applyFilters(TaskListFilters(
+            source: "pr_review",
+            status: "open",
+            project: "agendum",
+            includeSeen: false,
+            limit: 100
+        ))
+
+        await backend.setTasks([task(id: 22, title: "Org task", source: "manual")])
+        await model.selectWorkspace(id: "example-org")
+
+        XCTAssertEqual(model.filters, .default)
+        let call = await backend.lastListTasksCall
+        XCTAssertEqual(
+            call,
+            ListTasksCall(source: nil, status: nil, project: nil, includeSeen: true, limit: 50)
+        )
+    }
+
+    func testSelectWorkspaceFailureAlsoResetsFilters() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        await model.applyFilters(TaskListFilters(status: "open", limit: 100))
+        await backend.failNext("selectWorkspace", message: "select failed")
+
+        await model.selectWorkspace(id: "example-org")
+
+        XCTAssertEqual(model.filters, .default)
+        XCTAssertNotNil(model.error)
+    }
+
+    func testApplyFiltersFailureSetsGlobalErrorAndPreservesFilters() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        await model.applyFilters(TaskListFilters(status: "open"))
+        await backend.failNext("listTasks", message: "list failed")
+
+        let attempted = TaskListFilters(status: "review received", limit: 100)
+        await model.applyFilters(attempted)
+
+        XCTAssertNotNil(model.error?.message)
+        XCTAssertEqual(model.taskActionErrors, [:])
+        XCTAssertEqual(model.filters, attempted)
+    }
+
+    func testRefreshUsesCurrentFilters() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        let filters = TaskListFilters(source: "manual", status: "done", limit: 25)
+        await model.applyFilters(filters)
+        await backend.resetCalls()
+
+        await model.refresh()
+
+        let call = await backend.lastListTasksCall
+        XCTAssertEqual(
+            call,
+            ListTasksCall(source: "manual", status: "done", project: nil, includeSeen: true, limit: 25)
+        )
+    }
+
+    func testForceSyncUsesCurrentFilters() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        let filters = TaskListFilters(source: "pr_authored", limit: 100)
+        await model.applyFilters(filters)
+        await backend.resetCalls()
+
+        await model.forceSync()
+
+        let call = await backend.lastListTasksCall
+        XCTAssertEqual(
+            call,
+            ListTasksCall(source: "pr_authored", status: nil, project: nil, includeSeen: true, limit: 100)
+        )
+    }
+
+    func testPerformTaskActionReloadUsesCurrentFilters() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17, source: "pr_review", seen: false)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        let filters = TaskListFilters(status: "review received", limit: 25)
+        await model.applyFilters(filters)
+        await backend.resetCalls()
+
+        await model.markSeen(id: 17)
+
+        let call = await backend.lastListTasksCall
+        XCTAssertEqual(
+            call,
+            ListTasksCall(source: nil, status: "review received", project: nil, includeSeen: true, limit: 25)
+        )
+    }
+
+    func testCreateManualTaskReloadHonorsActiveFilters() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 99, title: "Created", source: "manual")])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        await model.refresh()
+
+        let filters = TaskListFilters(source: "manual", limit: 100)
+        await model.applyFilters(filters)
+        await backend.resetCalls()
+
+        let succeeded = await model.createManualTask(title: "new", project: nil, tags: nil)
+
+        XCTAssertTrue(succeeded)
+        XCTAssertEqual(model.tasks.map(\.id), [99])
+        let call = await backend.lastListTasksCall
+        XCTAssertEqual(
+            call,
+            ListTasksCall(source: "manual", status: nil, project: nil, includeSeen: true, limit: 100)
+        )
+    }
+
+    func testInitialFiltersAreDefault() {
+        let backend = FakeBackend()
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        XCTAssertEqual(model.filters, .default)
+    }
+
+    func testListTasksDefaultIsByteIdenticalToPriorBehavior() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        await model.refresh()
+
+        let call = await backend.lastListTasksCall
+        XCTAssertEqual(
+            call,
+            ListTasksCall(source: nil, status: nil, project: nil, includeSeen: true, limit: 50)
+        )
+    }
+
     func testTaskActionsIncludingOpenURLDoNotInterfereWithEachOther() async throws {
         let backend = FakeBackend()
         await backend.setTasks([
@@ -737,8 +969,17 @@ private actor SleepRecorder {
     }
 }
 
+struct ListTasksCall: Equatable {
+    let source: String?
+    let status: String?
+    let project: String?
+    let includeSeen: Bool
+    let limit: Int
+}
+
 private actor FakeBackend: AgendumBackendServicing {
     private(set) var calls: [String] = []
+    private(set) var lastListTasksCall: ListTasksCall?
     private var failures: [String: any Error] = [:]
     private var current = workspace(id: "base", namespace: nil, isCurrent: true)
     private var workspaceOptions = [
@@ -804,6 +1045,13 @@ private actor FakeBackend: AgendumBackendServicing {
     }
 
     func listTasks(source: String?, status: String?, project: String?, includeSeen: Bool, limit: Int) async throws -> [AgendumTask] {
+        lastListTasksCall = ListTasksCall(
+            source: source,
+            status: status,
+            project: project,
+            includeSeen: includeSeen,
+            limit: limit
+        )
         try failIfNeeded("listTasks")
         calls.append("listTasks")
         return currentTasks

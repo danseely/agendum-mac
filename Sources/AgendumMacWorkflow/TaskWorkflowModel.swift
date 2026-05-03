@@ -125,6 +125,32 @@ public struct TaskDashboardCommands: Equatable, Sendable {
     )
 }
 
+public struct TaskListFilters: Equatable, Sendable {
+    public var source: String?
+    public var status: String?
+    public var project: String?
+    public var includeSeen: Bool
+    public var limit: Int
+
+    public init(
+        source: String? = nil,
+        status: String? = nil,
+        project: String? = nil,
+        includeSeen: Bool = true,
+        limit: Int = 50
+    ) {
+        self.source = source
+        self.status = status
+        self.project = project
+        self.includeSeen = includeSeen
+        self.limit = limit
+    }
+
+    public static let `default` = TaskListFilters()
+
+    public static let allowedLimits: [Int] = [25, 50, 100, 200]
+}
+
 public struct PresentedError: Equatable, Sendable {
     public let message: String
     public let recovery: String?
@@ -190,6 +216,7 @@ public final class BackendStatusModel: ObservableObject {
     @Published public private(set) var tasks: [TaskItem] = []
     @Published public private(set) var error: PresentedError?
     @Published public private(set) var taskActionErrors: [TaskItem.ID: PresentedError] = [:]
+    @Published public private(set) var filters: TaskListFilters = .default
     @Published public private(set) var isLoading = false
 
     public var errorMessage: String? { error?.message }
@@ -214,7 +241,8 @@ public final class BackendStatusModel: ObservableObject {
         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) },
         now: @escaping @Sendable () -> Date = Date.init,
         openURL: @escaping URLOpening = BackendStatusModel.defaultURLOpener,
-        locale: Locale = .autoupdatingCurrent
+        locale: Locale = .autoupdatingCurrent,
+        filters: TaskListFilters = .default
     ) {
         self.client = client
         self.syncPollIntervalNanoseconds = syncPollIntervalNanoseconds
@@ -222,6 +250,7 @@ public final class BackendStatusModel: ObservableObject {
         self.sleep = sleep
         self.now = now
         self.openURL = openURL
+        self.filters = filters
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = locale
         formatter.unitsStyle = .short
@@ -298,6 +327,12 @@ public final class BackendStatusModel: ObservableObject {
         }
     }
 
+    public func applyFilters(_ filters: TaskListFilters) async {
+        guard self.filters != filters else { return }
+        self.filters = filters
+        await refresh()
+    }
+
     public func selectWorkspace(id: String) async {
         guard id != selectedWorkspaceID, let target = workspaces.first(where: { $0.id == id }) else {
             return
@@ -312,11 +347,13 @@ public final class BackendStatusModel: ObservableObject {
             auth = selection.auth
             sync = selection.sync
             workspaces = try await client.listWorkspaces()
+            filters = .default
             tasks = []
             tasks = try await loadTaskItems()
             self.error = nil
             taskActionErrors = [:]
         } catch {
+            filters = .default
             tasks = []
             taskActionErrors = [:]
             self.error = PresentedError.from(error)
@@ -446,11 +483,11 @@ public final class BackendStatusModel: ObservableObject {
 
     private func loadTaskItems() async throws -> [TaskItem] {
         try await client.listTasks(
-            source: nil,
-            status: nil,
-            project: nil,
-            includeSeen: true,
-            limit: 50
+            source: filters.source,
+            status: filters.status,
+            project: filters.project,
+            includeSeen: filters.includeSeen,
+            limit: filters.limit
         ).map(TaskItem.init)
     }
 }

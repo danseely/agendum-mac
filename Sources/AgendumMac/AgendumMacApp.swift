@@ -43,8 +43,11 @@ private struct TaskDashboardView: View {
             }
             .navigationTitle("Agendum")
             .safeAreaInset(edge: .bottom) {
-                BackendStatusPanel(status: backendStatus) {
-                    selectedTask = nil
+                VStack(spacing: 0) {
+                    TaskListFiltersPanel(status: backendStatus)
+                    BackendStatusPanel(status: backendStatus) {
+                        selectedTask = nil
+                    }
                 }
             }
         } content: {
@@ -166,6 +169,121 @@ private struct TaskDashboardView: View {
             "person.crop.circle.badge.checkmark"
         case .issues:
             "tray.full"
+        }
+    }
+}
+
+private struct TaskListFiltersPanel: View {
+    @ObservedObject var status: BackendStatusModel
+    @AppStorage("task-list-filters-expanded") private var isExpanded: Bool = true
+    @State private var pendingFilters: TaskListFilters = .default
+
+    private static let statusOptions: [String] = [
+        "draft",
+        "open",
+        "awaiting review",
+        "changes requested",
+        "review received",
+        "approved",
+        "merged",
+        "review requested",
+        "reviewed",
+        "re-review requested",
+        "backlog",
+        "in progress",
+        "closed",
+        "done",
+    ]
+
+    private static let sourceOptions: [String] = [
+        "pr_authored",
+        "pr_review",
+        "issue",
+        "manual",
+    ]
+
+    var body: some View {
+        DisclosureGroup("Filters", isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Status", selection: Binding(
+                    get: { pendingFilters.status ?? "" },
+                    set: { newValue in
+                        pendingFilters.status = newValue.isEmpty ? nil : newValue
+                    }
+                )) {
+                    Text("All").tag("")
+                    ForEach(Self.statusOptions, id: \.self) { value in
+                        Text(value).tag(value)
+                    }
+                }
+                .accessibilityIdentifier("task-list-filter-status")
+
+                Picker("Source", selection: Binding(
+                    get: { pendingFilters.source ?? "" },
+                    set: { newValue in
+                        pendingFilters.source = newValue.isEmpty ? nil : newValue
+                    }
+                )) {
+                    Text("All").tag("")
+                    ForEach(Self.sourceOptions, id: \.self) { value in
+                        Text(value).tag(value)
+                    }
+                }
+                .accessibilityIdentifier("task-list-filter-source")
+
+                TextField("Project", text: Binding(
+                    get: { pendingFilters.project ?? "" },
+                    set: { newValue in
+                        pendingFilters.project = newValue.isEmpty ? nil : newValue
+                    }
+                ), prompt: Text("Exact match"))
+                    .onSubmit {
+                        Task { await status.applyFilters(pendingFilters) }
+                    }
+                    .accessibilityIdentifier("task-list-filter-project")
+
+                Toggle("Include seen items", isOn: $pendingFilters.includeSeen)
+                    .accessibilityIdentifier("task-list-filter-include-seen")
+
+                Picker("Limit", selection: $pendingFilters.limit) {
+                    ForEach(TaskListFilters.allowedLimits, id: \.self) { value in
+                        Text("\(value)").tag(value)
+                    }
+                }
+                .accessibilityIdentifier("task-list-filter-limit")
+
+                Button("Clear filters") {
+                    pendingFilters = .default
+                    Task { await status.applyFilters(.default) }
+                }
+                .accessibilityIdentifier("task-list-filter-clear")
+            }
+            .padding(.top, 4)
+        }
+        .font(.caption)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+        .onAppear {
+            pendingFilters = status.filters
+        }
+        .onChange(of: status.filters) { _, newValue in
+            if pendingFilters != newValue {
+                pendingFilters = newValue
+            }
+        }
+        .onChange(of: pendingFilters.status) { _, _ in
+            Task { await status.applyFilters(pendingFilters) }
+        }
+        .onChange(of: pendingFilters.source) { _, _ in
+            Task { await status.applyFilters(pendingFilters) }
+        }
+        .onChange(of: pendingFilters.includeSeen) { _, _ in
+            Task { await status.applyFilters(pendingFilters) }
+        }
+        .onChange(of: pendingFilters.limit) { _, _ in
+            Task { await status.applyFilters(pendingFilters) }
         }
     }
 }

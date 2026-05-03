@@ -1,15 +1,16 @@
 # Handoff
 
 ## Current objective
-Route the seven still-deferred packaging decisions in `docs/packaging.md` (channel, signing, notarization, Python helper runtime, helper-process production layout, `gh` posture, `~/.agendum` path) to the user, record answers in `docs/decisions.md`, and only then scope the next code-bearing packaging slice. If the user defers the packaging routing, pick an alternative live-slice checkpoint (e.g. richer task list filtering, settings/auth-repair UI) and start it on a new `codex/*` short-lived branch from current `feature/mac-prototype`.
+Deliver item 2 (task list filtering UI) of the five-item live-slice orchestration in `docs/orchestration-plan.md`. Surface the existing `task.list` filter parameters (`source`, `status`, `project`, `includeSeen`, `limit`) as SwiftUI controls in the dashboard so users can narrow the visible task list. The backend helper already implements all five filters and the Swift client already exposes them; this is a Swift-only checkpoint (workflow + SwiftUI). The active phase is design: author `docs/design/02-task-list-filtering.md`, take it through review cycle 1, revise to no findings, then build.
 
 ## Branch
-On `feature/mac-prototype` at `12cf468` (post-PR-#16 squash merge tip). No short-lived `codex/*` branch is currently open — start one when the next checkpoint is scoped.
+On `codex/item-2-task-list-filtering` (branched from `feature/mac-prototype` at `c2a6d97`, the post-PR-#17 squash merge tip). The branch carries a planning-doc roll-forward commit and the design doc described in the current objective.
 
 ## Repo state
-- HEAD: `feature/mac-prototype` at `12cf468`; in sync with `origin/feature/mac-prototype`. Working tree clean apart from untracked `.claude/`.
-- Integration branch: `feature/mac-prototype`; PR #16 (unsigned `.app` smoke bundle) merged on 2026-05-03 (squash merge `12cf468`).
-- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/15`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `3e4e34a`).
+- HEAD: `codex/item-2-task-list-filtering`, branched from `feature/mac-prototype` at `c2a6d97`. `feature/mac-prototype` is in sync with `origin/feature/mac-prototype` at `c2a6d97`. Working tree clean apart from untracked `.claude/`.
+- Integration branch: `feature/mac-prototype`; PR #17 (item 1 — open task URL detail action, plus an in-scope `BackendClientConfiguration.firstAncestor` drive-by fix) merged on 2026-05-03 (squash merge `c2a6d97`).
+- Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/16`, merged into `feature/mac-prototype` on 2026-05-03 (squash merge `12cf468`).
+- Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/15`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `3e4e34a`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/14`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `e05efa7`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/13`, merged into `feature/mac-prototype` on 2026-05-02 (squash merge `30d66d4`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/12`, merged into `feature/mac-prototype` on 2026-05-02.
@@ -25,7 +26,8 @@ On `feature/mac-prototype` at `12cf468` (post-PR-#16 squash merge tip). No short
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge. The `codex/manual-task-creation` local branch was removed by the PR #11 merge flow; remote PR branches `origin/codex/manual-task-creation` and `origin/codex/swiftui-workflow-coverage` were deleted on the remote. Deleted local `codex/per-task-error-surfacing` after PR #12 merge. Deleted local `codex/structured-error-mapping` after PR #14 merge. Deleted local `codex/packaging-matrix-doc` after PR #15 merge. Remote refs `origin/codex/sync-lifecycle-presentation`, `origin/codex/structured-error-mapping`, `origin/codex/per-task-error-surfacing`, `origin/codex/packaging-matrix-doc`, and `origin/codex/app-bundle-smoke` pruned locally on 2026-05-03 after upstream cleanup.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
 - Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
-- Last validation date: 2026-05-02 (App bundle smoke checkpoint, pre-merge). PR #16 merged 2026-05-03 with the same gate set; no new code since.
+- PR #17 (item 1 — open task URL detail action) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c2a6d97`).
+- Last validation date: 2026-05-03 (item 1 — open task URL action, post-build, pre-merge): `swift build` passed; `swift test --enable-code-coverage` passed with 57 Swift tests (14 `AgendumMacCoreTests` + 43 `AgendumMacWorkflowTests`); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 48 Python tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 91.9% for `Backend/agendum_backend/helper.py`; `git diff --check` passed; `swift run AgendumMac` smoke held open ~5s before SIGTERM.
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -173,6 +175,7 @@ On `feature/mac-prototype` at `12cf468` (post-PR-#16 squash merge tip). No short
 - Added a public initializer on `BackendErrorPayload` so workflow tests can construct payloads outside `AgendumMacCore`.
 - Updated `Sources/AgendumMac/AgendumMacApp.swift` `BackendStatusPanel` sync row to render state + an optional "Last synced N min ago" caption + a `Needs attention` indicator, and the global error block to render message + optional recovery on two lines. `TaskDetail.actionError` is now `PresentedError?` and renders the same two-line treatment. Added accessibility identifiers `sync-status-state`, `sync-status-last-synced`, `sync-status-attention-indicator`, `backend-error-message`, `backend-error-recovery`, `task-action-error-recovery`.
 - Added workflow tests `testPresentedErrorExtractsHelperPayloadFields`, `testPresentedErrorFallsBackToDescriptionForGenericErrors`, `testRefreshFailureSurfacesStructuredRecoveryHint`, `testTaskActionFailureSurfacesStructuredRecoveryHint`, `testLastSyncLabelFormatsIso8601Timestamp`, `testLastSyncLabelNilWhenNoTimestamp`, `testHasAttentionItemsReflectsSyncStatus`. Updated existing per-task error assertions to compare against `errorForTask(id:)?.message`.
+- Item 1 (open task URL): added a `URLOpening` typealias and `openURL` initializer parameter on `BackendStatusModel`, an `openTaskURL(id:)` action that records `client.urlOpenFailed`/`client.taskHasNoURL` per-task errors via the existing `taskActionErrors` map, and `defaultURLOpener` wrapping `NSWorkspace.shared.open`. Replaced the SwiftUI detail-pane `Open in Browser` button with one that routes through `backendStatus.openTaskURL(id:)` and added accessibility identifier `task-action-open-browser`. Added new `AgendumMacWorkflowTests` covering availability, opener invocation, success error-clearing, failure error code, no-URL guard, unknown-task-id no-op, isLoading invariance, refresh/workspace-switch clearing, and per-task error isolation. Drive-by fix to `BackendClientConfiguration.firstAncestor` resolved an infinite-loop bug introduced by PR #16's filesystem-walk variant. PR #17 merged on 2026-05-03 (squash merge `c2a6d97`).
 
 ## Validation
 
@@ -226,6 +229,15 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes: 464/505 lines (91.9%) for `Backend/agendum_backend/helper.py` (no backend changes).
 - `git diff --check` passes.
 - `swift run AgendumMac` launches without an immediate startup crash (smoke run held open ~5s before SIGTERM, exit code 143).
+
+### Open task URL checkpoint (post-PR-#17)
+- `swift build` passes.
+- `swift test --enable-code-coverage` passes: 57 Swift tests (14 `AgendumMacCoreTests` + 43 `AgendumMacWorkflowTests`).
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes: 48 Python tests (no Python changes in this checkpoint).
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes at 91.9% for `Backend/agendum_backend/helper.py` (no backend changes in this checkpoint).
+- `git diff --check` passes.
+- `swift run AgendumMac` smoke held open ~5s before SIGTERM with no immediate startup crash. The build agent also recorded a manual click-through confirming a task URL opens in the default browser through the new `BackendStatusModel.openTaskURL(id:)` path.
+- PR #17 included an in-scope drive-by fix to `BackendClientConfiguration.firstAncestor` resolving an infinite-loop bug introduced in PR #16; reviewer recommended KEEP rather than split the fix into a separate PR.
 
 ### Per-task error surfacing checkpoint (on `codex/per-task-error-surfacing`, after the changes listed under Completed)
 - `swift build` passes.
@@ -378,12 +390,14 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Surface the seven still-deferred packaging decisions in `docs/packaging.md` to the user (channel, signing identity, notarization credentials, Python helper runtime, helper-process production layout, `gh` posture, `~/.agendum` path policy). Present them as a pick-list; do not begin a code-bearing packaging slice before answers land.
-2. Once answers are provided, append a dated entry to `docs/decisions.md` recording each pick and its rationale, then scope the next short-lived `codex/*` branch from current `feature/mac-prototype` for the first code-bearing slice the answers unlock (most likely the Python helper runtime work, or a `gh` discovery UX slice if the channel pick keeps `gh`).
-3. If the user defers the packaging routing, propose an alternative live-slice checkpoint (e.g. richer task list filtering, settings/auth-repair UI, keyboard shortcut coverage) and start it on a new `codex/*` branch from current `feature/mac-prototype`.
+1. Item 2 — design phase. Author `docs/design/02-task-list-filtering.md` on `codex/item-2-task-list-filtering` covering goal, surface area, workflow-target additions (filter state shape, default values, refresh/workspace-switch composition), SwiftUI control placement (sidebar vs. toolbar, control type per filter, accessibility identifiers), test plan, validation, and risks/out-of-scope. This is the immediate next step.
+2. Item 2 — design review (cycle 1). Submit the design for blind review per the orchestration plan; revise until no findings remain.
+3. Item 2 — build. Implement per the approved design on `codex/item-2-task-list-filtering`: extend `BackendStatusModel` with filter state, route filter changes through `loadTaskItems`, add SwiftUI controls in `Sources/AgendumMac/AgendumMacApp.swift`, add fake-backed `AgendumMacWorkflowTests`. Run the full validation gate set and open a draft PR targeting `feature/mac-prototype`.
+4. Item 2 — review and ship. Run blind PR review cycle, validate, mark ready, merge with squash, fast-forward local `feature/mac-prototype`, prune branches.
+5. Start item 3 (settings / auth-repair UI) per `docs/orchestration-plan.md` §Items, branched from the post-item-2 tip of `feature/mac-prototype`.
 
 ## After checkpoint
-- After the next checkpoint merges, prune any merged `codex/*` remote refs and the matching local branch, fast-forward local `feature/mac-prototype`, and either continue down the packaging-decision queue or return to the live-slice backlog.
+- After item 2 merges, prune any merged `codex/*` remote refs and the matching local branch, fast-forward local `feature/mac-prototype`, and start item 3 (settings / auth-repair UI) on a new `codex/item-3-settings-auth-repair` branch. Carry the post-item-2 planning-doc roll-forward into the item-3 PR per `docs/orchestration-plan.md` §Per-Item Phase Machine.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
@@ -400,3 +414,4 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - No new unapproved drift after PR #10 merge; manual task creation UX is the next live-slice gap and was already named in earlier handoff `After checkpoint` notes.
 - Manual task creation checkpoint stays in scope of the named next-action plan; no unapproved drift introduced by the helper command, Swift client, workflow plumbing, or SwiftUI sheet.
 - Per-task error surfacing checkpoint stays in scope of the post-PR-#11 next-action plan; no unapproved drift introduced by the new `taskActionErrors` map, the task-scoped `performTaskAction`, the SwiftUI detail-pane error caption, or the new fake-backed workflow tests.
+- Item 1 (PR #17) included an in-scope drive-by fix to `BackendClientConfiguration.firstAncestor` that resolved an infinite-loop bug introduced in PR #16; the reviewer recommended KEEP rather than split it into a separate PR, so the fix landed inside the item-1 PR rather than as its own checkpoint.
