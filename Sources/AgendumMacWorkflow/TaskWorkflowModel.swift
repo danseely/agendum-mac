@@ -443,6 +443,7 @@ public final class BackendStatusModel {
     }
 
     public func refresh() async {
+        logger.notice("BackendStatusModel.refresh start")
         isLoading = true
         defer { isLoading = false }
 
@@ -454,10 +455,13 @@ public final class BackendStatusModel {
             tasks = try await loadTaskItems()
             self.error = nil
             taskActionErrors = [:]
+            logger.notice("BackendStatusModel.refresh ok: \(self.tasks.count, privacy: .public) tasks")
         } catch {
             tasks = []
             taskActionErrors = [:]
-            self.error = PresentedError.from(error)
+            let presented = PresentedError.from(error)
+            self.error = presented
+            logger.error("BackendStatusModel.refresh failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
         }
     }
 
@@ -472,6 +476,7 @@ public final class BackendStatusModel {
             return
         }
 
+        logger.notice("BackendStatusModel.selectWorkspace start: id=\(id, privacy: .public)")
         isLoading = true
         defer { isLoading = false }
 
@@ -486,15 +491,19 @@ public final class BackendStatusModel {
             tasks = try await loadTaskItems()
             self.error = nil
             taskActionErrors = [:]
+            logger.notice("BackendStatusModel.selectWorkspace ok: id=\(id, privacy: .public)")
         } catch {
             filters = .default
             tasks = []
             taskActionErrors = [:]
-            self.error = PresentedError.from(error)
+            let presented = PresentedError.from(error)
+            self.error = presented
+            logger.error("BackendStatusModel.selectWorkspace failed: id=\(id, privacy: .public) code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
         }
     }
 
     public func forceSync() async {
+        logger.notice("BackendStatusModel.forceSync start")
         isLoading = true
         defer { isLoading = false }
 
@@ -503,6 +512,7 @@ public final class BackendStatusModel {
             try await pollSyncUntilComplete()
             tasks = try await loadTaskItems()
             self.error = nil
+            logger.notice("BackendStatusModel.forceSync state=\(self.sync?.state ?? "unknown", privacy: .public) changes=\(self.sync?.changes ?? 0, privacy: .public)")
             if sync?.state == "error" {
                 // Backend-reported error path: forceSync did not throw, but
                 // sync.state == "error". Route through the shared helper
@@ -521,6 +531,15 @@ public final class BackendStatusModel {
         } catch {
             let presented = PresentedError.from(error)
             self.error = presented
+            if case BackendClientError.requestTimedOut = error {
+                logger.error("BackendStatusModel.forceSync timed out: \(presented.message, privacy: .public)")
+            } else {
+                logger.error("BackendStatusModel.forceSync failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
+            }
+            if let code = presented.code,
+               code.contains("auth") || code.contains("token") {
+                logger.notice("BackendStatusModel.forceSync auth/token invalidation surfaced: code=\(code, privacy: .public)")
+            }
             await postSyncCompletedNotification(success: false, failure: presented)
         }
     }
@@ -552,47 +571,49 @@ public final class BackendStatusModel {
     }
 
     public func markSeen(id: TaskItem.ID) async {
-        await performTaskAction(taskID: id) {
+        await performTaskAction(name: "markSeen", taskID: id) {
             _ = try await client.markTaskSeen(id: id)
         }
     }
 
     public func markReviewed(id: TaskItem.ID) async {
-        await performTaskAction(taskID: id) {
+        await performTaskAction(name: "markReviewed", taskID: id) {
             _ = try await client.markTaskReviewed(id: id)
         }
     }
 
     public func markInProgress(id: TaskItem.ID) async {
-        await performTaskAction(taskID: id) {
+        await performTaskAction(name: "markInProgress", taskID: id) {
             _ = try await client.markTaskInProgress(id: id)
         }
     }
 
     public func moveToBacklog(id: TaskItem.ID) async {
-        await performTaskAction(taskID: id) {
+        await performTaskAction(name: "moveToBacklog", taskID: id) {
             _ = try await client.moveTaskToBacklog(id: id)
         }
     }
 
     public func markDone(id: TaskItem.ID) async {
-        await performTaskAction(taskID: id) {
+        await performTaskAction(name: "markDone", taskID: id) {
             _ = try await client.markTaskDone(id: id)
         }
     }
 
     public func removeTask(id: TaskItem.ID) async {
-        await performTaskAction(taskID: id) {
+        await performTaskAction(name: "removeTask", taskID: id) {
             _ = try await client.removeTask(id: id)
         }
     }
 
     public func openTaskURL(id: TaskItem.ID) async {
+        logger.notice("BackendStatusModel.openTaskURL start: id=\(id, privacy: .public)")
         guard let task = tasks.first(where: { $0.id == id }) else {
             // Unknown task ID: return without mutating taskActionErrors.
             // No view can read or clear a stale entry under an id that does
             // not correspond to a visible task, so writing one would leak
             // state.
+            logger.error("BackendStatusModel.openTaskURL unknown id=\(id, privacy: .public)")
             return
         }
         guard let url = task.url else {
@@ -601,6 +622,7 @@ public final class BackendStatusModel {
                 recovery: "Manual tasks have no link; remove them or add a URL upstream.",
                 code: "client.taskHasNoURL"
             )
+            logger.error("BackendStatusModel.openTaskURL no URL: id=\(id, privacy: .public)")
             return
         }
         let opened = openURL(url)
@@ -612,6 +634,7 @@ public final class BackendStatusModel {
                 recovery: "Check that a default browser is set, then try again.",
                 code: "client.urlOpenFailed"
             )
+            logger.error("BackendStatusModel.openTaskURL failed to open URL for id=\(id, privacy: .public)")
         }
     }
 
@@ -621,7 +644,9 @@ public final class BackendStatusModel {
             diagnostics = result
             diagnosticsError = nil
         } catch {
-            diagnosticsError = PresentedError.from(error)
+            let presented = PresentedError.from(error)
+            diagnosticsError = presented
+            logger.error("BackendStatusModel.refreshDiagnostics failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
         }
     }
 
@@ -641,6 +666,7 @@ public final class BackendStatusModel {
         project: String? = nil,
         tags: [String]? = nil
     ) async -> Bool {
+        logger.notice("BackendStatusModel.createManualTask start")
         isLoading = true
         defer { isLoading = false }
 
@@ -648,14 +674,18 @@ public final class BackendStatusModel {
             _ = try await client.createManualTask(title: title, project: project, tags: tags)
             tasks = try await loadTaskItems()
             self.error = nil
+            logger.notice("BackendStatusModel.createManualTask ok")
             return true
         } catch {
-            self.error = PresentedError.from(error)
+            let presented = PresentedError.from(error)
+            self.error = presented
+            logger.error("BackendStatusModel.createManualTask failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
             return false
         }
     }
 
-    private func performTaskAction(taskID: TaskItem.ID, _ action: () async throws -> Void) async {
+    private func performTaskAction(name: String, taskID: TaskItem.ID, _ action: () async throws -> Void) async {
+        logger.notice("BackendStatusModel.\(name, privacy: .public) start: id=\(taskID, privacy: .public)")
         isLoading = true
         defer { isLoading = false }
 
@@ -665,7 +695,9 @@ public final class BackendStatusModel {
             taskActionErrors.removeValue(forKey: taskID)
             self.error = nil
         } catch {
-            taskActionErrors[taskID] = PresentedError.from(error)
+            let presented = PresentedError.from(error)
+            taskActionErrors[taskID] = presented
+            logger.error("BackendStatusModel.\(name, privacy: .public) failed: id=\(taskID, privacy: .public) code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
         }
     }
 
@@ -725,7 +757,11 @@ public extension BackendStatusModel {
                 content: mutable,
                 trigger: nil
             )
-            try? await center.add(request)
+            do {
+                try await center.add(request)
+            } catch {
+                logger.error("UNUserNotificationCenter add failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -734,6 +770,7 @@ public extension BackendStatusModel {
             MainActor.assumeIsolated {
                 let label: String? = count > 0 ? String(count) : nil
                 NSApplication.shared.dockTile.badgeLabel = label
+                logger.notice("Dock badge updated: \(label ?? "nil", privacy: .public)")
             }
         }
     }

@@ -752,8 +752,13 @@ private struct SettingsView: View {
                 if notificationAuthorizationStatus == .notDetermined {
                     Button("Enable notifications") {
                         Task {
-                            _ = (try? await UNUserNotificationCenter.current()
-                                .requestAuthorization(options: [.alert, .badge, .sound])) ?? false
+                            do {
+                                let granted = try await UNUserNotificationCenter.current()
+                                    .requestAuthorization(options: [.alert, .badge, .sound])
+                                logger.notice("Notification authorization request granted=\(granted, privacy: .public)")
+                            } catch {
+                                logger.error("Notification authorization request failed: \(error.localizedDescription, privacy: .public)")
+                            }
                             await refreshNotificationSettings()
                         }
                     }

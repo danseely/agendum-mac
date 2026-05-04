@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-05-03 (A1 @Observable migration in flight)
+Last updated: 2026-05-03 (A1 merged; A2 PR open on `codex/a2-os-logger`)
 
 ## Current milestone
 "Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, three research streams (`docs/research/{backend-engine,data-store,architecture}.md`) produced a cross-stream synthesis (`docs/research/synthesis.md`) and drafted GitHub issue text (`docs/research/proposed-issues.md`). The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app." The next implementation step is filing the three epic tracking issues (A / B / C) plus the Phase 1 work issues (A1 `@Observable` migration, A2 `os.Logger`, B1 fork-and-vendor) and merging the planning-doc PR that captures all of this.
@@ -152,17 +152,18 @@ Last updated: 2026-05-03 (A1 @Observable migration in flight)
 - PR #21 (item 5 — notifications + dock badge for sync results) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `4172378`). Item 5 of the five-item orchestration is complete.
 - Fast-forwarded local `feature/mac-prototype` to `4172378` after the PR #21 merge.
 - Five-item live-slice orchestration COMPLETE on 2026-05-03. Total tests added across the orchestration: Swift suite grew 45 → 119; Python suite grew 48 → 61; backend coverage 91.9% → 92.4%.
-- A1 (`@Observable` migration, issue #27) implementation landed on `codex/a1-observable-migration`: `BackendStatusModel` is now `@Observable @MainActor public final class` with no `@Published` / `ObservableObject` / `Combine` import; `AgendumMacApp.swift` uses `@State` / `@Environment(BackendStatusModel.self)` / plain stored properties for the model; all 119 Swift tests, 61 Python tests, `swift build`, `swift run AgendumMac` smoke launch, and `git diff --check` pass on the branch.
+- Planning-doc PR **#23** (`codex/standalone-architecture-planning`) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `3afdb58`).
+- A1 (`@Observable` migration, issue #27) merged into `feature/mac-prototype` on 2026-05-03 via PR **#28** (squash merge `256678d`). `BackendStatusModel` is now `@Observable @MainActor public final class` with no `@Published` / `ObservableObject` / `Combine` import; `AgendumMacApp.swift` uses `@State` / `@Environment(BackendStatusModel.self)` / plain stored properties for the model; one blind reviewer cycle returned APPROVE with no findings at ≥75% confidence; CI `Test` SUCCESS; 119 Swift tests, 61 Python tests, `swift build`, `swift run AgendumMac` smoke launch, and `git diff --check` all green.
+- A2 (`os.Logger` adoption, issue #29) implementation landed on `codex/a2-os-logger`, PR open against `feature/mac-prototype`: per-target `Logging.swift` declares `let logger = Logger(subsystem: "com.danseely.agendum-mac", category: <backend|workflow|ui>)`; silent `try?` swallows in `BackendClient.close()` and `BackendStatusModel.defaultNotifier` are replaced with `logger.error(...)`; `logger.notice` lifecycle events cover backend client spawn/restart/close/timeout/terminated, model refresh / selectWorkspace / forceSync (incl. timeout + auth/token invalidation surface) / task actions / openTaskURL / createManualTask / refreshDiagnostics, UI notification authorization request outcome, and dock-badge writes; no `print(` remains in `Sources/`. All gates pass: `swift build`, `swift test --enable-code-coverage` (119 Swift tests, 0 failures — unchanged from post-A1 baseline), `python3 -m unittest discover -s Tests` (61 tests, 0 failures), `swift run AgendumMac` + `log show --predicate 'subsystem == "com.danseely.agendum-mac"' --last 1m --info` produced the expected backend / workflow / ui category lines, `git diff --check`, and `git grep -nP '^\s*print\(' -- Sources/` returns no matches.
+- Phase 1 leaf issues filed: **#27** (A1, merged), **#29** (A2, PR open).
 
 ## In progress
-- Planning-doc PR **#23** (`codex/standalone-architecture-planning`) is open against `feature/mac-prototype`, capturing the 2026-05-03 plan revision: `docs/research/{backend-engine,data-store,architecture,synthesis,proposed-issues}.md` and updates to `docs/plan.md`, `docs/decisions.md`, `docs/status.md`, `docs/handoff.md`.
-- Three epic tracking issues filed: **#24** (Architecture modernization), **#25** (Standalone backend engine), **#26** (Native data store).
-- A1 leaf issue **#27** filed; PR for `codex/a1-observable-migration` open against `feature/mac-prototype` (URL recorded in `docs/handoff.md`).
+- A2 leaf issue **#29** filed; PR for `codex/a2-os-logger` open against `feature/mac-prototype` (URL recorded in `docs/handoff.md`).
 
 ## Blocked
-- None at the implementation level. Phase 1 work (A1, A2, B1) is unblocked once PR #23 merges. Leaf issues for each phase are filed when work begins (per user's instruction to file leaves as the phase approaches; drafts in `docs/research/proposed-issues.md`).
+- None at the implementation level.
 
 ## Next
-1. Merge PR #23 after review.
-2. File leaf issue A1 (`@Observable` migration) and start it on `codex/a1-observable-migration`. Optionally parallel: A2 (`os.Logger`) on `codex/a2-os-logger`, B1 (fork-and-vendor) on `codex/b1-fork-and-vendor`. A1 is the highest priority because it's a one-PR foundation that simplifies every later slice.
+1. Drive A2 PR through review and merge: watch CI, mark ready on SUCCESS, dispatch a blind-review subagent (one cycle has been the stable bar across recent leaves), fix findings if any, merge with `--squash --delete-branch` into `feature/mac-prototype`.
+2. Start A3 (`@SceneStorage`) on `codex/a3-scenestorage` or B1 (fork-and-vendor) on `codex/b1-fork-and-vendor` — both Phase-2/parallel-safe entry points. Drafts in `docs/research/proposed-issues.md`.
 3. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
