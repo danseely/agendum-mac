@@ -15,6 +15,7 @@ Run these first to find the current live state — the handoff snapshot below ro
 The integration branch is `feature/mac-prototype`. Planning-doc work is on `codex/standalone-architecture-planning` (PR #23). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
 
 ## Repo state
+- A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), draft. URL: `https://github.com/danseely/agendum-mac/pull/28`. Lifecycle state via `gh pr view 28`.
 - Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`). Lifecycle state via `gh pr view 23`.
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
