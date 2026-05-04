@@ -187,5 +187,5 @@ This is the largest plan revision since the 2026-04-28 "Mac-native shell around 
 - Reason: A2 / issue #29, Phase 1 of epic #24. `os.Logger` is the Apple-canonical structured logging surface, gives us subsystem/category filtering in `Console.app` and `log show/stream`, and replaces ad-hoc swallowed errors with a uniform diagnostic trail. Privacy qualifiers default to `private`; only error/identifier/path strings are explicitly marked `.public` for now (broader privacy redaction tuning is out of scope).
 - Impact: All 119 Swift tests pass unchanged from the post-A1 baseline (no test depended on `print` output). 61 Python tests untouched. `swift build`, `swift test --enable-code-coverage`, `python3 -m unittest discover -s Tests`, `swift run AgendumMac` + `log show --predicate 'subsystem == "com.danseely.agendum-mac"' --last 1m --info` (representative `backend`, `workflow`, and `ui` category lines captured), `git diff --check`, and `git grep -nP '^\s*print\(' -- Sources/` (no matches) all pass.
 - Plan change: no — implementation of the 2026-05-03 plan revision.
-- References: PR #PR_PLACEHOLDER, issue #29.
+- References: PR #30, issue #29.
 
