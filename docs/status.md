@@ -154,13 +154,13 @@ Last updated: 2026-05-03 (architecture-direction research)
 - Five-item live-slice orchestration COMPLETE on 2026-05-03. Total tests added across the orchestration: Swift suite grew 45 → 119; Python suite grew 48 → 61; backend coverage 91.9% → 92.4%.
 
 ## In progress
-- Planning-doc capture for the 2026-05-03 plan revision on `codex/standalone-architecture-planning`. Files added: `docs/research/{backend-engine,data-store,architecture,synthesis,proposed-issues}.md`. Files updated: `docs/plan.md`, `docs/decisions.md`, `docs/status.md`, `docs/handoff.md`.
+- Planning-doc PR **#23** (`codex/standalone-architecture-planning`) is open against `feature/mac-prototype`, capturing the 2026-05-03 plan revision: `docs/research/{backend-engine,data-store,architecture,synthesis,proposed-issues}.md` and updates to `docs/plan.md`, `docs/decisions.md`, `docs/status.md`, `docs/handoff.md`.
+- Three epic tracking issues filed: **#24** (Architecture modernization), **#25** (Standalone backend engine), **#26** (Native data store).
 
 ## Blocked
-- None at the implementation level. The Phase 1 work (A1, A2, B1) is unblocked once the planning-doc PR merges and the epic + work issues are filed.
+- None at the implementation level. Phase 1 work (A1, A2, B1) is unblocked once PR #23 merges. Leaf issues for each phase are filed when work begins (per user's instruction to file leaves as the phase approaches; drafts in `docs/research/proposed-issues.md`).
 
 ## Next
-1. Merge the planning-doc PR for `codex/standalone-architecture-planning` after review.
-2. File the three epic tracking issues (A / B / C) and the seventeen work issues drafted in `docs/research/proposed-issues.md`. Per the user's global rule, no GitHub posting without explicit approval.
-3. Open the first Phase 1 work branches: A1 (`@Observable` migration), A2 (`os.Logger`), B1 (fork-and-vendor). All three can run in parallel; A1 is the highest priority because it's a one-PR foundation that simplifies every later slice.
-4. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
+1. Merge PR #23 after review.
+2. File leaf issue A1 (`@Observable` migration) and start it on `codex/a1-observable-migration`. Optionally parallel: A2 (`os.Logger`) on `codex/a2-os-logger`, B1 (fork-and-vendor) on `codex/b1-fork-and-vendor`. A1 is the highest priority because it's a one-PR foundation that simplifies every later slice.
+3. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.

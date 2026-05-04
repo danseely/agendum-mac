@@ -436,13 +436,13 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Review the planning-doc PR for `codex/standalone-architecture-planning` (this branch). Confirm `docs/research/synthesis.md` epic structure + phase ordering and `docs/research/proposed-issues.md` issue-body drafts before any GitHub posting.
-2. After approval: file the three epic tracking issues (A / B / C) on GitHub, then the seventeen work issues with cross-references to the epics. Per the user's global rule, no posting without explicit approval per issue or as a batch.
-3. Cut the first Phase 1 work branches from `feature/mac-prototype` post-merge: `codex/a1-observable-migration`, `codex/a2-os-logger`, `codex/b1-fork-and-vendor`. All three parallel-safe; A1 highest priority because it simplifies every later slice.
+1. Review and merge planning-doc PR **#23** (`codex/standalone-architecture-planning`) into `feature/mac-prototype`.
+2. Three epic tracking issues are filed: **#24** (Architecture modernization), **#25** (Standalone backend engine), **#26** (Native data store). Leaves stay drafted in `docs/research/proposed-issues.md` and get filed as their phase approaches; this requires explicit approval per the user's global GitHub rule.
+3. After PR #23 merges, cut the first Phase 1 work branches from `feature/mac-prototype`: `codex/a1-observable-migration`, `codex/a2-os-logger`, `codex/b1-fork-and-vendor`. All three parallel-safe; A1 is the highest-priority because it simplifies every later slice.
 4. Keep CI green; keep `main` README-only; use short-lived `codex/*` branches for all PRs targeting `feature/mac-prototype`.
 
 ## After checkpoint
-- After this planning-doc PR merges and the epic + work issues are filed, the active checkpoint becomes whichever of A1 / A2 / B1 is started first.
+- After PR #23 merges, the active checkpoint becomes whichever of A1 / A2 / B1 is started first. Each leaf issue gets filed at the time its work begins, citing its parent epic (#24 / #25 / #26).
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.

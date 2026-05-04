@@ -1,8 +1,14 @@
 # Proposed GitHub Issues
 
-> Drafted 2026-05-03 from `docs/research/synthesis.md`. Per the user's global rule, none of these are posted to GitHub without explicit approval. Each section below is a ready-to-paste issue body wrapped in a code fence so the raw markdown source is visible. Suggested labels in parentheses next to each title.
+> Drafted 2026-05-03 from `docs/research/synthesis.md`. Each section below is a ready-to-paste issue body wrapped in a code fence so the raw markdown source is visible.
 >
-> Three epic tracking issues plus seventeen work issues. Cross-issue references use placeholder `#NN` — replace with real issue numbers once the epic issues are filed first and renumbering settles.
+> **Filing status (2026-05-03):**
+> - Epic A: filed as **#24** (https://github.com/danseely/agendum-mac/issues/24)
+> - Epic B: filed as **#25** (https://github.com/danseely/agendum-mac/issues/25)
+> - Epic C: filed as **#26** (https://github.com/danseely/agendum-mac/issues/26)
+> - 17 leaf issues: not yet filed; per the user's instruction, leaves are filed as their phase approaches. The drafts below remain authoritative.
+>
+> When filing a leaf, replace its placeholder parent reference with the real epic number above. Per the user's global GitHub rule, posting any issue requires explicit approval.
 
 ## Suggested labels (create if missing)
 
