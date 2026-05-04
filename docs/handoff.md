@@ -15,8 +15,9 @@ Run these first to find the current live state — the handoff snapshot below ro
 The integration branch is `feature/mac-prototype`. Planning-doc work is on `codex/standalone-architecture-planning` (PR #23). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
 
 ## Repo state
-- A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), draft. URL: `https://github.com/danseely/agendum-mac/pull/28`. Lifecycle state via `gh pr view 28`.
-- Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`). Lifecycle state via `gh pr view 23`.
+- A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `256678d`).
+- A2 leaf PR: PR_URL_PLACEHOLDER, draft, head `codex/a2-os-logger`. Lifecycle state via `gh pr view PR_NUM_PLACEHOLDER`.
+- Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `3afdb58`).
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
 - Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/20`, merged into `feature/mac-prototype` on 2026-05-03 (squash merge `158954c`).
@@ -45,7 +46,7 @@ The integration branch is `feature/mac-prototype`. Planning-doc work is on `code
 - PR #19 (item 3 — settings / auth-repair UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c4a6b5a`).
 - PR #20 (item 4 — keyboard shortcuts + menu coverage) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `158954c`).
 - PR #21 (item 5 — notifications + dock badge for sync results) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `4172378`).
-- Last validation date: 2026-05-03 (item 5 — notifications + dock badge for sync results, post-merge gate): `swift build` passed; `swift test --enable-code-coverage` passed with 119 Swift tests (+16 over the post-PR-#20 baseline of 103); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 61 Python tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 92.4% (no helper changes in item 5); `git diff --check` passed; `swift run AgendumMac` smoke held open ~5s before SIGTERM.
+- Last validation date: 2026-05-03 (A2 — `os.Logger` adoption gate on `codex/a2-os-logger`): `swift build` passed; `swift test --enable-code-coverage` passed with 119 Swift tests (unchanged from post-A1 baseline); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 61 Python tests; `git diff --check` passed; `git grep -nP '^\s*print\(' -- Sources/` returned no matches.
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -398,6 +399,18 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - `/opt/homebrew/bin/python3 -m unittest discover -s Tests`: passes — `Ran 61 tests in 2.883s OK`. No Python touched.
 - `swift run AgendumMac`: built clean and held open >5s without crash; SIGTERM exited cleanly. Helper subprocess discovery from sibling `../agendum` is unchanged (pre-existing behavior; not in scope for A1).
 - `git diff --check`: passes.
+
+### os.Logger checkpoint (on `codex/a2-os-logger`)
+- Scope: A2 / issue #29 — added `Sources/{AgendumMacCore,AgendumMacWorkflow,AgendumMac}/Logging.swift` declaring a per-target `let logger = Logger(subsystem: "com.danseely.agendum-mac", category: <backend|workflow|ui>)`. Replaced silent `try?` swallows in `BackendClient.close()` and `BackendStatusModel.defaultNotifier` with `logger.error("...: \(error.localizedDescription, privacy: .public)")`. The deinit-path `try? input.close()` was kept intentionally with a comment (no logger context available there). Added `logger.notice` lifecycle logs at: backend client spawn / restart / close / timeout / helper-terminated; `BackendStatusModel.refresh` start/ok/error; `selectWorkspace` start/ok/error; `forceSync` start/state/error/timeout/auth-token-invalidation; per-task actions (`markSeen`/`markReviewed`/`markInProgress`/`moveToBacklog`/`markDone`/`removeTask`) start/error via `performTaskAction(name:taskID:)`; `openTaskURL` start/no-URL/open-failed; `createManualTask` start/ok/error; `refreshDiagnostics` error; UI notification authorization request outcome; dock badge writes. No `print(` remains in `Sources/`.
+- `swift build`: passes. (`Build complete! (3.94s)`)
+- `swift test --enable-code-coverage`: passes — `Executed 119 tests, with 0 failures (0 unexpected) in 1.133 (1.139) seconds`. Suite count unchanged from the post-A1 baseline of 119; no test depended on `print` output.
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests`: passes — `Ran 61 tests in 2.911s OK`. No Python touched.
+- `swift run AgendumMac` + `log show --predicate 'subsystem == "com.danseely.agendum-mac"' --last 1m --info`: app launched cleanly; representative lines captured during the smoke run:
+  - `2026-05-03 21:57:27.053766-0400 AgendumMac: [com.danseely.agendum-mac:workflow] BackendStatusModel.refresh start`
+  - `2026-05-03 21:57:27.054034-0400 AgendumMac: [com.danseely.agendum-mac:backend] Spawning backend helper process at /Users/dseely/dev/agendum-mac/Backend/agendum_backend_helper.py.`
+  - `2026-05-03 21:57:28.039816-0400 AgendumMac: [com.danseely.agendum-mac:workflow] BackendStatusModel.refresh ok: 15 tasks`
+- `git diff --check`: passes.
+- `git grep -nP '^\s*print\(' -- Sources/`: no matches.
 
 ## Changed files
 - `Scripts/build_app_bundle.sh` (new, executable): assembles `.build/Agendum.app` from the SwiftPM `AgendumMac` release product, derives `CFBundleShortVersionString` from `git describe` (fallback `0.1.0+dev`) and `CFBundleVersion` from `git rev-list HEAD --count` (fallback `1`), substitutes both into the plist template, and lints the result with `plutil -lint`.

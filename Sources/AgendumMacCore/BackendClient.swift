@@ -205,6 +205,7 @@ public actor AgendumBackendClient {
 
     deinit {
         if let input {
+            // Best-effort close on deinit; nothing to log to.
             try? input.close()
         }
         output?.readabilityHandler = nil
@@ -320,16 +321,29 @@ public actor AgendumBackendClient {
     }
 
     public func close() {
+        logger.notice("Closing backend helper client.")
         if let input {
-            try? input.close()
+            do {
+                try input.close()
+            } catch {
+                logger.error("Failed to close backend helper input pipe: \(error.localizedDescription, privacy: .public)")
+            }
         }
         output?.readabilityHandler = nil
         outputReader?.close()
         if let output {
-            try? output.close()
+            do {
+                try output.close()
+            } catch {
+                logger.error("Failed to close backend helper output pipe: \(error.localizedDescription, privacy: .public)")
+            }
         }
         if let errorOutput {
-            try? errorOutput.close()
+            do {
+                try errorOutput.close()
+            } catch {
+                logger.error("Failed to close backend helper stderr pipe: \(error.localizedDescription, privacy: .public)")
+            }
         }
         if let process, process.isRunning {
             process.terminate()
@@ -364,6 +378,7 @@ public actor AgendumBackendClient {
             do {
                 probe = try decoder.decode(ResponseProbe.self, from: line)
             } catch {
+                logger.error("Backend helper response was not valid JSON for command \(command, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 throw BackendClientError.invalidResponse("Backend helper response was not valid JSON.")
             }
             if probe.event != nil {
@@ -377,20 +392,22 @@ public actor AgendumBackendClient {
             do {
                 response = try decoder.decode(ResponseEnvelope<ResponsePayload>.self, from: line)
             } catch {
+                logger.error("Backend helper response did not match the expected schema for command \(command, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 throw BackendClientError.invalidResponse("Backend helper response did not match the expected schema.")
             }
             guard response.version == 1 else {
+                logger.error("Backend helper returned unsupported protocol version \(response.version) for command \(command, privacy: .public).")
                 throw BackendClientError.unsupportedProtocolVersion(response.version)
             }
             guard response.ok else {
-                throw BackendClientError.helperError(
-                    response.error ?? BackendErrorPayload(
-                        code: "unknown",
-                        message: "Backend helper returned an unknown error.",
-                        detail: nil,
-                        recovery: nil
-                    )
+                let payload = response.error ?? BackendErrorPayload(
+                    code: "unknown",
+                    message: "Backend helper returned an unknown error.",
+                    detail: nil,
+                    recovery: nil
                 )
+                logger.error("Backend helper returned error envelope for command \(command, privacy: .public): code=\(payload.code, privacy: .public) message=\(payload.message, privacy: .public)")
+                throw BackendClientError.helperError(payload)
             }
             guard let payload = response.payload else {
                 throw BackendClientError.invalidResponse("Backend helper response did not include a payload.")
@@ -416,6 +433,11 @@ public actor AgendumBackendClient {
     private func startIfNeeded() throws {
         if let process, process.isRunning {
             return
+        }
+        if process != nil {
+            logger.notice("Backend helper process is not running; restarting.")
+        } else {
+            logger.notice("Spawning backend helper process at \(self.configuration.helperURL.path, privacy: .public).")
         }
 
         let process = Process()
@@ -458,10 +480,13 @@ public actor AgendumBackendClient {
         do {
             return try outputReader.readLine(timeout: configuration.requestTimeout)
         } catch BackendClientError.requestTimedOut {
+            logger.error("Backend helper timed out after \(self.configuration.requestTimeout, privacy: .public)s; closing helper process.")
             close()
             throw BackendClientError.requestTimedOut(configuration.requestTimeout)
         } catch BackendClientError.helperTerminated {
-            throw BackendClientError.helperTerminated(readStderr())
+            let stderr = readStderr()
+            logger.error("Backend helper terminated unexpectedly. stderr: \(stderr, privacy: .public)")
+            throw BackendClientError.helperTerminated(stderr)
         }
     }
 
