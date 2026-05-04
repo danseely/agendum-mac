@@ -390,6 +390,14 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - `swift run AgendumMac` smoke held open ~5s before SIGTERM; no immediate startup crash.
 - CI ran `Test` after the `@preconcurrency UserNotifications` fix (commit `5f54489`) on PR #21 and passed before merge.
 
+### @Observable migration checkpoint (on `codex/a1-observable-migration`)
+- Scope: A1 / issue #27 — `BackendStatusModel` migrated to `@Observable`; `AgendumMacApp.swift` updated to `@State` / `@Environment(BackendStatusModel.self)` / plain stored properties; `import Combine` removed from `TaskWorkflowModel.swift`; `import Observation` added.
+- `swift build`: passes. (`Build complete! (4.01s)`)
+- `swift test --enable-code-coverage`: passes — `Executed 119 tests, with 0 failures (0 unexpected) in 1.520 (1.526) seconds`. No test depended on `objectWillChange`; suite count unchanged from the post-PR-#21 baseline.
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests`: passes — `Ran 61 tests in 2.883s OK`. No Python touched.
+- `swift run AgendumMac`: built clean and held open >5s without crash; SIGTERM exited cleanly. Helper subprocess discovery from sibling `../agendum` is unchanged (pre-existing behavior; not in scope for A1).
+- `git diff --check`: passes.
+
 ## Changed files
 - `Scripts/build_app_bundle.sh` (new, executable): assembles `.build/Agendum.app` from the SwiftPM `AgendumMac` release product, derives `CFBundleShortVersionString` from `git describe` (fallback `0.1.0+dev`) and `CFBundleVersion` from `git rev-list HEAD --count` (fallback `1`), substitutes both into the plist template, and lints the result with `plutil -lint`.
 - `Sources/AgendumMac/Info.plist.template` (new): source of truth for the bundle plist; defines `CFBundleIdentifier=com.danseely.agendum-mac`, `CFBundleName=Agendum`, `CFBundleExecutable=Agendum`, `CFBundlePackageType=APPL`, `LSMinimumSystemVersion=14.0`, `NSHighResolutionCapable=true`, with `__SHORT_VERSION__` / `__BUNDLE_VERSION__` placeholders.
