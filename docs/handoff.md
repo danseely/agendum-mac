@@ -1,13 +1,22 @@
 # Handoff
 
 ## Current objective
-Land the 2026-05-03 plan revision (`docs/decisions.md` "Plan revision: standalone Swift app") and start the "standalone Swift app" arc. End state: zero Python at runtime, GRDB-backed Swift data store, Apple-canonical architecture. Active step: merge the planning-doc PR on `codex/standalone-architecture-planning`, then file the three epic tracking issues (A / B / C) and the seventeen work issues drafted in `docs/research/proposed-issues.md`, then start Phase 1 (A1 `@Observable` migration / A2 `os.Logger` / B1 fork-and-vendor — all parallel-safe).
+Drive the "standalone Swift app" arc to completion: zero Python at runtime, GRDB-backed Swift data store, Apple-canonical architecture. The arc is structured as three GitHub epics (#24 architecture / #25 backend engine / #26 data store) detailed in `docs/research/synthesis.md`; leaves are filed as their phase approaches, drafts in `docs/research/proposed-issues.md`. The plan-revision binding is in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app".
+
+## Probe before acting
+Run these first to find the current live state — the handoff snapshot below rots.
+- `gh pr view 23` — planning-doc PR. If still open and approvable, review and merge before starting any leaf work. If merged, proceed.
+- `gh pr list --state open` — any active leaf-work PRs? If yes, drive the highest-priority one to merge before opening another.
+- `gh issue view 24 25 26` — epic state and any newly-filed leaves under them.
+- `git fetch --prune && git status` — local sync.
+- `git log feature/mac-prototype --oneline -5` — what's actually merged onto the integration branch.
 
 ## Branch
-On `codex/standalone-architecture-planning` (cut from `feature/mac-prototype` at `4172378`, post-PR-#21 tip). This branch carries the planning-doc capture for the new architecture direction; the work-bearing PRs against `feature/mac-prototype` come from the per-issue `codex/*` branches that follow it.
+The integration branch is `feature/mac-prototype`. Planning-doc work is on `codex/standalone-architecture-planning` (PR #23). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
 
 ## Repo state
-- HEAD: `codex/standalone-architecture-planning`, branched from `feature/mac-prototype` at `4172378`. `feature/mac-prototype` is in sync with `origin/feature/mac-prototype` at `4172378`. Working tree changes scoped to `docs/` (research dir + plan/decisions/status/handoff updates); untracked `.claude/`.
+- Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`). Lifecycle state via `gh pr view 23`.
+- Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
 - Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/20`, merged into `feature/mac-prototype` on 2026-05-03 (squash merge `158954c`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/19`, merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c4a6b5a`).
@@ -436,13 +445,15 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Review and merge planning-doc PR **#23** (`codex/standalone-architecture-planning`) into `feature/mac-prototype`.
-2. Three epic tracking issues are filed: **#24** (Architecture modernization), **#25** (Standalone backend engine), **#26** (Native data store). Leaves stay drafted in `docs/research/proposed-issues.md` and get filed as their phase approaches; this requires explicit approval per the user's global GitHub rule.
-3. After PR #23 merges, cut the first Phase 1 work branches from `feature/mac-prototype`: `codex/a1-observable-migration`, `codex/a2-os-logger`, `codex/b1-fork-and-vendor`. All three parallel-safe; A1 is the highest-priority because it simplifies every later slice.
-4. Keep CI green; keep `main` README-only; use short-lived `codex/*` branches for all PRs targeting `feature/mac-prototype`.
+Conditional on the probe results above:
+
+- **If PR #23 is open**: review and merge it (or push fixes if review surfaces something). Run `gh pr checks 23` first — if CI red, push fix; if green and unreviewed, run a review pass.
+- **If PR #23 is merged and no Phase 1 leaf is in flight**: file the next leaf to start (default A1, highest leverage), citing parent epic #24. Draft body lives in `docs/research/proposed-issues.md`. Per the user's global GitHub rule, every issue filing requires explicit user approval. Once filed, cut `codex/<slug>` from `feature/mac-prototype`, implement, open the leaf PR. Phase 1 leaves (A1 `@Observable` / A2 `os.Logger` / B1 fork-and-vendor) are parallel-safe.
+- **If a leaf-work PR is open**: drive that one to merge before starting another. `gh pr view <N>` for current state; push fixes if needed; run reviewer pass once green.
+- **If a leaf-work PR is merged**: roll forward `docs/handoff.md`, `docs/status.md`, `docs/decisions.md` as appropriate, then move to the next leaf in the phase plan (`docs/research/synthesis.md`).
 
 ## After checkpoint
-- After PR #23 merges, the active checkpoint becomes whichever of A1 / A2 / B1 is started first. Each leaf issue gets filed at the time its work begins, citing its parent epic (#24 / #25 / #26).
+The active checkpoint at any moment is whichever leaf-work PR is open, or the next-leaf-to-file if none is in flight. The arc finishes when issues #24, #25, #26 are all closed.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
