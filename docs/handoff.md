@@ -3,6 +3,16 @@
 ## Current objective
 Drive the "standalone Swift app" arc to completion: zero Python at runtime, GRDB-backed Swift data store, Apple-canonical architecture. The arc is structured as three GitHub epics (#24 architecture / #25 backend engine / #26 data store) detailed in `docs/research/synthesis.md`; leaves are filed as their phase approaches, drafts in `docs/research/proposed-issues.md`. The plan-revision binding is in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app".
 
+## Pause notice (2026-05-04)
+Feature work is HALTED at user direction. Phase 1 status: A1 (#27) and A2 (#29) merged into `feature/mac-prototype` (last tip `6ec1fc2`); B1 (#31) implementation complete on `codex/b1-fork-and-vendor` and shipped to PR **#32** (OPEN, ready for review, mergeable=CLEAN, CI `Test` SUCCESS, 0 reviews). The user has not authorized merging PR #32 — do not merge it without explicit approval. No new leaves should be filed or started until the user resumes the autonomous loop.
+
+**Resume sequence (from a fresh agent, after the user says "go"):**
+1. `gh pr view 32 --json state,mergeStateStatus,statusCheckRollup` — confirm still OPEN, CLEAN, CI green. Re-run CI on the PR if its head has aged out (`gh pr checks 32 --watch`).
+2. Dispatch a `crew:reviewer` subagent for a blind review at ≥75% confidence. The repo's stable bar across recent leaves has been one clean cycle. Lenses to apply: scope discipline (B1 should be ONLY the engine-fork + import-path/CI updates; no behavior changes), license attribution (`Backend/agendum_engine/LICENSE`, README origin SHA), sibling isolation (verify `git grep -nE 'agendum(/src|\.\.\/agendum)' Backend/ Tests/ Scripts/ .github/` returns nothing), and planning-doc consistency.
+3. If findings: route fixes back via `crew:builder`; iterate until clean.
+4. Merge with `gh pr merge 32 --squash --delete-branch`. Fast-forward local `feature/mac-prototype`.
+5. Next leaves: A3 (`@SceneStorage`) on `codex/a3-scenestorage`, B2 (port `gh.py` pure status-derivation functions to Swift) on `codex/b2-status-derivation-port`, or A4/A5/A6 — drafts in `docs/research/proposed-issues.md`. A3 + B2 are both Phase-2 entry points and parallel-safe.
+
 ## Probe before acting
 Run these first to find the current live state — the handoff snapshot below rots.
 - `gh pr view 23` — planning-doc PR. If still open and approvable, review and merge before starting any leaf work. If merged, proceed.
@@ -17,7 +27,7 @@ The integration branch is `feature/mac-prototype`. Planning-doc work is on `code
 ## Repo state
 - A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `256678d`).
 - A2 leaf PR: **#30** (`codex/a2-os-logger` → `feature/mac-prototype`), merged 2026-05-04 (squash merge `6ec1fc2`).
-- B1 leaf PR: opening on `codex/b1-fork-and-vendor` → `feature/mac-prototype`. Lifecycle state via `gh pr view <num>`.
+- B1 leaf PR: **#32** (`codex/b1-fork-and-vendor` → `feature/mac-prototype`), OPEN, ready for review, CI `Test` SUCCESS, 0 reviews. PAUSED awaiting user direction (2026-05-04). URL: `https://github.com/danseely/agendum-mac/pull/32`.
 - Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `3afdb58`).
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).

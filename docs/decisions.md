@@ -196,4 +196,11 @@ This is the largest plan revision since the 2026-04-28 "Mac-native shell around 
 - Reason: B1 / issue #31, Phase 1 of epic #25. Sibling-checkout discipline is brittle for new contributors and CI; vendoring eliminates it in one PR with zero behavior change and is the prerequisite for the Swift-port slices (B2–B5). Subtree history was not preserved (flat copy) — upstream history is unrelated to this repo and a flat copy keeps the diff small and reviewable.
 - Impact: All 119 Swift tests pass unchanged. 61 Python tests pass. `python3 Scripts/python_coverage.py` reports 92.4% (≥91% gate). Sibling-isolation gate confirmed: with `/Users/dseely/dev/agendum` renamed aside, `swift test --enable-code-coverage`, `python3 -m unittest discover -s Tests`, `python3 Scripts/python_coverage.py`, and a 5s `swift run AgendumMac` smoke all still pass. CI no longer checks out two repos. Engine evolution from this point happens in this repo; upstream is no longer load-bearing.
 - Plan change: no — implementation of the 2026-05-03 plan revision.
-- References: PR for #31, issue #31, parent epic #25.
+- References: PR #32, issue #31, parent epic #25.
+
+## 2026-05-04 — Halt feature work pending user resume; B1 PR #32 paused awaiting review
+
+- Decision: Stop the autonomous implementation/PR/review/merge loop after PR #32 opened and CI passed. PR #32 is left OPEN, ready for review, mergeable=CLEAN, with no review cycle dispatched. No new leaves filed. Capture this paused state in `docs/handoff.md` "Pause notice" and `docs/status.md` so the next session can resume cleanly.
+- Reason: User-directed pause to align on handoff state before further merges. No technical blocker.
+- Impact: A1 (#28, `256678d`) and A2 (#30, `6ec1fc2`) are merged on `feature/mac-prototype`; PR #23 is merged (`3afdb58`). B1 (#32) is the active open PR. `feature/mac-prototype` does not yet contain B1; sibling-checkout discipline only retires once PR #32 lands. The B1 branch and PR are durable on origin (the `codex/b1-fork-and-vendor` ref is pushed); the planning-doc updates capturing this paused state are pushed via this same branch (PR #32 carries them).
+- Plan change: no — pure operational pause.
