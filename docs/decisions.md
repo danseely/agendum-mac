@@ -125,3 +125,52 @@
 - Impact: `Scripts/build_app_bundle.sh` is the canonical path to produce a runnable .app for developer-convenience launches; `Sources/AgendumMac/Info.plist.template` is the source of truth for plist keys; CI gains a recurring bundle-smoke step; `Tests/AgendumMacCoreTests/BackendClientTests.swift` pins the walker against the bundle layout. No SwiftPM product/target changes, no helper subprocess interface changes, no wire contract changes, no signing or distribution changes.
 - Plan change: no — this is the first slice toward the packaging milestone named in `docs/plan.md` and tracked in `docs/packaging.md`.
 - Still deferred: distribution channel; code signing identity; notarization credentials; Python helper runtime for production; helper-process production layout; `gh` dependency posture; `~/.agendum` path policy.
+
+## 2026-05-03 — Plan revision: standalone Swift app
+
+This entry captures a substantive plan revision recorded after the 2026-05-03 architecture-direction research (`docs/research/{backend-engine,data-store,architecture,synthesis}.md`). It reverses or supersedes several prior decisions; older entries above remain for historical context, but the directives below are now the binding constraints for new work.
+
+### Decisions
+
+- **Standalone product.** `agendum-mac` no longer depends on a sibling checkout of `../agendum`. The `agendum` engine is forked into this repo (see issue B1 in `docs/research/proposed-issues.md`) and evolves here independently of the upstream TUI.
+- **Zero Python at runtime.** All engine logic — workspace/config, GitHub GraphQL transport, OAuth, sync planner, attention classification, manual task creation, status transitions — is ported to Swift. The Python helper subprocess and the entire `Backend/` directory are deleted at the end of the migration (issue B6). This supersedes the 2026-04-28 "JSON-over-stdio helper as default bridge" decision once the migration completes; during the migration the v0 helper protocol is preserved as the test asset and dispatches to either Python or Swift internally.
+- **Mac app owns the data store.** SQLite access moves to Swift code in this repo via GRDB.swift v7+. This **reverses** the 2026-04-28 "backend helper owns SQLite" decision. Schema management goes through `DatabaseMigrator`; ad-hoc schema mutations are forbidden.
+- **Native GitHub auth.** OAuth Device Flow + Keychain token storage replaces user-installed `gh`. The `gh` dependency is removed when issue B4 lands.
+- **On-disk store relocates** to `~/Library/Application Support/Agendum/`, with a one-shot import from legacy `~/.agendum/` (issue C5). This resolves the still-deferred `~/.agendum` path policy in `docs/packaging.md`.
+- **Architecture standing constraints** for all new code:
+  - `@Observable` is the default for new model objects; `ObservableObject` is reserved for hosts that must support pre-macOS-14.
+  - Apple's three-question model (`@State` / `@Environment` / `@Bindable`) decides property-wrapper choice. Avoid `@StateObject` / `@ObservedObject` / `@EnvironmentObject` in new code.
+  - Cross-actor boundaries use `Sendable` value types; `@MainActor` on view-state classes is explicit; I/O lives on `actor`s.
+  - Each target gets its own `os.Logger` category under subsystem `com.danseely.agendum-mac`.
+  - Test seams are protocol-typed and live in the feature target with hand-rolled fakes.
+  - Navigation state for restoration uses `@SceneStorage`; deep links via `.onOpenURL`.
+  - Adopt `swift-testing` for new test files; do not migrate XCTest until rework is needed anyway.
+  - Do not adopt TCA, Clean Architecture, VIPER, or a generic DI container at current scope.
+- **Module rename** (issue A5): `AgendumMacCore` → `AgendumBackend`; `AgendumMacWorkflow` → `AgendumFeature`. New target `AgendumMacStore` for GRDB-backed persistence (issue C1).
+- **Persistence picks (rejected for the record):** SwiftData (forces schema rewrite + multiple documented sharp edges in 2025–2026), Core Data (stylistically out of step with Swift 6 in this codebase), Realm (EOL on the Apple side), SQLite.swift (weaker SwiftUI/observation story), plain SQLite C API (no upside at this scale), file-based JSON (wrong shape for the queries we need).
+
+### Reasons
+
+- The Python coupling and packaging cost (Library Validation disabled, nested signing, per-CPython-upgrade MAS-rejection risk) is structurally hostile to any future packaging slice.
+- The current 2026 SwiftData feature gap and stability cost outweigh its ergonomic wins for this app's queries; GRDB maps the existing schema 1:1 and keeps the codebase Swift 6-clean.
+- Apple's canonical small-app shape (per WWDC23 Observation, the Backyard Birds sample, and 2024–2025 sample apps) is `@Observable` + `App`/`Scene` + `@State`/`@Environment`/`@Bindable`. The project should follow it explicitly.
+
+### Impact
+
+- Three current `docs/plan.md` non-goals are reversed and the plan is restructured around three new epics (architecture modernization / standalone backend engine / native data store). The orchestration plan in `docs/orchestration-plan.md` is closed; future work is tracked under the new epics.
+- Seven `docs/packaging.md` deferred picks remain deferred but become tractable instead of theoretical once Phase 7 lands; the `~/.agendum` path policy is resolved by issue C5.
+- `docs/backend-contract.md` v0 is preserved through the migration (acts as the test contract); deleted with issue B6.
+- The five-item live-slice orchestration is the last work tracked under the prior plan; all subsequent PRs cite issues from `docs/research/proposed-issues.md`.
+
+### Plan change: yes
+
+This is the largest plan revision since the 2026-04-28 "Mac-native shell around the existing Python engine" framing. It replaces that framing with "standalone Swift app, Python eliminated."
+
+### Still deferred
+
+- Distribution channel (Direct vs. MAS vs. Homebrew cask vs. TestFlight).
+- Code signing identity / notarization credentials.
+- App icon / branding final asset.
+- iCloud / multi-device sync (reachable via Point-Free SQLiteData on top of GRDB if ever needed).
+- Crash-reporting vendor selection beyond MetricKit baseline.
+

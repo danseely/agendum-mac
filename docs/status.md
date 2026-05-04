@@ -1,9 +1,9 @@
 # Status
 
-Last updated: 2026-05-03
+Last updated: 2026-05-03 (architecture-direction research)
 
 ## Current milestone
-The five-item live-slice orchestration in `docs/orchestration-plan.md` shipped completely on 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`). The next milestone is whatever the user routes after the still-deferred packaging-decision pick-list in `docs/packaging.md` (channel, signing, notarization, Python helper runtime, helper-process production layout, `gh` posture, `~/.agendum` path); alternatively, the OQ1 follow-up to give `attentionItemCount` a real integer (requires a Python helper-protocol change in `Backend/agendum_backend/helper.py`) is on the External Deltas list.
+"Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, three research streams (`docs/research/{backend-engine,data-store,architecture}.md`) produced a cross-stream synthesis (`docs/research/synthesis.md`) and drafted GitHub issue text (`docs/research/proposed-issues.md`). The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app." The next implementation step is filing the three epic tracking issues (A / B / C) plus the Phase 1 work issues (A1 `@Observable` migration, A2 `os.Logger`, B1 fork-and-vendor) and merging the planning-doc PR that captures all of this.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -154,12 +154,13 @@ The five-item live-slice orchestration in `docs/orchestration-plan.md` shipped c
 - Five-item live-slice orchestration COMPLETE on 2026-05-03. Total tests added across the orchestration: Swift suite grew 45 → 119; Python suite grew 48 → 61; backend coverage 91.9% → 92.4%.
 
 ## In progress
-- None — orchestration complete; awaiting next-milestone routing from the user.
+- Planning-doc PR **#23** (`codex/standalone-architecture-planning`) is open against `feature/mac-prototype`, capturing the 2026-05-03 plan revision: `docs/research/{backend-engine,data-store,architecture,synthesis,proposed-issues}.md` and updates to `docs/plan.md`, `docs/decisions.md`, `docs/status.md`, `docs/handoff.md`.
+- Three epic tracking issues filed: **#24** (Architecture modernization), **#25** (Standalone backend engine), **#26** (Native data store).
 
 ## Blocked
-- None at the implementation level. Packaging-decision routing is still deferred per `docs/packaging.md` but is not blocking any active work.
+- None at the implementation level. Phase 1 work (A1, A2, B1) is unblocked once PR #23 merges. Leaf issues for each phase are filed when work begins (per user's instruction to file leaves as the phase approaches; drafts in `docs/research/proposed-issues.md`).
 
 ## Next
-- Route the seven still-deferred packaging decisions in `docs/packaging.md` (distribution channel, code signing, notarization, Python helper runtime, helper-process production layout, `gh` posture, `~/.agendum` path); OR
-- Pick from the External Deltas list: OQ1 `attentionItemCount` integer contract (requires a helper-protocol change in `Backend/agendum_backend/helper.py`), future helper-protocol additions for sync-state classifier forward-compat, or any other deferred risks recorded in design-doc §7s.
-- Keep CI aligned with local validation as new test layers are added; keep `main` README-only until the prototype is ready; keep `feature/mac-prototype` as the broad integration branch and use short-lived `codex/*` branches and PRs for all changes targeting it.
+1. Merge PR #23 after review.
+2. File leaf issue A1 (`@Observable` migration) and start it on `codex/a1-observable-migration`. Optionally parallel: A2 (`os.Logger`) on `codex/a2-os-logger`, B1 (fork-and-vendor) on `codex/b1-fork-and-vendor`. A1 is the highest priority because it's a one-PR foundation that simplifies every later slice.
+3. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
