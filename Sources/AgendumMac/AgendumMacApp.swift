@@ -4,7 +4,7 @@ import SwiftUI
 
 @main
 struct AgendumMacApp: App {
-    @StateObject private var backendStatus = BackendStatusModel()
+    @State private var backendStatus = BackendStatusModel()
     @State private var isShowingCreateManualTask = false
     @State private var selectedTask: TaskItem.ID? = nil
     private let commands = TaskDashboardCommands.standard
@@ -104,7 +104,7 @@ struct AgendumMacApp: App {
 
         Settings {
             SettingsView()
-                .environmentObject(backendStatus)
+                .environment(backendStatus)
         }
     }
 }
@@ -130,7 +130,7 @@ private func taskMenuButton(
 
 private struct TaskDashboardView: View {
     @State private var selection: TaskSource? = .authored
-    @ObservedObject var backendStatus: BackendStatusModel
+    var backendStatus: BackendStatusModel
     let commands: TaskDashboardCommands
     @Binding var isShowingCreateManualTask: Bool
     @Binding var selectedTask: TaskItem.ID?
@@ -286,7 +286,7 @@ private struct TaskDashboardView: View {
 }
 
 private struct TaskListFiltersPanel: View {
-    @ObservedObject var status: BackendStatusModel
+    var status: BackendStatusModel
     @AppStorage("task-list-filters-expanded") private var isExpanded: Bool = true
     @State private var pendingFilters: TaskListFilters = .default
 
@@ -401,7 +401,7 @@ private struct TaskListFiltersPanel: View {
 }
 
 private struct BackendStatusPanel: View {
-    @ObservedObject var status: BackendStatusModel
+    var status: BackendStatusModel
     let clearSelectedTask: () -> Void
 
     var body: some View {
@@ -699,7 +699,7 @@ private struct CreateManualTaskSheet: View {
 }
 
 private struct SettingsView: View {
-    @EnvironmentObject private var backendStatus: BackendStatusModel
+    @Environment(BackendStatusModel.self) private var backendStatus
     @State private var notificationAuthorizationStatus: UNAuthorizationStatus?
 
     var body: some View {

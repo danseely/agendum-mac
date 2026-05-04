@@ -174,3 +174,10 @@ This is the largest plan revision since the 2026-04-28 "Mac-native shell around 
 - iCloud / multi-device sync (reachable via Point-Free SQLiteData on top of GRDB if ever needed).
 - Crash-reporting vendor selection beyond MetricKit baseline.
 
+## 2026-05-03 — A1: `@Observable` migration landed in code
+
+- Decision: `BackendStatusModel` migrated from `ObservableObject` + `@Published` + Combine to the SwiftUI `@Observable` macro. The class stays `@MainActor public final class` (the macro does not auto-isolate). Properties keep their existing `private(set)` / `internal(set)` access modifiers; the only structural change is removing the `@Published` wrappers and the `ObservableObject` conformance. `import Combine` is dropped from `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift` (no other consumer); `import Observation` is added. `Sources/AgendumMac/AgendumMacApp.swift` switches `@StateObject` → `@State`, `@EnvironmentObject` / `.environmentObject(_:)` → `@Environment(BackendStatusModel.self)` / `.environment(_:)`, and `@ObservedObject` → plain stored properties (no bindings are taken on the model, so `@Bindable` is not needed today).
+- Reason: This is the first concrete code-side application of the 2026-05-03 plan-revision standing constraint that `@Observable` is the default for new model objects. Issue #27 (parent epic #24, Phase 1 of the architecture modernization) tracks it.
+- Impact: All 119 Swift tests pass unchanged (no test asserted on `objectWillChange`); 61 Python tests untouched; `swift build`, `swift run AgendumMac` smoke launch, and `git diff --check` pass. Per-property change tracking is now active, which slightly reduces SwiftUI re-eval surface for views that read only a subset of model fields. Module rename (A5) and the rest of the architecture epic remain open.
+- Plan change: no — implementation of the 2026-05-03 plan revision.
+

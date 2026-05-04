@@ -1,7 +1,7 @@
 import AgendumMacCore
 import AppKit
-import Combine
 import Foundation
+import Observation
 import UserNotifications
 
 public typealias URLOpening = @Sendable (URL) -> Bool
@@ -313,20 +313,21 @@ public struct PresentedError: Equatable, Sendable {
     }
 }
 
+@Observable
 @MainActor
-public final class BackendStatusModel: ObservableObject {
-    @Published public private(set) var workspace: Workspace?
-    @Published public private(set) var workspaces: [Workspace] = []
-    @Published public private(set) var auth: AuthStatus?
-    @Published public private(set) var sync: SyncStatus?
-    @Published public private(set) var tasks: [TaskItem] = []
-    @Published public private(set) var error: PresentedError?
-    @Published public private(set) var taskActionErrors: [TaskItem.ID: PresentedError] = [:]
-    @Published public private(set) var filters: TaskListFilters = .default
-    @Published public private(set) var isLoading = false
-    @Published public private(set) var diagnostics: AuthDiagnostics?
-    @Published public private(set) var diagnosticsError: PresentedError?
-    @Published public internal(set) var selectedTaskID: TaskItem.ID?
+public final class BackendStatusModel {
+    public private(set) var workspace: Workspace?
+    public private(set) var workspaces: [Workspace] = []
+    public private(set) var auth: AuthStatus?
+    public private(set) var sync: SyncStatus?
+    public private(set) var tasks: [TaskItem] = []
+    public private(set) var error: PresentedError?
+    public private(set) var taskActionErrors: [TaskItem.ID: PresentedError] = [:]
+    public private(set) var filters: TaskListFilters = .default
+    public private(set) var isLoading = false
+    public private(set) var diagnostics: AuthDiagnostics?
+    public private(set) var diagnosticsError: PresentedError?
+    public internal(set) var selectedTaskID: TaskItem.ID?
 
     public func setSelectedTaskID(_ id: TaskItem.ID?) {
         selectedTaskID = id

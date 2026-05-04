@@ -15,6 +15,7 @@ Run these first to find the current live state — the handoff snapshot below ro
 The integration branch is `feature/mac-prototype`. Planning-doc work is on `codex/standalone-architecture-planning` (PR #23). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
 
 ## Repo state
+- A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), draft. URL: `https://github.com/danseely/agendum-mac/pull/28`. Lifecycle state via `gh pr view 28`.
 - Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`). Lifecycle state via `gh pr view 23`.
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
@@ -389,6 +390,14 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - `git diff --check` passes.
 - `swift run AgendumMac` smoke held open ~5s before SIGTERM; no immediate startup crash.
 - CI ran `Test` after the `@preconcurrency UserNotifications` fix (commit `5f54489`) on PR #21 and passed before merge.
+
+### @Observable migration checkpoint (on `codex/a1-observable-migration`)
+- Scope: A1 / issue #27 — `BackendStatusModel` migrated to `@Observable`; `AgendumMacApp.swift` updated to `@State` / `@Environment(BackendStatusModel.self)` / plain stored properties; `import Combine` removed from `TaskWorkflowModel.swift`; `import Observation` added.
+- `swift build`: passes. (`Build complete! (4.01s)`)
+- `swift test --enable-code-coverage`: passes — `Executed 119 tests, with 0 failures (0 unexpected) in 1.520 (1.526) seconds`. No test depended on `objectWillChange`; suite count unchanged from the post-PR-#21 baseline.
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests`: passes — `Ran 61 tests in 2.883s OK`. No Python touched.
+- `swift run AgendumMac`: built clean and held open >5s without crash; SIGTERM exited cleanly. Helper subprocess discovery from sibling `../agendum` is unchanged (pre-existing behavior; not in scope for A1).
+- `git diff --check`: passes.
 
 ## Changed files
 - `Scripts/build_app_bundle.sh` (new, executable): assembles `.build/Agendum.app` from the SwiftPM `AgendumMac` release product, derives `CFBundleShortVersionString` from `git describe` (fallback `0.1.0+dev`) and `CFBundleVersion` from `git rev-list HEAD --count` (fallback `1`), substitutes both into the plist template, and lints the result with `plutil -lint`.
