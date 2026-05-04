@@ -1,13 +1,13 @@
 # Handoff
 
 ## Current objective
-Orchestration complete; no active checkpoint; awaiting next-milestone routing. Three follow-up tracks are available: (1) packaging-decision routing for the seven still-deferred picks in `docs/packaging.md`; (2) External Deltas / OQ-driven changes (OQ1 `attentionItemCount` integer contract, sync-state classifier forward-compat, etc.); (3) alternative live-slice work outside the original five items.
+Land the 2026-05-03 plan revision (`docs/decisions.md` "Plan revision: standalone Swift app") and start the "standalone Swift app" arc. End state: zero Python at runtime, GRDB-backed Swift data store, Apple-canonical architecture. Active step: merge the planning-doc PR on `codex/standalone-architecture-planning`, then file the three epic tracking issues (A / B / C) and the seventeen work issues drafted in `docs/research/proposed-issues.md`, then start Phase 1 (A1 `@Observable` migration / A2 `os.Logger` / B1 fork-and-vendor — all parallel-safe).
 
 ## Branch
-On `feature/mac-prototype` at `4172378` (post-PR-#21 squash merge tip). The temporary `codex/post-orchestration-handoff` branch carries this docs roll-forward; merge it to capture the closing handoff state.
+On `codex/standalone-architecture-planning` (cut from `feature/mac-prototype` at `4172378`, post-PR-#21 tip). This branch carries the planning-doc capture for the new architecture direction; the work-bearing PRs against `feature/mac-prototype` come from the per-issue `codex/*` branches that follow it.
 
 ## Repo state
-- HEAD: `codex/post-orchestration-handoff`, branched from `feature/mac-prototype` at `4172378`. `feature/mac-prototype` is in sync with `origin/feature/mac-prototype` at `4172378`. Working tree clean apart from untracked `.claude/`.
+- HEAD: `codex/standalone-architecture-planning`, branched from `feature/mac-prototype` at `4172378`. `feature/mac-prototype` is in sync with `origin/feature/mac-prototype` at `4172378`. Working tree changes scoped to `docs/` (research dir + plan/decisions/status/handoff updates); untracked `.claude/`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
 - Previous checkpoint PR: `https://github.com/danseely/agendum-mac/pull/20`, merged into `feature/mac-prototype` on 2026-05-03 (squash merge `158954c`).
 - Earlier checkpoint PR: `https://github.com/danseely/agendum-mac/pull/19`, merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c4a6b5a`).
@@ -436,12 +436,13 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
 
 ## Next actions
-1. Decide: route the seven still-deferred packaging decisions in `docs/packaging.md`, OR pick an External-Deltas follow-up (OQ1 `attentionItemCount` integer; sync-state classifier forward-compat).
-2. If packaging routing: gather user picks, append them to `docs/decisions.md`, then scope a code-bearing slice on a new `codex/*` branch.
-3. If External Delta: pick from the design doc §7 risk lists; scope a code-bearing slice on a new `codex/*` branch.
+1. Review the planning-doc PR for `codex/standalone-architecture-planning` (this branch). Confirm `docs/research/synthesis.md` epic structure + phase ordering and `docs/research/proposed-issues.md` issue-body drafts before any GitHub posting.
+2. After approval: file the three epic tracking issues (A / B / C) on GitHub, then the seventeen work issues with cross-references to the epics. Per the user's global rule, no posting without explicit approval per issue or as a batch.
+3. Cut the first Phase 1 work branches from `feature/mac-prototype` post-merge: `codex/a1-observable-migration`, `codex/a2-os-logger`, `codex/b1-fork-and-vendor`. All three parallel-safe; A1 highest priority because it simplifies every later slice.
+4. Keep CI green; keep `main` README-only; use short-lived `codex/*` branches for all PRs targeting `feature/mac-prototype`.
 
 ## After checkpoint
-- After this docs PR merges, no active checkpoint; awaiting user input per `## Next actions`.
+- After this planning-doc PR merges and the epic + work issues are filed, the active checkpoint becomes whichever of A1 / A2 / B1 is started first.
 
 ## Drift from original plan
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
@@ -459,4 +460,5 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - Manual task creation checkpoint stays in scope of the named next-action plan; no unapproved drift introduced by the helper command, Swift client, workflow plumbing, or SwiftUI sheet.
 - Per-task error surfacing checkpoint stays in scope of the post-PR-#11 next-action plan; no unapproved drift introduced by the new `taskActionErrors` map, the task-scoped `performTaskAction`, the SwiftUI detail-pane error caption, or the new fake-backed workflow tests.
 - Item 1 (PR #17) included an in-scope drive-by fix to `BackendClientConfiguration.firstAncestor` that resolved an infinite-loop bug introduced in PR #16; the reviewer recommended KEEP rather than split it into a separate PR, so the fix landed inside the item-1 PR rather than as its own checkpoint.
+- 2026-05-03 plan revision: large-but-approved deviation. The user explicitly directed "rip all Python out" after the three architecture-direction research streams completed. This contradicts and supersedes three prior `docs/plan.md` non-goals ("No decision has been made to rewrite the Python backend in Swift"; "Whether Swift ever reads SQLite directly. Current bias: no"; "Out Of Scope Until Later: full Swift rewrite of the sync engine"). All three are reversed; the new direction is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app" and the new milestone arc is in `docs/plan.md`.
 - Five-item orchestration shipped without scope drift outside the explicitly-recorded drive-bys (item 1 `firstAncestor` infinite-loop fix; item 3 helper.py:439 `repairInstructions` shared-formatter unification). Both were called out in their PR bodies and reviewer-approved as KEEP.

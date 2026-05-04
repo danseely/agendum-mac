@@ -1,9 +1,9 @@
 # Status
 
-Last updated: 2026-05-03
+Last updated: 2026-05-03 (architecture-direction research)
 
 ## Current milestone
-The five-item live-slice orchestration in `docs/orchestration-plan.md` shipped completely on 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`). The next milestone is whatever the user routes after the still-deferred packaging-decision pick-list in `docs/packaging.md` (channel, signing, notarization, Python helper runtime, helper-process production layout, `gh` posture, `~/.agendum` path); alternatively, the OQ1 follow-up to give `attentionItemCount` a real integer (requires a Python helper-protocol change in `Backend/agendum_backend/helper.py`) is on the External Deltas list.
+"Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, three research streams (`docs/research/{backend-engine,data-store,architecture}.md`) produced a cross-stream synthesis (`docs/research/synthesis.md`) and drafted GitHub issue text (`docs/research/proposed-issues.md`). The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app." The next implementation step is filing the three epic tracking issues (A / B / C) plus the Phase 1 work issues (A1 `@Observable` migration, A2 `os.Logger`, B1 fork-and-vendor) and merging the planning-doc PR that captures all of this.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -154,12 +154,13 @@ The five-item live-slice orchestration in `docs/orchestration-plan.md` shipped c
 - Five-item live-slice orchestration COMPLETE on 2026-05-03. Total tests added across the orchestration: Swift suite grew 45 → 119; Python suite grew 48 → 61; backend coverage 91.9% → 92.4%.
 
 ## In progress
-- None — orchestration complete; awaiting next-milestone routing from the user.
+- Planning-doc capture for the 2026-05-03 plan revision on `codex/standalone-architecture-planning`. Files added: `docs/research/{backend-engine,data-store,architecture,synthesis,proposed-issues}.md`. Files updated: `docs/plan.md`, `docs/decisions.md`, `docs/status.md`, `docs/handoff.md`.
 
 ## Blocked
-- None at the implementation level. Packaging-decision routing is still deferred per `docs/packaging.md` but is not blocking any active work.
+- None at the implementation level. The Phase 1 work (A1, A2, B1) is unblocked once the planning-doc PR merges and the epic + work issues are filed.
 
 ## Next
-- Route the seven still-deferred packaging decisions in `docs/packaging.md` (distribution channel, code signing, notarization, Python helper runtime, helper-process production layout, `gh` posture, `~/.agendum` path); OR
-- Pick from the External Deltas list: OQ1 `attentionItemCount` integer contract (requires a helper-protocol change in `Backend/agendum_backend/helper.py`), future helper-protocol additions for sync-state classifier forward-compat, or any other deferred risks recorded in design-doc §7s.
-- Keep CI aligned with local validation as new test layers are added; keep `main` README-only until the prototype is ready; keep `feature/mac-prototype` as the broad integration branch and use short-lived `codex/*` branches and PRs for all changes targeting it.
+1. Merge the planning-doc PR for `codex/standalone-architecture-planning` after review.
+2. File the three epic tracking issues (A / B / C) and the seventeen work issues drafted in `docs/research/proposed-issues.md`. Per the user's global rule, no GitHub posting without explicit approval.
+3. Open the first Phase 1 work branches: A1 (`@Observable` migration), A2 (`os.Logger`), B1 (fork-and-vendor). All three can run in parallel; A1 is the highest priority because it's a one-PR foundation that simplifies every later slice.
+4. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
