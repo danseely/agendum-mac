@@ -1,0 +1,630 @@
+import Foundation
+
+public struct Workspace: Decodable, Equatable, Sendable {
+    public let id: String
+    public let namespace: String?
+    public let displayName: String
+    public let configPath: String
+    public let dbPath: String
+    public let isCurrent: Bool
+}
+
+public struct AuthStatus: Decodable, Equatable, Sendable {
+    public let ghFound: Bool
+    public let ghPath: String?
+    public let authenticated: Bool
+    public let username: String?
+    public let workspaceGhConfigDir: String
+    public let repairInstructions: String?
+    public let repairCommand: String?
+}
+
+public struct AuthDiagnostics: Decodable, Equatable, Sendable {
+    public let gh: GHInstallation
+    public let auth: AuthStatus
+    public let host: String
+    public let helperPath: [String]
+
+    public struct GHInstallation: Decodable, Equatable, Sendable {
+        public let found: Bool
+        public let path: String?
+        public let version: String?
+        public let installed: Bool
+    }
+}
+
+public struct SyncStatus: Decodable, Equatable, Sendable {
+    public let state: String
+    public let lastSyncAt: String?
+    public let lastError: String?
+    public let changes: Int
+    public let hasAttentionItems: Bool
+}
+
+public struct AgendumTask: Decodable, Identifiable, Equatable, Sendable {
+    public let id: Int
+    public let title: String
+    public let source: String
+    public let status: String
+    public let project: String?
+    public let ghRepo: String?
+    public let ghUrl: String?
+    public let ghNumber: Int?
+    public let ghAuthor: String?
+    public let ghAuthorName: String?
+    public let tags: [String]
+    public let seen: Bool
+    public let lastChangedAt: String?
+    public let updatedAt: String?
+}
+
+public struct WorkspaceSelection: Decodable, Equatable, Sendable {
+    public let workspace: Workspace
+    public let auth: AuthStatus
+    public let sync: SyncStatus
+}
+
+public struct BackendErrorPayload: Decodable, Error, Equatable, Sendable {
+    public let code: String
+    public let message: String
+    public let detail: String?
+    public let recovery: String?
+
+    public init(code: String, message: String, detail: String?, recovery: String?) {
+        self.code = code
+        self.message = message
+        self.detail = detail
+        self.recovery = recovery
+    }
+}
+
+public enum BackendClientError: Error, Equatable, Sendable {
+    case invalidResponse(String)
+    case helperError(BackendErrorPayload)
+    case helperTerminated(String)
+    case requestTimedOut(TimeInterval)
+    case unexpectedResponseID(expected: String, actual: String?)
+    case unsupportedProtocolVersion(Int)
+}
+
+extension BackendClientError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .invalidResponse(let message):
+            return message
+        case .helperError(let error):
+            return error.recovery ?? error.detail ?? error.message
+        case .helperTerminated(let stderr):
+            return stderr.isEmpty ? "Backend helper terminated unexpectedly." : stderr
+        case .requestTimedOut(let timeout):
+            return "Backend helper did not respond within \(timeout) seconds."
+        case .unexpectedResponseID(let expected, let actual):
+            return "Expected response id \(expected), received \(actual ?? "none")."
+        case .unsupportedProtocolVersion(let version):
+            return "Unsupported backend protocol version \(version)."
+        }
+    }
+}
+
+public struct BackendClientConfiguration: Sendable {
+    public let helperURL: URL
+    public let pythonExecutableURL: URL
+    public let workingDirectoryURL: URL?
+    public let environment: [String: String]
+    public let requestTimeout: TimeInterval
+
+    public init(
+        helperURL: URL,
+        pythonExecutableURL: URL = BackendClientConfiguration.defaultPythonExecutableURL(),
+        workingDirectoryURL: URL? = nil,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        requestTimeout: TimeInterval = 10
+    ) {
+        self.helperURL = helperURL
+        self.pythonExecutableURL = pythonExecutableURL
+        self.workingDirectoryURL = workingDirectoryURL
+        self.environment = environment
+        self.requestTimeout = requestTimeout
+    }
+
+    public static func development(
+        repositoryRoot: URL? = nil
+    ) -> BackendClientConfiguration {
+        let repositoryRoot = repositoryRoot ?? discoverDevelopmentRepositoryRoot()
+        return BackendClientConfiguration(
+            helperURL: repositoryRoot.appendingPathComponent("Backend/agendum_backend_helper.py"),
+            workingDirectoryURL: repositoryRoot
+        )
+    }
+
+    public static func defaultPythonExecutableURL() -> URL {
+        let fileManager = FileManager.default
+        for path in ["/opt/homebrew/bin/python3", "/usr/local/bin/python3", "/usr/bin/python3"] {
+            if fileManager.isExecutableFile(atPath: path) {
+                return URL(fileURLWithPath: path)
+            }
+        }
+        return URL(fileURLWithPath: "/usr/bin/python3")
+    }
+
+    public static func discoverDevelopmentRepositoryRoot(
+        fileManager: FileManager = .default,
+        currentDirectoryURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath),
+        executableURL: URL? = Bundle.main.executableURL
+    ) -> URL {
+        let candidates = [currentDirectoryURL, executableURL].compactMap { $0 }
+        for candidate in candidates {
+            if let root = firstAncestor(containing: "Backend/agendum_backend_helper.py", from: candidate, fileManager: fileManager) {
+                return root
+            }
+        }
+        return currentDirectoryURL
+    }
+
+    private static func firstAncestor(
+        containing relativePath: String,
+        from url: URL,
+        fileManager: FileManager
+    ) -> URL? {
+        var candidate = url.standardizedFileURL
+        var isDirectory: ObjCBool = false
+        if fileManager.fileExists(atPath: candidate.path, isDirectory: &isDirectory), !isDirectory.boolValue {
+            candidate.deleteLastPathComponent()
+            candidate = candidate.standardizedFileURL
+        }
+
+        var seen: Set<String> = []
+        while seen.insert(candidate.path).inserted {
+            if fileManager.fileExists(atPath: candidate.appendingPathComponent(relativePath).path) {
+                return candidate
+            }
+            let parent = candidate.deletingLastPathComponent().standardizedFileURL
+            if parent.path == candidate.path || candidate.path == "/" {
+                return nil
+            }
+            candidate = parent
+        }
+        return nil
+    }
+}
+
+public actor AgendumBackendClient {
+    private let configuration: BackendClientConfiguration
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    private var process: Process?
+    private var input: FileHandle?
+    private var output: FileHandle?
+    private var errorOutput: FileHandle?
+    private var outputReader: BackendOutputReader?
+
+    public init(configuration: BackendClientConfiguration = .development()) {
+        self.configuration = configuration
+    }
+
+    deinit {
+        if let input {
+            // Best-effort close on deinit; nothing to log to.
+            try? input.close()
+        }
+        output?.readabilityHandler = nil
+        if let process, process.isRunning {
+            process.terminate()
+        }
+    }
+
+    public func currentWorkspace() async throws -> Workspace {
+        let payload: WorkspaceResponsePayload = try await send(command: "workspace.current")
+        return payload.workspace
+    }
+
+    public func listWorkspaces() async throws -> [Workspace] {
+        let payload: WorkspaceListResponsePayload = try await send(command: "workspace.list")
+        return payload.workspaces
+    }
+
+    public func selectWorkspace(namespace: String?) async throws -> WorkspaceSelection {
+        try await send(command: "workspace.select", payload: WorkspaceSelectRequestPayload(namespace: namespace))
+    }
+
+    public func listTasks(
+        source: String? = nil,
+        status: String? = nil,
+        project: String? = nil,
+        includeSeen: Bool = true,
+        limit: Int = 50
+    ) async throws -> [AgendumTask] {
+        let payload: TaskListResponsePayload = try await send(
+            command: "task.list",
+            payload: TaskListRequestPayload(
+                source: source,
+                status: status,
+                project: project,
+                includeSeen: includeSeen,
+                limit: limit
+            )
+        )
+        return payload.tasks
+    }
+
+    public func getTask(id: Int) async throws -> AgendumTask? {
+        let payload: TaskResponsePayload = try await send(command: "task.get", payload: TaskIDRequestPayload(id: id))
+        return payload.task
+    }
+
+    public func createManualTask(
+        title: String,
+        project: String? = nil,
+        tags: [String]? = nil
+    ) async throws -> AgendumTask {
+        let payload: TaskResponsePayload = try await send(
+            command: "task.createManual",
+            payload: TaskCreateManualRequestPayload(title: title, project: project, tags: tags)
+        )
+        guard let task = payload.task else {
+            throw BackendClientError.invalidResponse("Backend helper response did not include a task.")
+        }
+        return task
+    }
+
+    public func markTaskReviewed(id: Int) async throws -> AgendumTask {
+        try await taskAction(command: "task.markReviewed", id: id)
+    }
+
+    public func markTaskInProgress(id: Int) async throws -> AgendumTask {
+        try await taskAction(command: "task.markInProgress", id: id)
+    }
+
+    public func moveTaskToBacklog(id: Int) async throws -> AgendumTask {
+        try await taskAction(command: "task.moveToBacklog", id: id)
+    }
+
+    public func markTaskDone(id: Int) async throws -> AgendumTask {
+        try await taskAction(command: "task.markDone", id: id)
+    }
+
+    public func markTaskSeen(id: Int) async throws -> AgendumTask {
+        try await taskAction(command: "task.markSeen", id: id)
+    }
+
+    public func removeTask(id: Int) async throws -> Bool {
+        let payload: TaskRemoveResponsePayload = try await send(command: "task.remove", payload: TaskIDRequestPayload(id: id))
+        return payload.removed
+    }
+
+    public func syncStatus() async throws -> SyncStatus {
+        let payload: SyncStatusResponsePayload = try await send(command: "sync.status")
+        return payload.status
+    }
+
+    public func forceSync() async throws -> SyncStatus {
+        let payload: SyncStatusResponsePayload = try await send(command: "sync.force")
+        return payload.status
+    }
+
+    public func authStatus() async throws -> AuthStatus {
+        let payload: AuthStatusResponsePayload = try await send(command: "auth.status")
+        return payload.auth
+    }
+
+    public func authDiagnose() async throws -> AuthDiagnostics {
+        let payload: AuthDiagnoseResponsePayload = try await send(command: "auth.diagnose")
+        return payload.diagnostics
+    }
+
+    func request<ResponsePayload: Decodable>(
+        command: String,
+        as responsePayload: ResponsePayload.Type = ResponsePayload.self
+    ) async throws -> ResponsePayload {
+        try await send(command: command)
+    }
+
+    public func close() {
+        logger.notice("Closing backend helper client.")
+        if let input {
+            do {
+                try input.close()
+            } catch {
+                logger.error("Failed to close backend helper input pipe: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        output?.readabilityHandler = nil
+        outputReader?.close()
+        if let output {
+            do {
+                try output.close()
+            } catch {
+                logger.error("Failed to close backend helper output pipe: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        if let errorOutput {
+            do {
+                try errorOutput.close()
+            } catch {
+                logger.error("Failed to close backend helper stderr pipe: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        if let process, process.isRunning {
+            process.terminate()
+            process.waitUntilExit()
+        }
+        process = nil
+        input = nil
+        output = nil
+        errorOutput = nil
+        outputReader = nil
+    }
+
+    private func send<ResponsePayload: Decodable, RequestPayload: Encodable>(
+        command: String,
+        payload: RequestPayload
+    ) async throws -> ResponsePayload {
+        try startIfNeeded()
+
+        guard let input else {
+            throw BackendClientError.invalidResponse("Backend helper input pipe is unavailable.")
+        }
+
+        let requestID = UUID().uuidString
+        let request = RequestEnvelope(version: 1, id: requestID, command: command, payload: payload)
+        var data = try encoder.encode(request)
+        data.append(0x0A)
+        input.write(data)
+
+        while true {
+            let line = try readLine()
+            let probe: ResponseProbe
+            do {
+                probe = try decoder.decode(ResponseProbe.self, from: line)
+            } catch {
+                logger.error("Backend helper response was not valid JSON for command \(command, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                throw BackendClientError.invalidResponse("Backend helper response was not valid JSON.")
+            }
+            if probe.event != nil {
+                continue
+            }
+            guard probe.id == requestID else {
+                throw BackendClientError.unexpectedResponseID(expected: requestID, actual: probe.id)
+            }
+
+            let response: ResponseEnvelope<ResponsePayload>
+            do {
+                response = try decoder.decode(ResponseEnvelope<ResponsePayload>.self, from: line)
+            } catch {
+                logger.error("Backend helper response did not match the expected schema for command \(command, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                throw BackendClientError.invalidResponse("Backend helper response did not match the expected schema.")
+            }
+            guard response.version == 1 else {
+                logger.error("Backend helper returned unsupported protocol version \(response.version) for command \(command, privacy: .public).")
+                throw BackendClientError.unsupportedProtocolVersion(response.version)
+            }
+            guard response.ok else {
+                let payload = response.error ?? BackendErrorPayload(
+                    code: "unknown",
+                    message: "Backend helper returned an unknown error.",
+                    detail: nil,
+                    recovery: nil
+                )
+                logger.error("Backend helper returned error envelope for command \(command, privacy: .public): code=\(payload.code, privacy: .public) message=\(payload.message, privacy: .public)")
+                throw BackendClientError.helperError(payload)
+            }
+            guard let payload = response.payload else {
+                throw BackendClientError.invalidResponse("Backend helper response did not include a payload.")
+            }
+            return payload
+        }
+    }
+
+    private func send<ResponsePayload: Decodable>(
+        command: String
+    ) async throws -> ResponsePayload {
+        try await send(command: command, payload: EmptyPayload())
+    }
+
+    private func taskAction(command: String, id: Int) async throws -> AgendumTask {
+        let payload: TaskResponsePayload = try await send(command: command, payload: TaskIDRequestPayload(id: id))
+        guard let task = payload.task else {
+            throw BackendClientError.invalidResponse("Backend helper response did not include a task.")
+        }
+        return task
+    }
+
+    private func startIfNeeded() throws {
+        if let process, process.isRunning {
+            return
+        }
+        if process != nil {
+            logger.notice("Backend helper process is not running; restarting.")
+        } else {
+            logger.notice("Spawning backend helper process at \(self.configuration.helperURL.path, privacy: .public).")
+        }
+
+        let process = Process()
+        let inputPipe = Pipe()
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+
+        process.executableURL = configuration.pythonExecutableURL
+        process.arguments = [configuration.helperURL.path]
+        process.currentDirectoryURL = configuration.workingDirectoryURL
+        process.environment = configuration.environment
+        process.standardInput = inputPipe
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+
+        try process.run()
+
+        let reader = BackendOutputReader()
+        outputPipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            if data.isEmpty {
+                reader.close()
+            } else {
+                reader.append(data)
+            }
+        }
+
+        self.process = process
+        input = inputPipe.fileHandleForWriting
+        output = outputPipe.fileHandleForReading
+        errorOutput = errorPipe.fileHandleForReading
+        outputReader = reader
+    }
+
+    private func readLine() throws -> Data {
+        guard let outputReader else {
+            throw BackendClientError.invalidResponse("Backend helper output pipe is unavailable.")
+        }
+
+        do {
+            return try outputReader.readLine(timeout: configuration.requestTimeout)
+        } catch BackendClientError.requestTimedOut {
+            logger.error("Backend helper timed out after \(self.configuration.requestTimeout, privacy: .public)s; closing helper process.")
+            close()
+            throw BackendClientError.requestTimedOut(configuration.requestTimeout)
+        } catch BackendClientError.helperTerminated {
+            let stderr = readStderr()
+            logger.error("Backend helper terminated unexpectedly. stderr: \(stderr, privacy: .public)")
+            throw BackendClientError.helperTerminated(stderr)
+        }
+    }
+
+    private func readStderr() -> String {
+        guard let errorOutput else {
+            return ""
+        }
+        let data = errorOutput.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+}
+
+private final class BackendOutputReader: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var buffer = Data()
+    private var closed = false
+
+    func append(_ data: Data) {
+        condition.lock()
+        buffer.append(data)
+        condition.signal()
+        condition.unlock()
+    }
+
+    func close() {
+        condition.lock()
+        closed = true
+        condition.broadcast()
+        condition.unlock()
+    }
+
+    func readLine(timeout: TimeInterval) throws -> Data {
+        let deadline = Date().addingTimeInterval(timeout)
+
+        condition.lock()
+        defer { condition.unlock() }
+
+        while true {
+            if let newlineIndex = buffer.firstIndex(of: 0x0A) {
+                let line = buffer[..<newlineIndex]
+                buffer.removeSubrange(...newlineIndex)
+                return Data(line)
+            }
+            if closed {
+                throw BackendClientError.helperTerminated("")
+            }
+            if !condition.wait(until: deadline) {
+                throw BackendClientError.requestTimedOut(timeout)
+            }
+        }
+    }
+}
+
+private struct EmptyPayload: Encodable, Sendable {}
+
+private struct RequestEnvelope<Payload: Encodable>: Encodable {
+    let version: Int
+    let id: String
+    let command: String
+    let payload: Payload
+}
+
+private struct ResponseProbe: Decodable {
+    let id: String?
+    let event: String?
+}
+
+private struct ResponseEnvelope<Payload: Decodable>: Decodable {
+    let version: Int
+    let id: String?
+    let ok: Bool
+    let payload: Payload?
+    let error: BackendErrorPayload?
+}
+
+private struct WorkspaceResponsePayload: Decodable {
+    let workspace: Workspace
+}
+
+private struct WorkspaceListResponsePayload: Decodable {
+    let workspaces: [Workspace]
+}
+
+private struct WorkspaceSelectRequestPayload: Encodable, Sendable {
+    let namespace: String?
+
+    enum CodingKeys: String, CodingKey {
+        case namespace
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let namespace {
+            try container.encode(namespace, forKey: .namespace)
+        } else {
+            try container.encodeNil(forKey: .namespace)
+        }
+    }
+}
+
+private struct AuthStatusResponsePayload: Decodable {
+    let auth: AuthStatus
+}
+
+private struct AuthDiagnoseResponsePayload: Decodable {
+    let diagnostics: AuthDiagnostics
+}
+
+private struct TaskListRequestPayload: Encodable, Sendable {
+    let source: String?
+    let status: String?
+    let project: String?
+    let includeSeen: Bool
+    let limit: Int
+}
+
+private struct TaskListResponsePayload: Decodable {
+    let tasks: [AgendumTask]
+}
+
+private struct TaskIDRequestPayload: Encodable, Sendable {
+    let id: Int
+}
+
+private struct TaskCreateManualRequestPayload: Encodable, Sendable {
+    let title: String
+    let project: String?
+    let tags: [String]?
+}
+
+private struct TaskResponsePayload: Decodable {
+    let task: AgendumTask?
+}
+
+private struct TaskRemoveResponsePayload: Decodable {
+    let removed: Bool
+}
+
+private struct SyncStatusResponsePayload: Decodable {
+    let status: SyncStatus
+}

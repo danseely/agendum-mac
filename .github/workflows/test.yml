@@ -1,0 +1,55 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out agendum-mac
+        uses: actions/checkout@v5
+        with:
+          path: agendum-mac
+
+      - name: Check out agendum backend
+        uses: actions/checkout@v5
+        with:
+          repository: danseely/agendum
+          path: agendum
+
+      - name: Run backend coverage
+        run: python3 Scripts/python_coverage.py
+        working-directory: agendum-mac
+
+      - name: Run backend tests
+        run: python3 -m unittest discover -s Tests
+        working-directory: agendum-mac
+
+      - name: Build Swift package
+        run: swift build
+        working-directory: agendum-mac
+
+      - name: Run Swift tests with coverage
+        run: swift test --enable-code-coverage
+        working-directory: agendum-mac
+
+      - name: Build app bundle smoke
+        run: |
+          Scripts/build_app_bundle.sh
+          test -d .build/Agendum.app
+          test -x .build/Agendum.app/Contents/MacOS/Agendum
+          plutil -lint .build/Agendum.app/Contents/Info.plist
+        working-directory: agendum-mac
+
+      - name: Check whitespace
+        run: git diff --check
+        working-directory: agendum-mac

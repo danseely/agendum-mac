@@ -6,13 +6,12 @@ This is intentionally separate from `../agendum`. The existing terminal app rema
 
 ## Current Shape
 
-- README-only public base branch.
-- Prototype work happens on feature branches and pull requests.
-- The first implementation branch is `feature/backend-helper`.
+- SwiftUI-first macOS app scaffold.
+- Local sample data only.
+- Public `main` is README-only; this branch carries the prototype baseline.
+- Planning state lives in `docs/`.
 
 ## Run
-
-The runnable app scaffold lives on implementation branches, not on `main`.
 
 ```bash
 swift run AgendumMac
@@ -24,3 +23,7 @@ swift run AgendumMac
 2. Extract or reuse a stable task/action API from `../agendum`.
 3. Replace sample data with backend-driven task loading.
 4. Add Mac-native settings, menu commands, keyboard shortcuts, sync status, and workspace selection.
+
+## Developer-convenience .app build
+
+`Scripts/build_app_bundle.sh` produces an unsigned `.build/Agendum.app/` from the SwiftPM release product. Launch with `open .build/Agendum.app` from a working clone (the helper still requires the sibling `../agendum` checkout). The bundle is not signed or notarized; Finder launches will trigger Gatekeeper. Use `open` from terminal to bypass quarantine for local development.
