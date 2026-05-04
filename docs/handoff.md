@@ -16,7 +16,8 @@ The integration branch is `feature/mac-prototype`. Planning-doc work is on `code
 
 ## Repo state
 - A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `256678d`).
-- A2 leaf PR: **#30** (`codex/a2-os-logger` → `feature/mac-prototype`), draft. URL: `https://github.com/danseely/agendum-mac/pull/30`. Lifecycle state via `gh pr view 30`.
+- A2 leaf PR: **#30** (`codex/a2-os-logger` → `feature/mac-prototype`), merged 2026-05-04 (squash merge `6ec1fc2`).
+- B1 leaf PR: opening on `codex/b1-fork-and-vendor` → `feature/mac-prototype`. Lifecycle state via `gh pr view <num>`.
 - Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `3afdb58`).
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
@@ -40,7 +41,7 @@ The integration branch is `feature/mac-prototype`. Planning-doc work is on `code
 - Earlier merged PRs into `feature/mac-prototype`: #1 (backend helper scaffold), #3 (testing baseline + CI), #4 (branch discipline), #5 (Swift helper-process client).
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge. The `codex/manual-task-creation` local branch was removed by the PR #11 merge flow; remote PR branches `origin/codex/manual-task-creation` and `origin/codex/swiftui-workflow-coverage` were deleted on the remote. Deleted local `codex/per-task-error-surfacing` after PR #12 merge. Deleted local `codex/structured-error-mapping` after PR #14 merge. Deleted local `codex/packaging-matrix-doc` after PR #15 merge. Remote refs `origin/codex/sync-lifecycle-presentation`, `origin/codex/structured-error-mapping`, `origin/codex/per-task-error-surfacing`, `origin/codex/packaging-matrix-doc`, and `origin/codex/app-bundle-smoke` pruned locally on 2026-05-03 after upstream cleanup.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
+- Engine source: vendored in-tree at `Backend/agendum_engine/agendum/` (forked 2026-05-04 from `danseely/agendum` commit `b62a45c6a28f8ffd4b57a597de4744dc83d0d94d`; see `Backend/agendum_engine/README.md` and the 2026-05-04 B1 entry in `docs/decisions.md`). The sibling-checkout discipline is retired: neither local development, the Python tests, the helper subprocess, `swift run AgendumMac`, nor CI requires `danseely/agendum` to be checked out alongside `agendum-mac`.
 - PR #17 (item 1 — open task URL detail action) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c2a6d97`).
 - PR #18 (item 2 — task list filtering UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c29c630`).
 - PR #19 (item 3 — settings / auth-repair UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c4a6b5a`).
@@ -411,6 +412,15 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
   - `2026-05-03 21:57:28.039816-0400 AgendumMac: [com.danseely.agendum-mac:workflow] BackendStatusModel.refresh ok: 15 tasks`
 - `git diff --check`: passes.
 - `git grep -nP '^\s*print\(' -- Sources/`: no matches.
+
+### Fork-and-vendor checkpoint (on `codex/b1-fork-and-vendor`)
+- Scope: B1 / issue #31 — flat-copied `../agendum/src/agendum/` to `Backend/agendum_engine/agendum/`; added `Backend/agendum_engine/LICENSE` (Apache-2.0, verbatim from upstream) and `Backend/agendum_engine/README.md` recording the fork-point commit `b62a45c6a28f8ffd4b57a597de4744dc83d0d94d` and divergence policy. `_bootstrap_agendum_import()` in `Backend/agendum_backend/helper.py` now prepends `Backend/agendum_engine/` to `sys.path` unconditionally (no sibling fallback). `Tests/test_backend_helper_process.py` uses the in-tree path. `.github/workflows/test.yml` no longer checks out `danseely/agendum`. Engine import name (`agendum`) preserved, so other call sites are untouched.
+- `swift build`: passes. (`Build complete! (2.74s)`)
+- `swift test --enable-code-coverage`: passes — `Executed 119 tests, with 0 failures (0 unexpected) in 1.073 (1.080) seconds`. Suite count unchanged from the post-A2 baseline.
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests`: passes — `Ran 61 tests in 2.994s OK`.
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py`: passes — `Backend/agendum_backend/helper.py: 499/540 lines (92.4%)` (≥91% gate).
+- Sibling-isolation gate: with `/Users/dseely/dev/agendum` renamed to `/Users/dseely/dev/agendum.bak`, re-ran `swift test --enable-code-coverage` (119/0/0 in 1.027s), `python3 -m unittest discover -s Tests` (61/0 in 2.794s), `python3 Scripts/python_coverage.py` (499/540 = 92.4%), and `swift run AgendumMac` (built clean, ran >5s, terminated cleanly). Sibling restored afterward.
+- `git diff --check`: passes (on the three modified files; the new `Backend/agendum_engine/` tree is untracked-then-staged and reproduces the upstream `src/agendum/` byte-for-byte).
 
 ## Changed files
 - `Scripts/build_app_bundle.sh` (new, executable): assembles `.build/Agendum.app` from the SwiftPM `AgendumMac` release product, derives `CFBundleShortVersionString` from `git describe` (fallback `0.1.0+dev`) and `CFBundleVersion` from `git rev-list HEAD --count` (fallback `1`), substitutes both into the plist template, and lints the result with `plutil -lint`.

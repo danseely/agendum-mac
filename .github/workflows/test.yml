@@ -20,12 +20,6 @@ jobs:
         with:
           path: agendum-mac
 
-      - name: Check out agendum backend
-        uses: actions/checkout@v5
-        with:
-          repository: danseely/agendum
-          path: agendum
-
       - name: Run backend coverage
         run: python3 Scripts/python_coverage.py
         working-directory: agendum-mac

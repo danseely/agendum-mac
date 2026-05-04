@@ -189,3 +189,11 @@ This is the largest plan revision since the 2026-04-28 "Mac-native shell around 
 - Plan change: no — implementation of the 2026-05-03 plan revision.
 - References: PR #30, issue #29.
 
+
+## 2026-05-04 — B1: forked `agendum` engine into `Backend/agendum_engine/`; sibling-checkout discipline retired
+
+- Decision: The Python engine previously consumed from `../agendum/src/agendum/` is now vendored in-tree at `Backend/agendum_engine/agendum/`, with `Backend/agendum_engine/LICENSE` (Apache-2.0, copied verbatim from upstream) and `Backend/agendum_engine/README.md` recording the fork-point upstream commit (`b62a45c6a28f8ffd4b57a597de4744dc83d0d94d`) and the divergence policy. `Backend/agendum_backend/helper.py` `_bootstrap_agendum_import()` now unconditionally puts `Backend/agendum_engine/` on `sys.path` (no sibling fallback). `Tests/test_backend_helper_process.py` drops its sibling-bootstrap line and uses the in-tree path. `.github/workflows/test.yml` no longer checks out `danseely/agendum`. The package import name (`agendum`) is unchanged, so call sites in helper code and tests need only the `sys.path` change.
+- Reason: B1 / issue #31, Phase 1 of epic #25. Sibling-checkout discipline is brittle for new contributors and CI; vendoring eliminates it in one PR with zero behavior change and is the prerequisite for the Swift-port slices (B2–B5). Subtree history was not preserved (flat copy) — upstream history is unrelated to this repo and a flat copy keeps the diff small and reviewable.
+- Impact: All 119 Swift tests pass unchanged. 61 Python tests pass. `python3 Scripts/python_coverage.py` reports 92.4% (≥91% gate). Sibling-isolation gate confirmed: with `/Users/dseely/dev/agendum` renamed aside, `swift test --enable-code-coverage`, `python3 -m unittest discover -s Tests`, `python3 Scripts/python_coverage.py`, and a 5s `swift run AgendumMac` smoke all still pass. CI no longer checks out two repos. Engine evolution from this point happens in this repo; upstream is no longer load-bearing.
+- Plan change: no — implementation of the 2026-05-03 plan revision.
+- References: PR for #31, issue #31, parent epic #25.
