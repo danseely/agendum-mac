@@ -23,7 +23,7 @@ The integration branch is `feature/mac-prototype`. Current leaf work is on `code
 - A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `256678d`).
 - A2 leaf PR: **#30** (`codex/a2-os-logger` → `feature/mac-prototype`), merged 2026-05-04 (squash merge `6ec1fc2`).
 - B1 leaf PR: **#32** (`codex/b1-fork-and-vendor` → `feature/mac-prototype`), merged 2026-05-05 (squash merge `ca65a00`).
-- B2 leaf issue: **#33** (`codex/b2-status-derivation-port`), draft PR **#34**, in review-fix loop.
+- B2 leaf issue: **#33** (`codex/b2-status-derivation-port`), draft PR **#34**, ready to mark for review when desired.
 - Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `3afdb58`).
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
@@ -53,7 +53,7 @@ The integration branch is `feature/mac-prototype`. Current leaf work is on `code
 - PR #19 (item 3 — settings / auth-repair UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c4a6b5a`).
 - PR #20 (item 4 — keyboard shortcuts + menu coverage) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `158954c`).
 - PR #21 (item 5 — notifications + dock badge for sync results) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `4172378`).
-- Last validation date: 2026-05-05 (B2 status-derivation port): `swift build` passed; `swift test --enable-code-coverage` passed with 119 XCTest tests plus 6 Swift Testing cases; `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 67 tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 499/540 lines (92.4%); `swift run AgendumMac` built and stayed running until terminated after a brief smoke; `git diff --check` passed.
+- Last validation date: 2026-05-05 (B2 status-derivation port): `swift build` passed; `swift test --enable-code-coverage` passed with 119 XCTest tests plus 6 Swift Testing cases; `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 67 tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 499/540 lines (92.4%); `swift run AgendumMac` built and stayed running until terminated after a brief smoke; `git diff --check` passed. PR #34 CI `Test` passed after the parity review fixes. Second read-only review found no blocking code issues.
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -479,9 +479,9 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - The Python helper still owns sync/task behavior; B2 only proves parity for a pure Swift backend-engine slice.
 
 ## Next actions
-1. Re-run targeted and full validation after PR #34 review fixes.
-2. Commit and push the PR #34 review fixes.
-3. Re-check CI and run/confirm a clean read-only review pass before marking ready.
+1. Mark PR #34 ready for review when desired.
+2. If any formal review or CI finding appears after readiness, address it on `codex/b2-status-derivation-port`.
+3. After PR #34 merges, continue the standalone Swift arc with A3 (`@SceneStorage`) or B3/C1 depending on whether architecture or data-store work should lead next.
 
 ## After checkpoint
 The active checkpoint at any moment is whichever leaf-work PR is open, or the next-leaf-to-file if none is in flight. The arc finishes when issues #24, #25, #26 are all closed.

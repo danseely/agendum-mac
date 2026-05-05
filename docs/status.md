@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-05-05 (B2 status-derivation port ready for PR)
+Last updated: 2026-05-05 (B2 PR #34 ready for review)
 
 ## Current milestone
 "Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, the 2026-05-03 plan revision redirected the project to a standalone Swift app: zero Python at runtime, GRDB-backed persistence, native GitHub auth, and Apple-canonical app architecture. The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app."
@@ -165,13 +165,13 @@ Current checkpoint: B2 / issue #33. Draft PR #34 (`codex/b2-status-derivation-po
 - B2 validation passed locally: `swift build`; `swift test --enable-code-coverage` (119 XCTest tests plus 6 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (67 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `swift run AgendumMac` launch smoke; `git diff --check`.
 
 ## In progress
-- B2 leaf issue **#33** — draft PR **#34** is open; read-only review found parity/doc cleanup items now being addressed.
+- B2 leaf issue **#33** — draft PR **#34** is open. Review fixes for parity/doc findings are pushed; CI `Test` is passing; second read-only review found no blocking code issues.
 
 ## Blocked
 - No implementation-level blockers.
 
 ## Next
-1. Re-run targeted and full validation after PR #34 review fixes.
-2. Commit and push the PR #34 review fixes.
-3. Re-check CI and run/confirm a clean read-only review pass before marking ready.
+1. Mark PR #34 ready for review when desired.
+2. If any formal review or CI finding appears after readiness, address it on `codex/b2-status-derivation-port`.
+3. After PR #34 merges, continue the standalone Swift arc with A3 (`@SceneStorage`) or B3/C1 depending on whether architecture or data-store work should lead next.
 4. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
