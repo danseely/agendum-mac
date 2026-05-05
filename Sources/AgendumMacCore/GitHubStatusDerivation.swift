@@ -59,7 +59,7 @@ public enum GitHubStatusDerivation {
         guard let displayName, !displayName.isEmpty else {
             return nil
         }
-        return displayName.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").first.map(String.init)
+        return displayName.trimmingCharacters(in: .whitespacesAndNewlines).split(whereSeparator: \.isWhitespace).first.map(String.init)
     }
 
     public static func extractRepoShortName(_ fullRepo: String) -> String {
@@ -247,6 +247,17 @@ public struct ReviewThreadSummary: Codable, Equatable, Sendable {
     public init(isResolved: Bool = false, comments: [ReviewThreadCommentSummary] = []) {
         self.isResolved = isResolved
         self.comments = comments
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case isResolved
+        case comments
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        isResolved = try container.decodeIfPresent(Bool.self, forKey: .isResolved) ?? false
+        comments = try container.decodeIfPresent([ReviewThreadCommentSummary].self, forKey: .comments) ?? []
     }
 }
 

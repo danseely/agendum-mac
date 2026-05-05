@@ -466,12 +466,55 @@
         ]
       },
       "expected": true
+    },
+    {
+      "name": "missing isResolved defaults to unresolved",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": "2026-05-01T13:00:00Z",
+        "authorLogin": null,
+        "qualifyingReviews": [
+          {"id": "review-6", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "reviewThreads": [
+          {
+            "comments": [
+              {
+                "authorLogin": "reviewer",
+                "createdAt": "2026-05-01T12:05:00Z",
+                "pullRequestReviewID": "review-6"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "missing comments falls back to commit comparison",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": null,
+        "authorLogin": null,
+        "qualifyingReviews": [
+          {"id": "review-7", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "reviewThreads": [
+          {
+            "isResolved": false
+          }
+        ]
+      },
+      "expected": true
     }
   ],
   "authorFirstNames": [
     {"name": "nil display name", "displayName": null, "expected": null},
     {"name": "empty display name", "displayName": "", "expected": null},
     {"name": "trimmed multi-part display name", "displayName": "  Ada Lovelace  ", "expected": "Ada"},
+    {"name": "tab-separated display name", "displayName": "Ada\tLovelace", "expected": "Ada"},
     {"name": "single display name", "displayName": "Madonna", "expected": "Madonna"}
   ],
   "repoShortNames": [

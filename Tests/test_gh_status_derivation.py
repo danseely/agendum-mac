@@ -104,7 +104,7 @@ class GitHubStatusDerivationTests(unittest.TestCase):
         converted: list[dict[str, Any]] = []
         for thread in review_threads:
             comments: list[dict[str, Any]] = []
-            for comment in thread["comments"]:
+            for comment in thread.get("comments", []):
                 python_comment: dict[str, Any] = {
                     "createdAt": comment["createdAt"],
                     "pullRequestReview": {},
@@ -116,7 +116,7 @@ class GitHubStatusDerivationTests(unittest.TestCase):
                 comments.append(python_comment)
             converted.append(
                 {
-                    "isResolved": thread["isResolved"],
+                    "isResolved": thread.get("isResolved", False),
                     "comments": {
                         "nodes": comments,
                     },

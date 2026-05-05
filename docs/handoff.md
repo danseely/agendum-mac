@@ -4,7 +4,7 @@
 Drive the "standalone Swift app" arc to completion: zero Python at runtime, GRDB-backed Swift data store, Apple-canonical architecture. The arc is structured as three GitHub epics (#24 architecture / #25 backend engine / #26 data store) detailed in `docs/research/synthesis.md`; leaves are filed as their phase approaches, drafts in `docs/research/proposed-issues.md`. The plan-revision binding is in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app".
 
 ## Active checkpoint (2026-05-05)
-Phase 1 status: A1 (#27), A2 (#29), and B1 (#31) are merged into `feature/mac-prototype`; their issues are closed. Active work is B2 / issue **#33** on `codex/b2-status-derivation-port`.
+Phase 1 status: A1 (#27), A2 (#29), and B1 (#31) are merged into `feature/mac-prototype`; their issues are closed. Active work is B2 / issue **#33** on `codex/b2-status-derivation-port`, draft PR **#34**.
 
 B2 scope clarification: this checkpoint shadow-ports pure `gh.py` status derivation into Swift and locks parity with shared fixtures. It does not make Python call Swift yet; the v0 helper protocol and current Python runtime behavior remain unchanged until later backend-engine slices consume the Swift implementation.
 
@@ -23,7 +23,7 @@ The integration branch is `feature/mac-prototype`. Current leaf work is on `code
 - A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `256678d`).
 - A2 leaf PR: **#30** (`codex/a2-os-logger` → `feature/mac-prototype`), merged 2026-05-04 (squash merge `6ec1fc2`).
 - B1 leaf PR: **#32** (`codex/b1-fork-and-vendor` → `feature/mac-prototype`), merged 2026-05-05 (squash merge `ca65a00`).
-- B2 leaf issue: **#33** (`codex/b2-status-derivation-port`), in progress.
+- B2 leaf issue: **#33** (`codex/b2-status-derivation-port`), draft PR **#34**, in review-fix loop.
 - Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `3afdb58`).
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
@@ -479,9 +479,9 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - The Python helper still owns sync/task behavior; B2 only proves parity for a pure Swift backend-engine slice.
 
 ## Next actions
-1. Commit and push `codex/b2-status-derivation-port`.
-2. Open a draft PR targeting `feature/mac-prototype` with `Closes #33` and `Relates to #25`.
-3. Run a read-only review pass on the PR and address findings before marking ready.
+1. Re-run targeted and full validation after PR #34 review fixes.
+2. Commit and push the PR #34 review fixes.
+3. Re-check CI and run/confirm a clean read-only review pass before marking ready.
 
 ## After checkpoint
 The active checkpoint at any moment is whichever leaf-work PR is open, or the next-leaf-to-file if none is in flight. The arc finishes when issues #24, #25, #26 are all closed.

@@ -5,7 +5,7 @@ Last updated: 2026-05-05 (B2 status-derivation port ready for PR)
 ## Current milestone
 "Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, the 2026-05-03 plan revision redirected the project to a standalone Swift app: zero Python at runtime, GRDB-backed persistence, native GitHub auth, and Apple-canonical app architecture. The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app."
 
-Current checkpoint: B2 / issue #33. Branch `codex/b2-status-derivation-port` ports the pure status-derivation behavior from `Backend/agendum_engine/agendum/gh.py` into `AgendumMacCore` with shared Python/Swift parity fixtures. Scope clarification: B2 shadow-ports and parity-locks the Swift implementation, but does not make Python `gh.py` call Swift yet.
+Current checkpoint: B2 / issue #33. Draft PR #34 (`codex/b2-status-derivation-port` -> `feature/mac-prototype`) ports the pure status-derivation behavior from `Backend/agendum_engine/agendum/gh.py` into `AgendumMacCore` with shared Python/Swift parity fixtures. Scope clarification: B2 shadow-ports and parity-locks the Swift implementation, but does not make Python `gh.py` call Swift yet.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -165,13 +165,13 @@ Current checkpoint: B2 / issue #33. Branch `codex/b2-status-derivation-port` por
 - B2 validation passed locally: `swift build`; `swift test --enable-code-coverage` (119 XCTest tests plus 6 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (67 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `swift run AgendumMac` launch smoke; `git diff --check`.
 
 ## In progress
-- B2 leaf issue **#33** — Swift status-derivation port and shared parity fixtures on `codex/b2-status-derivation-port`; ready to commit, push, and open draft PR.
+- B2 leaf issue **#33** — draft PR **#34** is open; read-only review found parity/doc cleanup items now being addressed.
 
 ## Blocked
 - No implementation-level blockers.
 
 ## Next
-1. Commit and push `codex/b2-status-derivation-port`.
-2. Open a draft PR targeting `feature/mac-prototype` with `Closes #33` and `Relates to #25`.
-3. Run a read-only review pass on the PR and address findings before marking ready.
+1. Re-run targeted and full validation after PR #34 review fixes.
+2. Commit and push the PR #34 review fixes.
+3. Re-check CI and run/confirm a clean read-only review pass before marking ready.
 4. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
