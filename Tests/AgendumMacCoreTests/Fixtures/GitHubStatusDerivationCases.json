@@ -1,0 +1,482 @@
+{
+  "authoredPullRequests": [
+    {
+      "name": "merged has highest precedence",
+      "input": {
+        "isDraft": true,
+        "reviewDecision": "CHANGES_REQUESTED",
+        "state": "MERGED",
+        "hasReviewRequests": true,
+        "latestCommitTime": null,
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "qualifyingReviews": [],
+        "authorLogin": null,
+        "reviewThreads": []
+      },
+      "expected": "merged"
+    },
+    {
+      "name": "closed precedes draft",
+      "input": {
+        "isDraft": true,
+        "reviewDecision": null,
+        "state": "CLOSED",
+        "hasReviewRequests": false,
+        "latestCommitTime": null,
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "qualifyingReviews": [],
+        "authorLogin": null,
+        "reviewThreads": []
+      },
+      "expected": "closed"
+    },
+    {
+      "name": "draft open pull request",
+      "input": {
+        "isDraft": true,
+        "reviewDecision": null,
+        "state": "OPEN",
+        "hasReviewRequests": false,
+        "latestCommitTime": null,
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "qualifyingReviews": [],
+        "authorLogin": null,
+        "reviewThreads": []
+      },
+      "expected": "draft"
+    },
+    {
+      "name": "approved open pull request",
+      "input": {
+        "isDraft": false,
+        "reviewDecision": "APPROVED",
+        "state": "OPEN",
+        "hasReviewRequests": false,
+        "latestCommitTime": null,
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "qualifyingReviews": [],
+        "authorLogin": null,
+        "reviewThreads": []
+      },
+      "expected": "approved"
+    },
+    {
+      "name": "changes requested open pull request",
+      "input": {
+        "isDraft": false,
+        "reviewDecision": "CHANGES_REQUESTED",
+        "state": "OPEN",
+        "hasReviewRequests": false,
+        "latestCommitTime": null,
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "qualifyingReviews": [],
+        "authorLogin": null,
+        "reviewThreads": []
+      },
+      "expected": "changes requested"
+    },
+    {
+      "name": "latest comment review fallback produces review received",
+      "input": {
+        "isDraft": false,
+        "reviewDecision": null,
+        "state": "OPEN",
+        "hasReviewRequests": true,
+        "latestCommitTime": null,
+        "latestCommentReviewID": "review-1",
+        "latestCommentReviewTime": "2026-05-01T12:00:00Z",
+        "qualifyingReviews": [],
+        "authorLogin": "dan",
+        "reviewThreads": []
+      },
+      "expected": "review received"
+    },
+    {
+      "name": "newer commit acknowledges review feedback",
+      "input": {
+        "isDraft": false,
+        "reviewDecision": null,
+        "state": "OPEN",
+        "hasReviewRequests": false,
+        "latestCommitTime": "2026-05-01T13:00:00Z",
+        "latestCommentReviewID": "review-1",
+        "latestCommentReviewTime": "2026-05-01T12:00:00Z",
+        "qualifyingReviews": [],
+        "authorLogin": "dan",
+        "reviewThreads": []
+      },
+      "expected": "open"
+    },
+    {
+      "name": "awaiting review when no feedback is pending",
+      "input": {
+        "isDraft": false,
+        "reviewDecision": null,
+        "state": "OPEN",
+        "hasReviewRequests": true,
+        "latestCommitTime": null,
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "qualifyingReviews": [],
+        "authorLogin": null,
+        "reviewThreads": []
+      },
+      "expected": "awaiting review"
+    },
+    {
+      "name": "plain open pull request",
+      "input": {
+        "isDraft": false,
+        "reviewDecision": null,
+        "state": "OPEN",
+        "hasReviewRequests": false,
+        "latestCommitTime": null,
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "qualifyingReviews": [],
+        "authorLogin": null,
+        "reviewThreads": []
+      },
+      "expected": "open"
+    },
+    {
+      "name": "unresolved review thread produces review received",
+      "input": {
+        "isDraft": false,
+        "reviewDecision": null,
+        "state": "OPEN",
+        "hasReviewRequests": false,
+        "latestCommitTime": "2026-05-01T13:00:00Z",
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "qualifyingReviews": [
+          {"id": "review-2", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "authorLogin": "dan",
+        "reviewThreads": [
+          {
+            "isResolved": false,
+            "comments": [
+              {
+                "authorLogin": "reviewer",
+                "createdAt": "2026-05-01T12:05:00Z",
+                "pullRequestReviewID": "review-2"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": "review received"
+    },
+    {
+      "name": "author reply after review acknowledges thread",
+      "input": {
+        "isDraft": false,
+        "reviewDecision": null,
+        "state": "OPEN",
+        "hasReviewRequests": false,
+        "latestCommitTime": "2026-05-01T13:00:00Z",
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "qualifyingReviews": [
+          {"id": "review-3", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "authorLogin": "DAN",
+        "reviewThreads": [
+          {
+            "isResolved": false,
+            "comments": [
+              {
+                "authorLogin": "dan",
+                "createdAt": "2026-05-01T12:30:00Z",
+                "pullRequestReviewID": "review-3"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": "open"
+    },
+    {
+      "name": "resolved thread acknowledges feedback",
+      "input": {
+        "isDraft": false,
+        "reviewDecision": null,
+        "state": "OPEN",
+        "hasReviewRequests": false,
+        "latestCommitTime": null,
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "qualifyingReviews": [
+          {"id": "review-4", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "authorLogin": null,
+        "reviewThreads": [
+          {
+            "isResolved": true,
+            "comments": [
+              {
+                "authorLogin": "reviewer",
+                "createdAt": "2026-05-01T12:05:00Z",
+                "pullRequestReviewID": "review-4"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": "open"
+    }
+  ],
+  "reviewPullRequests": [
+    {
+      "name": "review not yet submitted",
+      "input": {
+        "userHasReviewed": false,
+        "newCommitsSinceReview": false,
+        "reRequestedAfterReview": false
+      },
+      "expected": "review requested"
+    },
+    {
+      "name": "new commits after review",
+      "input": {
+        "userHasReviewed": true,
+        "newCommitsSinceReview": true,
+        "reRequestedAfterReview": false
+      },
+      "expected": "re-review requested"
+    },
+    {
+      "name": "explicit review rerequest",
+      "input": {
+        "userHasReviewed": true,
+        "newCommitsSinceReview": false,
+        "reRequestedAfterReview": true
+      },
+      "expected": "re-review requested"
+    },
+    {
+      "name": "review is current",
+      "input": {
+        "userHasReviewed": true,
+        "newCommitsSinceReview": false,
+        "reRequestedAfterReview": false
+      },
+      "expected": "reviewed"
+    }
+  ],
+  "issues": [
+    {
+      "name": "closed issue",
+      "input": {"state": "CLOSED", "hasLinkedPullRequest": true},
+      "expected": "closed"
+    },
+    {
+      "name": "open issue with linked pull request",
+      "input": {"state": "OPEN", "hasLinkedPullRequest": true},
+      "expected": "in progress"
+    },
+    {
+      "name": "open issue without linked pull request",
+      "input": {"state": "OPEN", "hasLinkedPullRequest": false},
+      "expected": "open"
+    },
+    {
+      "name": "unknown issue state falls through",
+      "input": {"state": "UNKNOWN", "hasLinkedPullRequest": false},
+      "expected": "open"
+    }
+  ],
+  "reviewFeedback": [
+    {
+      "name": "no reviews means no feedback",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": null,
+        "authorLogin": null,
+        "qualifyingReviews": [],
+        "reviewThreads": []
+      },
+      "expected": false
+    },
+    {
+      "name": "fallback latest review with no commit is unacknowledged",
+      "input": {
+        "latestCommentReviewID": "review-1",
+        "latestCommentReviewTime": "2026-05-01T12:00:00Z",
+        "latestCommitTime": null,
+        "authorLogin": null,
+        "qualifyingReviews": [],
+        "reviewThreads": []
+      },
+      "expected": true
+    },
+    {
+      "name": "commit equal to review time is still unacknowledged",
+      "input": {
+        "latestCommentReviewID": "review-1",
+        "latestCommentReviewTime": "2026-05-01T12:00:00Z",
+        "latestCommitTime": "2026-05-01T12:00:00Z",
+        "authorLogin": null,
+        "qualifyingReviews": [],
+        "reviewThreads": []
+      },
+      "expected": true
+    },
+    {
+      "name": "commit after review acknowledges feedback",
+      "input": {
+        "latestCommentReviewID": "review-1",
+        "latestCommentReviewTime": "2026-05-01T12:00:00Z",
+        "latestCommitTime": "2026-05-01T12:00:01Z",
+        "authorLogin": null,
+        "qualifyingReviews": [],
+        "reviewThreads": []
+      },
+      "expected": false
+    },
+    {
+      "name": "invalid commit time keeps feedback unacknowledged",
+      "input": {
+        "latestCommentReviewID": "review-1",
+        "latestCommentReviewTime": "2026-05-01T12:00:00Z",
+        "latestCommitTime": "not-a-date",
+        "authorLogin": null,
+        "qualifyingReviews": [],
+        "reviewThreads": []
+      },
+      "expected": true
+    },
+    {
+      "name": "review without id is skipped",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": null,
+        "authorLogin": null,
+        "qualifyingReviews": [
+          {"id": null, "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "reviewThreads": []
+      },
+      "expected": false
+    },
+    {
+      "name": "unresolved relevant thread is unacknowledged",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": "2026-05-01T13:00:00Z",
+        "authorLogin": "dan",
+        "qualifyingReviews": [
+          {"id": "review-2", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "reviewThreads": [
+          {
+            "isResolved": false,
+            "comments": [
+              {
+                "authorLogin": "reviewer",
+                "createdAt": "2026-05-01T12:05:00Z",
+                "pullRequestReviewID": "review-2"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "resolved relevant thread is acknowledged",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": null,
+        "authorLogin": null,
+        "qualifyingReviews": [
+          {"id": "review-3", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "reviewThreads": [
+          {
+            "isResolved": true,
+            "comments": [
+              {
+                "authorLogin": "reviewer",
+                "createdAt": "2026-05-01T12:05:00Z",
+                "pullRequestReviewID": "review-3"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "case-insensitive author reply after review acknowledges",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": null,
+        "authorLogin": "DAN",
+        "qualifyingReviews": [
+          {"id": "review-4", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "reviewThreads": [
+          {
+            "isResolved": false,
+            "comments": [
+              {
+                "authorLogin": "dan",
+                "createdAt": "2026-05-01T12:30:00Z",
+                "pullRequestReviewID": "review-4"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "thread for another review falls back to commit comparison",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": null,
+        "authorLogin": null,
+        "qualifyingReviews": [
+          {"id": "review-5", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "reviewThreads": [
+          {
+            "isResolved": false,
+            "comments": [
+              {
+                "authorLogin": "reviewer",
+                "createdAt": "2026-05-01T12:05:00Z",
+                "pullRequestReviewID": "other-review"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": true
+    }
+  ],
+  "authorFirstNames": [
+    {"name": "nil display name", "displayName": null, "expected": null},
+    {"name": "empty display name", "displayName": "", "expected": null},
+    {"name": "trimmed multi-part display name", "displayName": "  Ada Lovelace  ", "expected": "Ada"},
+    {"name": "single display name", "displayName": "Madonna", "expected": "Madonna"}
+  ],
+  "repoShortNames": [
+    {"name": "owner repo", "fullRepo": "owner/repo", "expected": "repo"},
+    {"name": "owner repo slash suffix", "fullRepo": "owner/repo/sub", "expected": "repo/sub"},
+    {"name": "single component", "fullRepo": "repo", "expected": "repo"}
+  ]
+}

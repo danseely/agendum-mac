@@ -1,11 +1,11 @@
 # Status
 
-Last updated: 2026-05-05 (B1 PR #32 reviewed; docs cleanup in progress)
+Last updated: 2026-05-05 (B2 status-derivation port ready for PR)
 
 ## Current milestone
 "Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, the 2026-05-03 plan revision redirected the project to a standalone Swift app: zero Python at runtime, GRDB-backed persistence, native GitHub auth, and Apple-canonical app architecture. The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app."
 
-Current checkpoint: B1 / issue #31. PR #32 (`codex/b1-fork-and-vendor` -> `feature/mac-prototype`) vendors the Python engine in-tree at `Backend/agendum_engine/`, removes the sibling `../agendum` checkout requirement, has passing CI, and has completed one read-only review cycle with no blocking code findings. Remaining item before merge is this docs-cleanup commit plus final user approval to merge; do not merge PR #32 without explicit user instruction.
+Current checkpoint: B2 / issue #33. Branch `codex/b2-status-derivation-port` ports the pure status-derivation behavior from `Backend/agendum_engine/agendum/gh.py` into `AgendumMacCore` with shared Python/Swift parity fixtures. Scope clarification: B2 shadow-ports and parity-locks the Swift implementation, but does not make Python `gh.py` call Swift yet.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -157,18 +157,21 @@ Current checkpoint: B1 / issue #31. PR #32 (`codex/b1-fork-and-vendor` -> `featu
 - Planning-doc PR **#23** (`codex/standalone-architecture-planning`) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `3afdb58`).
 - A1 (`@Observable` migration, issue #27) merged into `feature/mac-prototype` on 2026-05-03 via PR **#28** (squash merge `256678d`). `BackendStatusModel` is now `@Observable @MainActor public final class` with no `@Published` / `ObservableObject` / `Combine` import; `AgendumMacApp.swift` uses `@State` / `@Environment(BackendStatusModel.self)` / plain stored properties for the model; one blind reviewer cycle returned APPROVE with no findings at ≥75% confidence; CI `Test` SUCCESS; 119 Swift tests, 61 Python tests, `swift build`, `swift run AgendumMac` smoke launch, and `git diff --check` all green.
 - A2 (`os.Logger` adoption, issue #29) merged into `feature/mac-prototype` on 2026-05-04 via PR **#30** (squash merge `6ec1fc2`). Implementation summary: per-target `Logging.swift` declares `let logger = Logger(subsystem: "com.danseely.agendum-mac", category: <backend|workflow|ui>)`; silent `try?` swallows in `BackendClient.close()` and `BackendStatusModel.defaultNotifier` are replaced with `logger.error(...)`; `logger.notice` lifecycle events cover backend client spawn/restart/close/timeout/terminated, model refresh / selectWorkspace / forceSync (incl. timeout + auth/token invalidation surface) / task actions / openTaskURL / createManualTask / refreshDiagnostics, UI notification authorization request outcome, and dock-badge writes; no `print(` remains in `Sources/`. All gates pass: `swift build`, `swift test --enable-code-coverage` (119 Swift tests, 0 failures — unchanged from post-A1 baseline), `python3 -m unittest discover -s Tests` (61 tests, 0 failures), `swift run AgendumMac` + `log show --predicate 'subsystem == "com.danseely.agendum-mac"' --last 1m --info` produced the expected backend / workflow / ui category lines, `git diff --check`, and `git grep -nP '^\s*print\(' -- Sources/` returns no matches.
-- Phase 1 leaf issues filed: **#27** (A1, merged), **#29** (A2, merged), **#31** (B1, PR open).
-- B1 (fork-and-vendor `agendum` engine into `Backend/agendum_engine/`, issue #31) implementation landed on `codex/b1-fork-and-vendor`; PR open against `feature/mac-prototype`. The Python engine is now vendored at `Backend/agendum_engine/agendum/` (flat copy from upstream commit `b62a45c6a28f8ffd4b57a597de4744dc83d0d94d`); `Backend/agendum_engine/{LICENSE,README.md}` capture origin and divergence policy. `_bootstrap_agendum_import()` puts `Backend/agendum_engine/` on `sys.path` unconditionally. `Tests/test_backend_helper_process.py` and `.github/workflows/test.yml` lose all `../agendum` references. The sibling-checkout requirement is retired — this is the first PR after which `danseely/agendum` is not load-bearing for `agendum-mac`. All gates pass: `swift build`, `swift test --enable-code-coverage` (119 Swift tests, 0 failures), `python3 -m unittest discover -s Tests` (61 tests, 0 failures), `python3 Scripts/python_coverage.py` (499/540 = 92.4%, ≥91% gate). Sibling-isolation gate confirmed: with `/Users/dseely/dev/agendum` renamed aside, all four checks (Python tests, Python coverage, Swift tests, 5s `swift run AgendumMac`) still pass.
+- Phase 1 leaf issues filed and closed: **#27** (A1, merged), **#29** (A2, merged), **#31** (B1, merged).
+- B1 (fork-and-vendor `agendum` engine into `Backend/agendum_engine/`, issue #31) merged into `feature/mac-prototype` via PR **#32** on 2026-05-05 (squash merge `ca65a00`). The Python engine is now vendored at `Backend/agendum_engine/agendum/` (flat copy from upstream commit `b62a45c6a28f8ffd4b57a597de4744dc83d0d94d`); `Backend/agendum_engine/{LICENSE,README.md}` capture origin and divergence policy. `_bootstrap_agendum_import()` puts `Backend/agendum_engine/` on `sys.path` unconditionally. `Tests/test_backend_helper_process.py` and `.github/workflows/test.yml` lose all `../agendum` references. The sibling-checkout requirement is retired.
+- B2 issue **#33** was filed under parent epic #25 and branch `codex/b2-status-derivation-port` was created from `feature/mac-prototype`.
+- Added `Sources/AgendumMacCore/GitHubStatusDerivation.swift` with pure Swift `Sendable` DTOs and functions for authored PR status, review PR status, issue status, unacknowledged review feedback, author first-name parsing, and repo short-name extraction.
+- Added shared parity fixture `Tests/AgendumMacCoreTests/Fixtures/GitHubStatusDerivationCases.json`, Swift Testing coverage in `Tests/AgendumMacCoreTests/GitHubStatusDerivationTests.swift`, and Python characterization coverage in `Tests/test_gh_status_derivation.py`.
+- B2 validation passed locally: `swift build`; `swift test --enable-code-coverage` (119 XCTest tests plus 6 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (67 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `swift run AgendumMac` launch smoke; `git diff --check`.
 
 ## In progress
-- B1 leaf issue **#31** — PR **#32** (`codex/b1-fork-and-vendor` -> `feature/mac-prototype`) OPEN, ready for merge after docs cleanup and explicit user approval. Live state checked 2026-05-05: mergeable=CLEAN, CI `Test` SUCCESS, one read-only agent review found no blocking code issues and only this status-doc drift.
+- B2 leaf issue **#33** — Swift status-derivation port and shared parity fixtures on `codex/b2-status-derivation-port`; ready to commit, push, and open draft PR.
 
 ## Blocked
 - No implementation-level blockers.
-- Policy blocker only: PR #32 must not be merged unless the user explicitly asks.
 
 ## Next
-1. Commit and push the PR #32 docs cleanup.
-2. If explicitly approved, merge PR #32 with `gh pr merge 32 --squash --delete-branch`, then fast-forward local `feature/mac-prototype`.
-3. After B1 lands, start the next Phase-2 leaf: A3 (`@SceneStorage`) on `codex/a3-scenestorage` or B2 (port `gh.py` pure status-derivation functions to Swift) on `codex/b2-status-derivation-port`. Drafts live in `docs/research/proposed-issues.md`; A3 and B2 are parallel-safe.
+1. Commit and push `codex/b2-status-derivation-port`.
+2. Open a draft PR targeting `feature/mac-prototype` with `Closes #33` and `Relates to #25`.
+3. Run a read-only review pass on the PR and address findings before marking ready.
 4. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.

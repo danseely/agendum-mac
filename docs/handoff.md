@@ -4,9 +4,9 @@
 Drive the "standalone Swift app" arc to completion: zero Python at runtime, GRDB-backed Swift data store, Apple-canonical architecture. The arc is structured as three GitHub epics (#24 architecture / #25 backend engine / #26 data store) detailed in `docs/research/synthesis.md`; leaves are filed as their phase approaches, drafts in `docs/research/proposed-issues.md`. The plan-revision binding is in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app".
 
 ## Active checkpoint (2026-05-05)
-Phase 1 status: A1 (#27) and A2 (#29) are merged into `feature/mac-prototype`. B1 (#31) implementation is complete on `codex/b1-fork-and-vendor` and shipped to PR **#32** (OPEN, ready for merge after docs cleanup and explicit user approval, mergeable=CLEAN, CI `Test` SUCCESS).
+Phase 1 status: A1 (#27), A2 (#29), and B1 (#31) are merged into `feature/mac-prototype`; their issues are closed. Active work is B2 / issue **#33** on `codex/b2-status-derivation-port`.
 
-PR #32 read-only review completed 2026-05-05. Finding: no blocking code issues; one low-severity planning-doc drift in `docs/status.md` where the Current milestone still pointed at already-completed planning/filing work. This handoff/status cleanup addresses that finding. Do not merge PR #32 without explicit user instruction.
+B2 scope clarification: this checkpoint shadow-ports pure `gh.py` status derivation into Swift and locks parity with shared fixtures. It does not make Python call Swift yet; the v0 helper protocol and current Python runtime behavior remain unchanged until later backend-engine slices consume the Swift implementation.
 
 ## Probe before acting
 Run these first to find the current live state — the handoff snapshot below rots.
@@ -17,12 +17,13 @@ Run these first to find the current live state — the handoff snapshot below ro
 - `git log feature/mac-prototype --oneline -5` — what's actually merged onto the integration branch.
 
 ## Branch
-The integration branch is `feature/mac-prototype`. Current leaf work is on `codex/b1-fork-and-vendor` (PR #32). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
+The integration branch is `feature/mac-prototype`. Current leaf work is on `codex/b2-status-derivation-port` (issue #33). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
 
 ## Repo state
 - A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `256678d`).
 - A2 leaf PR: **#30** (`codex/a2-os-logger` → `feature/mac-prototype`), merged 2026-05-04 (squash merge `6ec1fc2`).
-- B1 leaf PR: **#32** (`codex/b1-fork-and-vendor` → `feature/mac-prototype`), OPEN, ready for merge after docs cleanup and explicit user approval, CI `Test` SUCCESS. Read-only agent review on 2026-05-05 found no blocking code issues and one status-doc drift fixed by this cleanup. URL: `https://github.com/danseely/agendum-mac/pull/32`.
+- B1 leaf PR: **#32** (`codex/b1-fork-and-vendor` → `feature/mac-prototype`), merged 2026-05-05 (squash merge `ca65a00`).
+- B2 leaf issue: **#33** (`codex/b2-status-derivation-port`), in progress.
 - Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `3afdb58`).
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
@@ -52,7 +53,7 @@ The integration branch is `feature/mac-prototype`. Current leaf work is on `code
 - PR #19 (item 3 — settings / auth-repair UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c4a6b5a`).
 - PR #20 (item 4 — keyboard shortcuts + menu coverage) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `158954c`).
 - PR #21 (item 5 — notifications + dock badge for sync results) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `4172378`).
-- Last validation date: 2026-05-05 (B1 PR #32 review/docs-cleanup checkpoint): PR #32 `Test` check passed; `git diff --check origin/feature/mac-prototype...origin/codex/b1-fork-and-vendor` passed in the read-only review; no remaining `../agendum` / `agendum/src` references were found under `Backend/`, `Tests/`, `Scripts/`, or `.github/`; vendored engine blobs and `LICENSE` matched upstream commit `b62a45c6a28f8ffd4b57a597de4744dc83d0d94d`. Docs cleanup validation should run `git diff --check` before push.
+- Last validation date: 2026-05-05 (B2 status-derivation port): `swift build` passed; `swift test --enable-code-coverage` passed with 119 XCTest tests plus 6 Swift Testing cases; `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 67 tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 499/540 lines (92.4%); `swift run AgendumMac` built and stayed running until terminated after a brief smoke; `git diff --check` passed.
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -473,15 +474,14 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - PR #9 changed `docs/testing.md`, `docs/plan.md`, `docs/status.md`, and `docs/handoff.md`.
 
 ## Risks / blockers
-- PR #32 is ready from a code-review standpoint but must not be merged without explicit user instruction.
-- B1 vendors Python in-tree but does not reduce Python runtime surface; zero-Python runtime is still B2-B6 work.
+- B2 intentionally does not reduce Python runtime surface yet; zero-Python runtime is still B3-B6 work.
 - Native GitHub auth and GRDB-backed persistence are still future epic work; current runtime still uses the helper contract during migration.
-- App-bundle runtime packaging is not proven by B1 and remains out of scope for PR #32.
+- The Python helper still owns sync/task behavior; B2 only proves parity for a pure Swift backend-engine slice.
 
 ## Next actions
-1. Commit and push the PR #32 docs cleanup on `codex/b1-fork-and-vendor`.
-2. If the user explicitly asks to merge, run `gh pr merge 32 --squash --delete-branch`, then fast-forward local `feature/mac-prototype`.
-3. After B1 lands, start the next Phase-2 leaf: A3 (`@SceneStorage`) on `codex/a3-scenestorage` or B2 (port `gh.py` pure status-derivation functions to Swift) on `codex/b2-status-derivation-port`. Draft bodies live in `docs/research/proposed-issues.md`; A3 and B2 are parallel-safe.
+1. Commit and push `codex/b2-status-derivation-port`.
+2. Open a draft PR targeting `feature/mac-prototype` with `Closes #33` and `Relates to #25`.
+3. Run a read-only review pass on the PR and address findings before marking ready.
 
 ## After checkpoint
 The active checkpoint at any moment is whichever leaf-work PR is open, or the next-leaf-to-file if none is in flight. The arc finishes when issues #24, #25, #26 are all closed.
@@ -504,3 +504,4 @@ The active checkpoint at any moment is whichever leaf-work PR is open, or the ne
 - Item 1 (PR #17) included an in-scope drive-by fix to `BackendClientConfiguration.firstAncestor` that resolved an infinite-loop bug introduced in PR #16; the reviewer recommended KEEP rather than split it into a separate PR, so the fix landed inside the item-1 PR rather than as its own checkpoint.
 - 2026-05-03 plan revision: large-but-approved deviation. The user explicitly directed "rip all Python out" after the three architecture-direction research streams completed. This contradicts and supersedes three prior `docs/plan.md` non-goals ("No decision has been made to rewrite the Python backend in Swift"; "Whether Swift ever reads SQLite directly. Current bias: no"; "Out Of Scope Until Later: full Swift rewrite of the sync engine"). All three are reversed; the new direction is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app" and the new milestone arc is in `docs/plan.md`.
 - Five-item orchestration shipped without scope drift outside the explicitly-recorded drive-bys (item 1 `firstAncestor` infinite-loop fix; item 3 helper.py:439 `repairInstructions` shared-formatter unification). Both were called out in their PR bodies and reviewer-approved as KEEP.
+- Approved deviation: B2 is being pulled forward immediately after B1 by user direction, even though `docs/research/synthesis.md` lists it in Phase 4. B2 runtime dispatch from Python to Swift is explicitly deferred; the current checkpoint is a parity-locked shadow Swift port.
