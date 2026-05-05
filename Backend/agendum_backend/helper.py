@@ -23,9 +23,8 @@ GH_PATHS_ENV = "AGENDUM_MAC_GH_PATHS"
 
 def _bootstrap_agendum_import() -> None:
     repo_root = Path(__file__).resolve().parents[2]
-    sibling_src = repo_root.parent / "agendum" / "src"
-    if sibling_src.exists():
-        sys.path.insert(0, str(sibling_src))
+    engine_root = repo_root / "Backend" / "agendum_engine"
+    sys.path.insert(0, str(engine_root))
 
 
 _bootstrap_agendum_import()

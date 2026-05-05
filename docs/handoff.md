@@ -3,6 +3,11 @@
 ## Current objective
 Drive the "standalone Swift app" arc to completion: zero Python at runtime, GRDB-backed Swift data store, Apple-canonical architecture. The arc is structured as three GitHub epics (#24 architecture / #25 backend engine / #26 data store) detailed in `docs/research/synthesis.md`; leaves are filed as their phase approaches, drafts in `docs/research/proposed-issues.md`. The plan-revision binding is in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app".
 
+## Active checkpoint (2026-05-05)
+Phase 1 status: A1 (#27) and A2 (#29) are merged into `feature/mac-prototype`. B1 (#31) implementation is complete on `codex/b1-fork-and-vendor` and shipped to PR **#32** (OPEN, ready for merge after docs cleanup and explicit user approval, mergeable=CLEAN, CI `Test` SUCCESS).
+
+PR #32 read-only review completed 2026-05-05. Finding: no blocking code issues; one low-severity planning-doc drift in `docs/status.md` where the Current milestone still pointed at already-completed planning/filing work. This handoff/status cleanup addresses that finding. Do not merge PR #32 without explicit user instruction.
+
 ## Probe before acting
 Run these first to find the current live state — the handoff snapshot below rots.
 - `gh pr view 23` — planning-doc PR. If still open and approvable, review and merge before starting any leaf work. If merged, proceed.
@@ -12,11 +17,12 @@ Run these first to find the current live state — the handoff snapshot below ro
 - `git log feature/mac-prototype --oneline -5` — what's actually merged onto the integration branch.
 
 ## Branch
-The integration branch is `feature/mac-prototype`. Planning-doc work is on `codex/standalone-architecture-planning` (PR #23). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
+The integration branch is `feature/mac-prototype`. Current leaf work is on `codex/b1-fork-and-vendor` (PR #32). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
 
 ## Repo state
 - A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `256678d`).
-- A2 leaf PR: **#30** (`codex/a2-os-logger` → `feature/mac-prototype`), draft. URL: `https://github.com/danseely/agendum-mac/pull/30`. Lifecycle state via `gh pr view 30`.
+- A2 leaf PR: **#30** (`codex/a2-os-logger` → `feature/mac-prototype`), merged 2026-05-04 (squash merge `6ec1fc2`).
+- B1 leaf PR: **#32** (`codex/b1-fork-and-vendor` → `feature/mac-prototype`), OPEN, ready for merge after docs cleanup and explicit user approval, CI `Test` SUCCESS. Read-only agent review on 2026-05-05 found no blocking code issues and one status-doc drift fixed by this cleanup. URL: `https://github.com/danseely/agendum-mac/pull/32`.
 - Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `3afdb58`).
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
@@ -40,13 +46,13 @@ The integration branch is `feature/mac-prototype`. Planning-doc work is on `code
 - Earlier merged PRs into `feature/mac-prototype`: #1 (backend helper scaffold), #3 (testing baseline + CI), #4 (branch discipline), #5 (Swift helper-process client).
 - Local cleanup: deleted local `codex/test-coverage-reporting`, `feature/backend-helper`, and `codex/document-branch-discipline` branches after merge. The `codex/manual-task-creation` local branch was removed by the PR #11 merge flow; remote PR branches `origin/codex/manual-task-creation` and `origin/codex/swiftui-workflow-coverage` were deleted on the remote. Deleted local `codex/per-task-error-surfacing` after PR #12 merge. Deleted local `codex/structured-error-mapping` after PR #14 merge. Deleted local `codex/packaging-matrix-doc` after PR #15 merge. Remote refs `origin/codex/sync-lifecycle-presentation`, `origin/codex/structured-error-mapping`, `origin/codex/per-task-error-surfacing`, `origin/codex/packaging-matrix-doc`, and `origin/codex/app-bundle-smoke` pruned locally on 2026-05-03 after upstream cleanup.
 - Branch discipline: do not push directly to `feature/mac-prototype`; use short-lived branches and PRs targeting `feature/mac-prototype` unless explicitly requested otherwise.
-- Sibling repo requirement: the backend helper imports from `../agendum/src`, so `danseely/agendum` must be checked out as a sibling directory for local Python tests, helper subprocess runs, and `swift run AgendumMac` to work. CI replicates this with a sibling checkout in `.github/workflows/test.yml`.
+- Engine source: vendored in-tree at `Backend/agendum_engine/agendum/` (forked 2026-05-04 from `danseely/agendum` commit `b62a45c6a28f8ffd4b57a597de4744dc83d0d94d`; see `Backend/agendum_engine/README.md` and the 2026-05-04 B1 entry in `docs/decisions.md`). The sibling-checkout discipline is retired: neither local development, the Python tests, the helper subprocess, `swift run AgendumMac`, nor CI requires `danseely/agendum` to be checked out alongside `agendum-mac`.
 - PR #17 (item 1 — open task URL detail action) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c2a6d97`).
 - PR #18 (item 2 — task list filtering UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c29c630`).
 - PR #19 (item 3 — settings / auth-repair UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c4a6b5a`).
 - PR #20 (item 4 — keyboard shortcuts + menu coverage) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `158954c`).
 - PR #21 (item 5 — notifications + dock badge for sync results) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `4172378`).
-- Last validation date: 2026-05-03 (A2 — `os.Logger` adoption gate on `codex/a2-os-logger`): `swift build` passed; `swift test --enable-code-coverage` passed with 119 Swift tests (unchanged from post-A1 baseline); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 61 Python tests; `git diff --check` passed; `git grep -nP '^\s*print\(' -- Sources/` returned no matches.
+- Last validation date: 2026-05-05 (B1 PR #32 review/docs-cleanup checkpoint): PR #32 `Test` check passed; `git diff --check origin/feature/mac-prototype...origin/codex/b1-fork-and-vendor` passed in the read-only review; no remaining `../agendum` / `agendum/src` references were found under `Backend/`, `Tests/`, `Scripts/`, or `.github/`; vendored engine blobs and `LICENSE` matched upstream commit `b62a45c6a28f8ffd4b57a597de4744dc83d0d94d`. Docs cleanup validation should run `git diff --check` before push.
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -412,6 +418,15 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - `git diff --check`: passes.
 - `git grep -nP '^\s*print\(' -- Sources/`: no matches.
 
+### Fork-and-vendor checkpoint (on `codex/b1-fork-and-vendor`)
+- Scope: B1 / issue #31 — flat-copied `../agendum/src/agendum/` to `Backend/agendum_engine/agendum/`; added `Backend/agendum_engine/LICENSE` (Apache-2.0, verbatim from upstream) and `Backend/agendum_engine/README.md` recording the fork-point commit `b62a45c6a28f8ffd4b57a597de4744dc83d0d94d` and divergence policy. `_bootstrap_agendum_import()` in `Backend/agendum_backend/helper.py` now prepends `Backend/agendum_engine/` to `sys.path` unconditionally (no sibling fallback). `Tests/test_backend_helper_process.py` uses the in-tree path. `.github/workflows/test.yml` no longer checks out `danseely/agendum`. Engine import name (`agendum`) preserved, so other call sites are untouched.
+- `swift build`: passes. (`Build complete! (2.74s)`)
+- `swift test --enable-code-coverage`: passes — `Executed 119 tests, with 0 failures (0 unexpected) in 1.073 (1.080) seconds`. Suite count unchanged from the post-A2 baseline.
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests`: passes — `Ran 61 tests in 2.994s OK`.
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py`: passes — `Backend/agendum_backend/helper.py: 499/540 lines (92.4%)` (≥91% gate).
+- Sibling-isolation gate: with `/Users/dseely/dev/agendum` renamed to `/Users/dseely/dev/agendum.bak`, re-ran `swift test --enable-code-coverage` (119/0/0 in 1.027s), `python3 -m unittest discover -s Tests` (61/0 in 2.794s), `python3 Scripts/python_coverage.py` (499/540 = 92.4%), and `swift run AgendumMac` (built clean, ran >5s, terminated cleanly). Sibling restored afterward.
+- `git diff --check`: passes (on the three modified files; the new `Backend/agendum_engine/` tree is untracked-then-staged and reproduces the upstream `src/agendum/` byte-for-byte).
+
 ## Changed files
 - `Scripts/build_app_bundle.sh` (new, executable): assembles `.build/Agendum.app` from the SwiftPM `AgendumMac` release product, derives `CFBundleShortVersionString` from `git describe` (fallback `0.1.0+dev`) and `CFBundleVersion` from `git rev-list HEAD --count` (fallback `1`), substitutes both into the plist template, and lints the result with `plutil -lint`.
 - `Sources/AgendumMac/Info.plist.template` (new): source of truth for the bundle plist; defines `CFBundleIdentifier=com.danseely.agendum-mac`, `CFBundleName=Agendum`, `CFBundleExecutable=Agendum`, `CFBundlePackageType=APPL`, `LSMinimumSystemVersion=14.0`, `NSHighResolutionCapable=true`, with `__SHORT_VERSION__` / `__BUNDLE_VERSION__` placeholders.
@@ -458,21 +473,15 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - PR #9 changed `docs/testing.md`, `docs/plan.md`, `docs/status.md`, and `docs/handoff.md`.
 
 ## Risks / blockers
-- A Mac App Store build is likely harder if the app depends on launching external `gh` and sharing `gh` auth files.
-- The current agendum MCP/task API is read/create-heavy and does not yet expose all actions the GUI needs.
-- Packaging Python plus dependencies inside a signed app needs explicit design.
-- Finder-launched apps do not inherit shell `PATH`, so `gh` discovery cannot assume the terminal environment.
-- SwiftPM development runs now prefer common Homebrew Python paths, but the production helper runner and bundled Python strategy are still unresolved.
-- Current `gh auth login` flow is terminal-oriented and needs Mac-specific repair UX.
-- SQLite ownership must stay behind the helper unless a later decision permits direct Swift DB access.
+- PR #32 is ready from a code-review standpoint but must not be merged without explicit user instruction.
+- B1 vendors Python in-tree but does not reduce Python runtime surface; zero-Python runtime is still B2-B6 work.
+- Native GitHub auth and GRDB-backed persistence are still future epic work; current runtime still uses the helper contract during migration.
+- App-bundle runtime packaging is not proven by B1 and remains out of scope for PR #32.
 
 ## Next actions
-Conditional on the probe results above:
-
-- **If PR #23 is open**: review and merge it (or push fixes if review surfaces something). Run `gh pr checks 23` first — if CI red, push fix; if green and unreviewed, run a review pass.
-- **If PR #23 is merged and no Phase 1 leaf is in flight**: file the next leaf to start (default A1, highest leverage), citing parent epic #24. Draft body lives in `docs/research/proposed-issues.md`. Per the user's global GitHub rule, every issue filing requires explicit user approval. Once filed, cut `codex/<slug>` from `feature/mac-prototype`, implement, open the leaf PR. Phase 1 leaves (A1 `@Observable` / A2 `os.Logger` / B1 fork-and-vendor) are parallel-safe.
-- **If a leaf-work PR is open**: drive that one to merge before starting another. `gh pr view <N>` for current state; push fixes if needed; run reviewer pass once green.
-- **If a leaf-work PR is merged**: roll forward `docs/handoff.md`, `docs/status.md`, `docs/decisions.md` as appropriate, then move to the next leaf in the phase plan (`docs/research/synthesis.md`).
+1. Commit and push the PR #32 docs cleanup on `codex/b1-fork-and-vendor`.
+2. If the user explicitly asks to merge, run `gh pr merge 32 --squash --delete-branch`, then fast-forward local `feature/mac-prototype`.
+3. After B1 lands, start the next Phase-2 leaf: A3 (`@SceneStorage`) on `codex/a3-scenestorage` or B2 (port `gh.py` pure status-derivation functions to Swift) on `codex/b2-status-derivation-port`. Draft bodies live in `docs/research/proposed-issues.md`; A3 and B2 are parallel-safe.
 
 ## After checkpoint
 The active checkpoint at any moment is whichever leaf-work PR is open, or the next-leaf-to-file if none is in flight. The arc finishes when issues #24, #25, #26 are all closed.
