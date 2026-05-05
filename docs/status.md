@@ -1,9 +1,11 @@
 # Status
 
-Last updated: 2026-05-04 (A1 + A2 merged; B1 PR #32 PAUSED awaiting user direction)
+Last updated: 2026-05-05 (B1 PR #32 reviewed; docs cleanup in progress)
 
 ## Current milestone
-"Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, three research streams (`docs/research/{backend-engine,data-store,architecture}.md`) produced a cross-stream synthesis (`docs/research/synthesis.md`) and drafted GitHub issue text (`docs/research/proposed-issues.md`). The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app." The next implementation step is filing the three epic tracking issues (A / B / C) plus the Phase 1 work issues (A1 `@Observable` migration, A2 `os.Logger`, B1 fork-and-vendor) and merging the planning-doc PR that captures all of this.
+"Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, the 2026-05-03 plan revision redirected the project to a standalone Swift app: zero Python at runtime, GRDB-backed persistence, native GitHub auth, and Apple-canonical app architecture. The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app."
+
+Current checkpoint: B1 / issue #31. PR #32 (`codex/b1-fork-and-vendor` -> `feature/mac-prototype`) vendors the Python engine in-tree at `Backend/agendum_engine/`, removes the sibling `../agendum` checkout requirement, has passing CI, and has completed one read-only review cycle with no blocking code findings. Remaining item before merge is this docs-cleanup commit plus final user approval to merge; do not merge PR #32 without explicit user instruction.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -159,12 +161,14 @@ Last updated: 2026-05-04 (A1 + A2 merged; B1 PR #32 PAUSED awaiting user directi
 - B1 (fork-and-vendor `agendum` engine into `Backend/agendum_engine/`, issue #31) implementation landed on `codex/b1-fork-and-vendor`; PR open against `feature/mac-prototype`. The Python engine is now vendored at `Backend/agendum_engine/agendum/` (flat copy from upstream commit `b62a45c6a28f8ffd4b57a597de4744dc83d0d94d`); `Backend/agendum_engine/{LICENSE,README.md}` capture origin and divergence policy. `_bootstrap_agendum_import()` puts `Backend/agendum_engine/` on `sys.path` unconditionally. `Tests/test_backend_helper_process.py` and `.github/workflows/test.yml` lose all `../agendum` references. The sibling-checkout requirement is retired — this is the first PR after which `danseely/agendum` is not load-bearing for `agendum-mac`. All gates pass: `swift build`, `swift test --enable-code-coverage` (119 Swift tests, 0 failures), `python3 -m unittest discover -s Tests` (61 tests, 0 failures), `python3 Scripts/python_coverage.py` (499/540 = 92.4%, ≥91% gate). Sibling-isolation gate confirmed: with `/Users/dseely/dev/agendum` renamed aside, all four checks (Python tests, Python coverage, Swift tests, 5s `swift run AgendumMac`) still pass.
 
 ## In progress
-- B1 leaf issue **#31** — PR **#32** (`codex/b1-fork-and-vendor` → `feature/mac-prototype`) OPEN, ready for review, mergeable=CLEAN, CI `Test` SUCCESS, 0 reviews. **PAUSED 2026-05-04** at user direction; not currently being driven. See `docs/handoff.md` "Pause notice" for the resume sequence.
+- B1 leaf issue **#31** — PR **#32** (`codex/b1-fork-and-vendor` -> `feature/mac-prototype`) OPEN, ready for merge after docs cleanup and explicit user approval. Live state checked 2026-05-05: mergeable=CLEAN, CI `Test` SUCCESS, one read-only agent review found no blocking code issues and only this status-doc drift.
 
 ## Blocked
-- B1 PR #32 awaits user "go" before review/merge cycle resumes. No implementation-level blockers.
+- No implementation-level blockers.
+- Policy blocker only: PR #32 must not be merged unless the user explicitly asks.
 
-## Next (when resumed)
-1. Run `gh pr view 32 --json state,mergeStateStatus,statusCheckRollup`; if stale, re-run CI. Dispatch a `crew:reviewer` subagent for a blind cycle at ≥75% confidence. Fix findings if any, then `gh pr merge 32 --squash --delete-branch`.
-2. After B1 lands, file and start the next Phase-2 leaf: A3 (`@SceneStorage`) on `codex/a3-scenestorage` or B2 (port `gh.py` pure status-derivation functions to Swift) on `codex/b2-status-derivation-port`. Drafts in `docs/research/proposed-issues.md`. A3 + B2 are parallel-safe.
-3. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
+## Next
+1. Commit and push the PR #32 docs cleanup.
+2. If explicitly approved, merge PR #32 with `gh pr merge 32 --squash --delete-branch`, then fast-forward local `feature/mac-prototype`.
+3. After B1 lands, start the next Phase-2 leaf: A3 (`@SceneStorage`) on `codex/a3-scenestorage` or B2 (port `gh.py` pure status-derivation functions to Swift) on `codex/b2-status-derivation-port`. Drafts live in `docs/research/proposed-issues.md`; A3 and B2 are parallel-safe.
+4. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
