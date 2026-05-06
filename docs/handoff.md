@@ -429,17 +429,15 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - `git diff --check`: passes (on the three modified files; the new `Backend/agendum_engine/` tree is untracked-then-staged and reproduces the upstream `src/agendum/` byte-for-byte).
 
 ## Changed files
-- `Scripts/build_app_bundle.sh` (new, executable): assembles `.build/Agendum.app` from the SwiftPM `AgendumMac` release product, derives `CFBundleShortVersionString` from `git describe` (fallback `0.1.0+dev`) and `CFBundleVersion` from `git rev-list HEAD --count` (fallback `1`), substitutes both into the plist template, and lints the result with `plutil -lint`.
-- `Sources/AgendumMac/Info.plist.template` (new): source of truth for the bundle plist; defines `CFBundleIdentifier=com.danseely.agendum-mac`, `CFBundleName=Agendum`, `CFBundleExecutable=Agendum`, `CFBundlePackageType=APPL`, `LSMinimumSystemVersion=14.0`, `NSHighResolutionCapable=true`, with `__SHORT_VERSION__` / `__BUNDLE_VERSION__` placeholders.
-- `Package.swift`: added `exclude: ["Info.plist.template"]` to the `AgendumMac` executable target so SwiftPM does not treat the plist template as a resource.
-- `Tests/AgendumMacCoreTests/BackendClientTests.swift`: two new tests pin the existing `BackendClientConfiguration.discoverDevelopmentRepositoryRoot(...)` walker against the `.build/Agendum.app/Contents/MacOS/` layout (positive resolves to repo root via the `Backend/agendum_backend_helper.py` marker; negative falls back to the supplied `currentDirectoryURL` when no marker is found).
-- `.github/workflows/test.yml`: appended a `Build app bundle smoke` step after the existing Swift coverage step, running `Scripts/build_app_bundle.sh` and asserting the bundle layout + `plutil -lint` succeed.
-- `README.md`: appended one paragraph documenting the developer-convenience `.app` build.
-- `docs/decisions.md`: appended the 2026-05-02 Slice A bundle-smoke decision (bundle identity, version policy, helper-discovery contract; still-deferred items).
-- `docs/packaging.md`: annotated deferred decisions 8/9/10 with `(answered 2026-05-02: see decisions.md)`.
-- `docs/plan.md`: rewrote the "Current Implementation Checkpoint" paragraph for the bundle-smoke checkpoint.
-- `docs/status.md`: bumped `Last updated`, replaced the Current milestone, moved PR #15 to Done, replaced In progress with the bundle-smoke bullet, refreshed Next.
-- `docs/handoff.md`: refreshed Current objective / Branch / Repo state / Next actions / After checkpoint, added the cleanup line for `codex/packaging-matrix-doc`, and appended the App bundle smoke checkpoint validation block.
+- `Package.swift`: exposes `Tests/AgendumMacCoreTests/Fixtures` as test resources for shared status-derivation fixtures.
+- `Sources/AgendumMacCore/GitHubStatusDerivation.swift`: pure Swift status-derivation functions and `Codable` / `Equatable` / `Sendable` DTOs for the B2 shadow port.
+- `Tests/AgendumMacCoreTests/Fixtures/GitHubStatusDerivationCases.json`: shared Python/Swift parity cases for authored PR, review PR, issue, review-feedback, author-name, and repo-name behavior.
+- `Tests/AgendumMacCoreTests/GitHubStatusDerivationTests.swift`: Swift Testing coverage over the shared fixture plus the explicit whitespace-only author-name behavior.
+- `Tests/test_gh_status_derivation.py`: Python characterization tests over the shared fixture plus the whitespace-only Python exception.
+- `docs/decisions.md`: records B2 being pulled forward, defers Python-to-Swift runtime dispatch, and notes the whitespace-only name behavior difference.
+- `docs/plan.md`, `docs/status.md`, `docs/handoff.md`: refresh the active B2 checkpoint, validation, risks, next actions, and drift.
+
+Note: the Swift DTOs use a normalized fixture-facing shape, not raw GraphQL/Python `comments.nodes` dictionaries. Later slices that consume live GraphQL data need an explicit normalizer before calling `GitHubStatusDerivation`.
 
 ## Previous checkpoint changed files (PR #15, packaging matrix doc)
 - `docs/packaging.md` (new): packaging matrix with distribution-channel and Python helper runtime sections, interactions with prior decisions, prototype-phase recommendation, and 10 deferred decisions.

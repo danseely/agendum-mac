@@ -57,6 +57,11 @@ struct GitHubStatusDerivationTests {
     }
 
     @Test
+    func whitespaceOnlyAuthorNameReturnsNil() {
+        #expect(GitHubStatusDerivation.parseAuthorFirstName("   ") == nil)
+    }
+
+    @Test
     func repoShortNamesMatchFixture() throws {
         let fixture = try loadFixture()
 

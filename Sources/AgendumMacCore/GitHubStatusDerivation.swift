@@ -271,4 +271,17 @@ public struct ReviewThreadCommentSummary: Codable, Equatable, Sendable {
         self.createdAt = createdAt
         self.pullRequestReviewID = pullRequestReviewID
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case authorLogin
+        case createdAt
+        case pullRequestReviewID
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        authorLogin = try container.decodeIfPresent(String.self, forKey: .authorLogin)
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+        pullRequestReviewID = try container.decodeIfPresent(String.self, forKey: .pullRequestReviewID)
+    }
 }

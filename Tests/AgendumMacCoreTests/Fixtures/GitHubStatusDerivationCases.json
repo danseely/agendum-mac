@@ -508,6 +508,78 @@
         ]
       },
       "expected": true
+    },
+    {
+      "name": "missing comment createdAt does not acknowledge",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": "2026-05-01T13:00:00Z",
+        "authorLogin": "dan",
+        "qualifyingReviews": [
+          {"id": "review-8", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "reviewThreads": [
+          {
+            "isResolved": false,
+            "comments": [
+              {
+                "authorLogin": "dan",
+                "pullRequestReviewID": "review-8"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "missing comment author does not acknowledge",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": "2026-05-01T13:00:00Z",
+        "authorLogin": "dan",
+        "qualifyingReviews": [
+          {"id": "review-9", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "reviewThreads": [
+          {
+            "isResolved": false,
+            "comments": [
+              {
+                "createdAt": "2026-05-01T12:05:00Z",
+                "pullRequestReviewID": "review-9"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "missing pull request review id falls back to commit comparison",
+      "input": {
+        "latestCommentReviewID": null,
+        "latestCommentReviewTime": null,
+        "latestCommitTime": null,
+        "authorLogin": "dan",
+        "qualifyingReviews": [
+          {"id": "review-10", "submittedAt": "2026-05-01T12:00:00Z"}
+        ],
+        "reviewThreads": [
+          {
+            "isResolved": false,
+            "comments": [
+              {
+                "authorLogin": "reviewer",
+                "createdAt": "2026-05-01T12:05:00Z"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": true
     }
   ],
   "authorFirstNames": [

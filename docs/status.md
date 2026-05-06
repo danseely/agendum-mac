@@ -163,6 +163,7 @@ Current checkpoint: B2 / issue #33. Draft PR #34 (`codex/b2-status-derivation-po
 - Added `Sources/AgendumMacCore/GitHubStatusDerivation.swift` with pure Swift `Sendable` DTOs and functions for authored PR status, review PR status, issue status, unacknowledged review feedback, author first-name parsing, and repo short-name extraction.
 - Added shared parity fixture `Tests/AgendumMacCoreTests/Fixtures/GitHubStatusDerivationCases.json`, Swift Testing coverage in `Tests/AgendumMacCoreTests/GitHubStatusDerivationTests.swift`, and Python characterization coverage in `Tests/test_gh_status_derivation.py`.
 - B2 validation passed locally: `swift build`; `swift test --enable-code-coverage` (119 XCTest tests plus 6 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (67 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `swift run AgendumMac` launch smoke; `git diff --check`.
+- Adversarial PR #34 review found additional parity documentation gaps: whitespace-only author names, missing comment fields, DTO shape clarity, and stale handoff changed-files text. The branch now characterizes the Python whitespace exception separately from Swift's safer `nil`, makes comment DTO decoding/fixture conversion permissive for missing fields, and records the DTO shape limitation.
 
 ## In progress
 - B2 leaf issue **#33** — draft PR **#34** is open. Review fixes for parity/doc findings are pushed; CI `Test` is passing; second read-only review found no blocking code issues.

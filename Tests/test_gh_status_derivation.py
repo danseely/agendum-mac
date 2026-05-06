@@ -94,6 +94,10 @@ class GitHubStatusDerivationTests(unittest.TestCase):
             with self.subTest(case=case["name"]):
                 self.assertEqual(parse_author_first_name(case["displayName"]), case["expected"])
 
+    def test_whitespace_only_author_name_preserves_python_exception(self) -> None:
+        with self.assertRaises(IndexError):
+            parse_author_first_name("   ")
+
     def test_repo_short_names_match_fixture(self) -> None:
         for case in self.fixture["repoShortNames"]:
             with self.subTest(case=case["name"]):
@@ -106,12 +110,13 @@ class GitHubStatusDerivationTests(unittest.TestCase):
             comments: list[dict[str, Any]] = []
             for comment in thread.get("comments", []):
                 python_comment: dict[str, Any] = {
-                    "createdAt": comment["createdAt"],
                     "pullRequestReview": {},
                 }
-                if comment["authorLogin"] is not None:
+                if comment.get("createdAt") is not None:
+                    python_comment["createdAt"] = comment["createdAt"]
+                if comment.get("authorLogin") is not None:
                     python_comment["author"] = {"login": comment["authorLogin"]}
-                if comment["pullRequestReviewID"] is not None:
+                if comment.get("pullRequestReviewID") is not None:
                     python_comment["pullRequestReview"] = {"id": comment["pullRequestReviewID"]}
                 comments.append(python_comment)
             converted.append(
