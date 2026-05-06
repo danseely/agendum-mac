@@ -27,7 +27,10 @@ let package = Package(
         ),
         .testTarget(
             name: "AgendumMacCoreTests",
-            dependencies: ["AgendumMacCore"]
+            dependencies: ["AgendumMacCore"],
+            resources: [
+                .process("Fixtures")
+            ]
         ),
         .testTarget(
             name: "AgendumMacWorkflowTests",
