@@ -1,11 +1,11 @@
 # Status
 
-Last updated: 2026-05-05 (B2 PR #34 ready for review)
+Last updated: 2026-05-06 (A4 PR #36 ready)
 
 ## Current milestone
 "Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, the 2026-05-03 plan revision redirected the project to a standalone Swift app: zero Python at runtime, GRDB-backed persistence, native GitHub auth, and Apple-canonical app architecture. The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app."
 
-Current checkpoint: B2 / issue #33. Draft PR #34 (`codex/b2-status-derivation-port` -> `feature/mac-prototype`) ports the pure status-derivation behavior from `Backend/agendum_engine/agendum/gh.py` into `AgendumMacCore` with shared Python/Swift parity fixtures. Scope clarification: B2 shadow-ports and parity-locks the Swift implementation, but does not make Python `gh.py` call Swift yet.
+Current checkpoint: A4 / issue #35 on branch `codex/a4-platform-seams`. A4 moves AppKit/UserNotifications default seam implementations out of `AgendumMacWorkflow` and into the executable target while preserving pure closure seams and fake-backed workflow tests. This PR also carries the post-B2 planning cleanup, per user direction to avoid separate docs-only PRs.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -164,15 +164,20 @@ Current checkpoint: B2 / issue #33. Draft PR #34 (`codex/b2-status-derivation-po
 - Added shared parity fixture `Tests/AgendumMacCoreTests/Fixtures/GitHubStatusDerivationCases.json`, Swift Testing coverage in `Tests/AgendumMacCoreTests/GitHubStatusDerivationTests.swift`, and Python characterization coverage in `Tests/test_gh_status_derivation.py`.
 - B2 validation passed locally: `swift build`; `swift test --enable-code-coverage` (119 XCTest tests plus 6 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (67 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `swift run AgendumMac` launch smoke; `git diff --check`.
 - Adversarial PR #34 review found additional parity documentation gaps: whitespace-only author names, missing comment fields, DTO shape clarity, and stale handoff changed-files text. The branch now characterizes the Python whitespace exception separately from Swift's safer `nil`, makes comment DTO decoding/fixture conversion permissive for missing fields, and records the DTO shape limitation.
+- PR #34 was marked ready, passed GitHub Actions `Test`, and merged into `feature/mac-prototype` on 2026-05-06 (squash merge `965d333`). Issue #33 was closed after merge because the PR targeted `feature/mac-prototype`, not the default branch.
+- A4 issue **#35** was filed under parent epic #24 and branch `codex/a4-platform-seams` was created from `feature/mac-prototype`.
+- Added `Sources/AgendumMac/PlatformSeams.swift` with executable-target AppKit/UserNotifications defaults for URL opening, pasteboard writes, sync-completion notifications, and dock badge updates.
+- Updated `Sources/AgendumMac/AgendumMacApp.swift` to construct the live model through `BackendStatusModel.live()`, so the app target injects platform defaults explicitly.
+- Removed `AppKit` and `UserNotifications` imports and platform implementations from `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`; workflow now keeps pure seam types and safe non-platform default closures for test construction.
+- A4 validation passed locally: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle `test -d` / executable `test -x` / `plutil -lint`; `swift run AgendumMac` launch smoke; `git diff --check`; and `rg -n "import AppKit|UserNotifications|NSWorkspace|NSPasteboard|UNUserNotificationCenter|NSApplication" Sources/AgendumMacWorkflow Tests/AgendumMacWorkflowTests` returned no matches.
 
 ## In progress
-- B2 leaf issue **#33** — draft PR **#34** is open. Review fixes for parity/doc findings are pushed; CI `Test` is passing; second read-only review found no blocking code issues.
+- A4 / issue **#35** is open as PR **#36** (`codex/a4-platform-seams` -> `feature/mac-prototype`). PR #36 is non-draft, mergeable, and GitHub Actions `Test` is passing.
 
 ## Blocked
 - No implementation-level blockers.
 
 ## Next
-1. Mark PR #34 ready for review when desired.
-2. If any formal review or CI finding appears after readiness, address it on `codex/b2-status-derivation-port`.
-3. After PR #34 merges, continue the standalone Swift arc with A3 (`@SceneStorage`) or B3/C1 depending on whether architecture or data-store work should lead next.
-4. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
+1. Review PR #36; address any findings if they appear.
+2. After A4 merges, file and implement A5 (module rename), then A3 (`@SceneStorage`).
+3. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.

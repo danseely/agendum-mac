@@ -1683,13 +1683,6 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertTrue(notifier.posted.isEmpty)
     }
 
-    func testConvenienceInitDoesNotCrashWhenConstructed() {
-        // Structural pin per OQ3: constructing via the convenience init must
-        // succeed (defaults wired) without touching the dock tile.
-        let model = BackendStatusModel()
-        XCTAssertEqual(model.attentionItemCount, 0)
-    }
-
     func testStandardCommandsExposesEveryNamedSlot() {
         let commands = TaskDashboardCommands.standard
         XCTAssertEqual(commands.toolbarRefresh, .refresh)

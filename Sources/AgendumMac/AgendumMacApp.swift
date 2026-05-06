@@ -4,7 +4,7 @@ import SwiftUI
 
 @main
 struct AgendumMacApp: App {
-    @State private var backendStatus = BackendStatusModel()
+    @State private var backendStatus = BackendStatusModel.live()
     @State private var isShowingCreateManualTask = false
     @State private var selectedTask: TaskItem.ID? = nil
     private let commands = TaskDashboardCommands.standard

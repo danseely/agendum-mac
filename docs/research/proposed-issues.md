@@ -6,7 +6,9 @@
 > - Epic A: filed as **#24** (https://github.com/danseely/agendum-mac/issues/24)
 > - Epic B: filed as **#25** (https://github.com/danseely/agendum-mac/issues/25)
 > - Epic C: filed as **#26** (https://github.com/danseely/agendum-mac/issues/26)
-> - 17 leaf issues: not yet filed; per the user's instruction, leaves are filed as their phase approaches. The drafts below remain authoritative.
+> - Filed / closed leaves: A1 #27, A2 #29, B1 #31, B2 #33.
+> - Filed / open leaves: A4 #35.
+> - Remaining leaf issues: not yet filed; per the user's instruction, leaves are filed as their phase approaches. The drafts below remain authoritative except where a closed issue's scope was narrowed by `docs/decisions.md`.
 >
 > When filing a leaf, replace its placeholder parent reference with the real epic number above. Per the user's global GitHub rule, posting any issue requires explicit approval.
 
@@ -39,10 +41,10 @@ Drafted from `docs/research/architecture.md` and `docs/research/synthesis.md` af
 - Do not adopt TCA / Clean / VIPER / a generic DI container at current scope.
 
 ## Children
-- [ ] A1 — Migrate `BackendStatusModel` to `@Observable` (#)
-- [ ] A2 — `os.Logger` across all targets (#)
+- [x] A1 — Migrate `BackendStatusModel` to `@Observable` (#27)
+- [x] A2 — `os.Logger` across all targets (#29)
 - [ ] A3 — `@SceneStorage` for selection / sidebar / filter state (#)
-- [ ] A4 — Relocate AppKit/UN default seams to executable target (#)
+- [ ] A4 — Relocate AppKit/UN default seams to executable target (#35)
 - [ ] A5 — Module rename: `AgendumMacCore` → `AgendumBackend`; `AgendumMacWorkflow` → `AgendumFeature` (#)
 - [ ] A6 — Polish bundle: localization, `.onOpenURL`, accessibility audit, `MetricKit` (#)
 
@@ -331,8 +333,8 @@ Drafted from `docs/research/backend-engine.md` and `docs/research/synthesis.md` 
 The single biggest behavior-drift risk is the sync planner port (B5). Plan parity tests *before* code lands.
 
 ## Children (in dependency order)
-- [ ] B1 — Fork-and-vendor Python engine into `Backend/agendum_engine/` (#)
-- [ ] B2 — Port pure status-derivation functions to Swift (#)
+- [x] B1 — Fork-and-vendor Python engine into `Backend/agendum_engine/` (#31)
+- [x] B2 — Port pure status-derivation functions to Swift (#33)
 - [ ] B3 — Port `db.py` / `config.py` / `task_api.py` equivalents to Swift (#)
 - [ ] B4 — Port GitHub GraphQL transport + replace `gh` with native OAuth Device Flow (#)
 - [ ] B5 — Port `syncer.py` planner to Swift with parity tests (#)
@@ -410,12 +412,12 @@ None. Can land in parallel with A1 / A2.
 
 ```markdown
 ## Why
-The status-derivation functions in `gh.py` lines 40–202 (`derive_authored_pr_status`, `derive_review_pr_status`, `derive_issue_status`, `has_unacknowledged_review_feedback`) are pure: input → output, no I/O, no global state, no GraphQL. They have existing Python tests and are the easiest, highest-confidence first port. They also exercise the "helper façade dispatches to Swift" pattern that every later B-issue depends on.
+The status-derivation functions in `gh.py` lines 40–202 (`derive_authored_pr_status`, `derive_review_pr_status`, `derive_issue_status`, `has_unacknowledged_review_feedback`) are pure: input → output, no I/O, no global state, no GraphQL. They have existing Python behavior and are the easiest, highest-confidence first port. B2 ultimately landed as a parity-locked Swift shadow port rather than a Python-to-Swift runtime-dispatch slice; see `docs/decisions.md` "2026-05-05 — B2: shadow-port status derivation to Swift before runtime dispatch".
 
 ## Scope
-- New file in `AgendumBackend` (or a sibling target — pick one and document): pure Swift implementations of the four derivation functions.
-- Port the existing Python test fixtures to Swift tests; results must match Python output byte-for-byte across all fixture cases.
-- Modify `Backend/agendum_engine/gh.py` so these four functions delegate to the Swift implementations (via the helper boundary or a temporary FFI; pick the lowest-friction approach).
+- New file in the current backend-facing Swift target: pure Swift implementations of the four derivation functions plus supporting helpers (`parse_author_first_name`, `extract_repo_short_name`, datetime parsing, relevant review-thread matching, author-reply acknowledgement).
+- Add shared Python/Swift fixtures; results must match Python output across all fixture cases except explicitly-recorded edge-case improvements.
+- Preserve `Backend/agendum_engine/agendum/gh.py` runtime behavior. Do not add a temporary CLI/FFI bridge just for pure functions.
 - v0 helper protocol unchanged.
 
 ## Out of scope
@@ -430,7 +432,7 @@ The status-derivation functions in `gh.py` lines 40–202 (`derive_authored_pr_s
 ## Acceptance criteria
 - Four Swift functions match Python output on the entire ported fixture set.
 - `task.list` results unchanged from before the port (any task whose status depends on these functions resolves identically).
-- Swift test count grows; Python tests for the same functions stay green via dispatch.
+- Swift test count grows; Python characterization tests over the same fixture stay green.
 
 ## Validation gates
 - `swift build` passes.
