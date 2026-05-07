@@ -1,5 +1,7 @@
 # Mac App Plan
 
+> Planning note: current `planning-handoff` canonical state is `docs/project-state.md` plus `docs/features.json`. This split file is historical/reference context only and must not be used for current operational instructions.
+
 ## Active goal
 Ship `agendum-mac` as a fully standalone native macOS app — Swift end-to-end, with its own backend engine and its own data store. No Python at runtime, no sibling-checkout dependency.
 
@@ -35,9 +37,9 @@ Replaced the prior five-item live-slice orchestration. See `docs/research/synthe
 Defined in `docs/research/synthesis.md`. Eight phases total; Phase 1 (mechanical foundations) is parallel-safe; Phase 6 is the long pole (sync planner + GraphQL transport); Phase 7 is the retirement (Python out, on-disk relocate); Phase 8 is polish (localization, deep links, accessibility, MetricKit).
 
 ## Canonical Supporting Docs
-- `docs/status.md`: current milestone, done/in-progress/blocked/next state, and milestone exit criteria.
-- `docs/decisions.md`: append-only decision log. Record plan changes here before silently changing direction.
-- `docs/handoff.md`: current repo state, validation, changed files, and exact next actions.
+- `docs/project-state.md`: current milestone, constraints, decisions, drift, validation, and handoff.
+- `docs/features.json`: structured feature ledger and evidence.
+- `docs/status.md`, `docs/decisions.md`, `docs/handoff.md`: legacy split planning files retained as historical/reference context only.
 - `docs/mac-gui-port-evaluation.md`: architectural assessment and open product/distribution risks (historical; superseded by the 2026-05-03 plan revision in `docs/decisions.md`).
 - `docs/backend-contract.md`: v0 backend bridge contract; preserved as the test asset through the Python-to-Swift migration; deleted when the helper is retired (issue B6).
 - `docs/testing.md`: testing strategy, milestone gates, and validation expectations.
@@ -58,7 +60,7 @@ Testing grows with each migration slice. Through the Python-to-Swift port, both 
 - Workflow tests inject `AgendumBackendServicing` and `TaskStoreProviding` fakes; no real subprocess or network in unit tests.
 - Real-subprocess JSONL integration tests stay green through the migration; deleted in Phase 7 with the helper.
 - UI validation remains documented manual smoke tests for now.
-- Each PR should update `docs/status.md` and `docs/handoff.md` with the exact validation commands and results.
+- Each PR should update `docs/project-state.md` and `docs/features.json` with exact validation commands, results, and evidence. Legacy split docs should not receive new operational instructions.
 
 The detailed testing plan lives in `docs/testing.md`.
 

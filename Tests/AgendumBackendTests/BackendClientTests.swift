@@ -1,4 +1,4 @@
-@testable import AgendumMacCore
+@testable import AgendumBackend
 import Foundation
 import XCTest
 
@@ -627,7 +627,7 @@ final class BackendClientTests: XCTestCase {
     func testDiscoverDevelopmentRepositoryRootResolvesThroughAppBundleLayout() throws {
         let fileManager = FileManager.default
         let tmp = fileManager.temporaryDirectory
-            .appendingPathComponent("AgendumMacCoreTests")
+            .appendingPathComponent("AgendumBackendTests")
             .appendingPathComponent(UUID().uuidString)
         defer { try? fileManager.removeItem(at: tmp) }
 
@@ -664,7 +664,7 @@ final class BackendClientTests: XCTestCase {
     func testDiscoverDevelopmentRepositoryRootFallsBackToCurrentDirectoryWhenNoMarkerFound() throws {
         let fileManager = FileManager.default
         let tmp = fileManager.temporaryDirectory
-            .appendingPathComponent("AgendumMacCoreTests")
+            .appendingPathComponent("AgendumBackendTests")
             .appendingPathComponent(UUID().uuidString)
         defer { try? fileManager.removeItem(at: tmp) }
 
@@ -693,7 +693,7 @@ final class BackendClientTests: XCTestCase {
 
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory
-            .appendingPathComponent("AgendumMacCoreTests")
+            .appendingPathComponent("AgendumBackendTests")
             .appendingPathComponent(UUID().uuidString)
     }
 

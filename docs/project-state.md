@@ -1,0 +1,100 @@
+# Project State
+
+## Goal
+Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, with its own backend engine and SQLite data store. End state: no Python at runtime, no sibling-checkout dependency, native GitHub auth, GRDB-backed persistence, and Apple-canonical app architecture.
+
+## Constraints / Non-goals
+- Keep public `main` README-only until the prototype is ready to become default-branch content.
+- Use `feature/mac-prototype` as the integration branch.
+- Do not push directly to `feature/mac-prototype`; use short-lived `codex/*` branches and PRs targeting `feature/mac-prototype`.
+- Do not merge PRs unless explicitly asked.
+- Preserve the v0 helper protocol in `docs/backend-contract.md` as the test asset through the Python-to-Swift migration.
+- Schema migrations must go through `DatabaseMigrator` once the GRDB store lands.
+- SwiftPM remains the primary build system; avoid hand-authoring Xcode project internals.
+- No iCloud / multi-device sync at this scope.
+- No `gh` CLI dependency in the shipping app after issue B4 lands.
+- No third-party persistence framework beyond GRDB.
+- Do not adopt TCA, Clean Architecture, VIPER, or a generic DI container at current scope.
+
+## Links
+- Parent PR: #2 `feature/mac-prototype` -> `main` (draft).
+- Architecture epic: #24.
+- Backend engine epic: #25.
+- Native data store epic: #26.
+- Draft leaf issue bodies: `docs/research/proposed-issues.md`.
+- Backend contract: `docs/backend-contract.md`.
+- Testing strategy: `docs/testing.md`.
+- Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
+
+## Current State
+- Branch: `codex/a5-module-rename`, created from `feature/mac-prototype`.
+- Open PRs: only draft parent PR #2; merge state `CLEAN`; GitHub Actions `Test` passing as of the 2026-05-07 probe.
+- Open epics: #24, #25, #26.
+- Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), and A4 (#35) are merged into `feature/mac-prototype`.
+- In progress: A5 module rename (#37) on `codex/a5-module-rename`.
+- Blocked: no implementation-level blocker.
+- Next checkpoint after A5: A3 scene storage.
+
+## Decisions
+- 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
+- 2026-04-28: Decision: use JSON-over-stdio helper process for the first live prototype. Reason: isolate Swift/Python and own a narrow contract. Impact: `docs/backend-contract.md` became the bridge contract. Plan change: yes.
+- 2026-04-28: Decision: use stacked branches. Reason: keep README-only `main` minimal while reviewing prototype work. Impact: `feature/mac-prototype` is the integration branch; leaf branches target it. Plan change: yes.
+- 2026-04-28: Decision: add explicit testing gates and CI. Reason: helper boundary, workspace/auth, sync lifecycle, and Swift integration are high-risk. Impact: local validation and GitHub Actions are part of every checkpoint. Plan change: yes.
+- 2026-05-02: Decision: add `AgendumMacWorkflow` target and `AgendumBackendServicing` seam. Reason: keep backend protocol models separate from app workflow state and make fake-backed workflow tests possible. Impact: executable imports workflow target; tests fake backend behavior. Plan change: no.
+- 2026-05-03: Decision: revise plan to standalone Swift app. Reason: Python packaging/signing cost is structurally hostile to shipping; GRDB and modern Swift architecture fit the end state better. Impact: Python is now planned for removal; data store and backend engine move into Swift. Plan change: yes.
+- 2026-05-03: Decision: `@Observable` is the default for new model objects. Reason: Apple-canonical macOS 14+ app shape. Impact: A1 migrated `BackendStatusModel`. Plan change: no.
+- 2026-05-03: Decision: adopt `os.Logger` per target under subsystem `com.danseely.agendum-mac`. Reason: structured diagnostics and Apple alignment. Impact: A2 landed logging categories. Plan change: no.
+- 2026-05-04: Decision: vendor the Python engine in-tree under `Backend/agendum_engine/`. Reason: remove sibling-checkout dependency before Swift port slices. Impact: B1 retired the sibling checkout. Plan change: no.
+- 2026-05-05: Decision: B2 shadow-ports pure GitHub status derivation to Swift before runtime dispatch. Reason: parity for pure functions without temporary Python-to-Swift bridge mechanics. Impact: shared parity fixtures now lock the behavior. Plan change: yes; runtime dispatch deferred.
+- 2026-05-07: Decision: adopt the current `planning-handoff` skill state model. Reason: the skill now makes `docs/project-state.md` and `docs/features.json` canonical. Impact: active state is consolidated here; old split planning files remain legacy references. Plan change: yes for planning artifacts only.
+- 2026-05-07: Decision: A5 stale-reference validation is strict only for executable/build surfaces. Reason: research and legacy docs intentionally preserve old module-name history and mapping context. Impact: `rg -n "AgendumMacCore|AgendumMacWorkflow" Package.swift Sources Tests Scripts .github` is the zero-match gate; docs are audited separately for intentional historical mappings/legacy references. Plan change: yes for validation guidance.
+
+## Drift
+- Approved deviation: GUI work moved from `../agendum` into this standalone project.
+- Approved deviation: public `main` is README-only; prototype work lives on stacked feature branches.
+- Approved deviation: 2026-05-03 plan revision replaces the earlier Python-helper shell framing with standalone Swift app / Python removal.
+- Approved deviation: B2 was pulled forward immediately after B1 by user direction, ahead of its nominal phase order; runtime dispatch was explicitly deferred.
+- 2026-05-07 drift check: no new unapproved drift. A5 remains the named Phase 2 checkpoint, A4 landed first as required, and no active PR supersedes A5.
+
+## Validation
+- Last full checkpoint validation: A4 / PR #36 on 2026-05-06: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle existence/executable checks; `plutil -lint`; `swift run AgendumMac` launch smoke; `git diff --check`; platform-reference grep for `AgendumMacWorkflow`.
+- Current handoff update validation: `jq . docs/features.json` passed; `git diff --check` passed.
+- A5 local validation passed: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `swift run AgendumMac` smoke launch stayed running until terminated; strict build-surface stale grep returned no matches; active docs audit found old names only in intentional mappings/historical legacy docs; `jq . docs/features.json`; `git diff --check`.
+- `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
+
+## A5 Work Packet
+- Objective: rename modules from `AgendumMacCore` to `AgendumBackend` and from `AgendumMacWorkflow` to `AgendumFeature`.
+- Parent: architecture epic #24.
+- Leaf issue: #37.
+- Source of issue body: `docs/research/proposed-issues.md` section "A5 - Module rename".
+- Labels: `area:architecture`, `phase:2`, `breaking-change` if they exist.
+- Branch: create `codex/a5-module-rename` from current `feature/mac-prototype`; target PR back to `feature/mac-prototype`.
+- PR body: include `relates to #<A5 issue number>`.
+- Implementation scope:
+  - Rename `Package.swift` products, targets, test targets, and dependencies.
+  - Rename directories: `Sources/AgendumMacCore/` -> `Sources/AgendumBackend/`; `Sources/AgendumMacWorkflow/` -> `Sources/AgendumFeature/`; `Tests/AgendumMacCoreTests/` -> `Tests/AgendumBackendTests/`; `Tests/AgendumMacWorkflowTests/` -> `Tests/AgendumFeatureTests/`.
+  - Update Swift imports and `@testable import` lines.
+  - Update fixture paths, especially `Tests/test_gh_status_derivation.py`.
+  - Update docs, scripts, CI workflow references, and any package/test target names.
+  - Keep type names unchanged: `BackendStatusModel`, `AgendumBackendClient`, `TaskItem`, and existing protocol/type surfaces stay as-is.
+- Suggested implementation order:
+  1. File the A5 issue with `gh issue create --body-file <tmpfile>`. Done: #37.
+  2. Create `codex/a5-module-rename`. Done.
+  3. Move directories first, then update `Package.swift`, then imports and references. Done.
+  4. Run the stale-reference grep before tests to catch mechanical misses. Done for build surfaces.
+  5. Run the validation gates below and open the PR. Validation is complete; PR is pending.
+- Validation gates:
+  - `swift build`
+  - `swift test --enable-code-coverage`
+  - `/opt/homebrew/bin/python3 -m unittest discover -s Tests`
+  - `/opt/homebrew/bin/python3 Scripts/python_coverage.py`
+  - `swift run AgendumMac` smoke launch
+  - `rg -n "AgendumMacCore|AgendumMacWorkflow" Package.swift Sources Tests Scripts .github` returns no matches.
+  - Active docs audit: old names may appear only as intentional historical mappings or legacy references; old split docs are not current operational guidance.
+  - `git diff --check`
+- Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
+
+## Handoff / Next Actions
+1. Open the A5 PR to `feature/mac-prototype` with `relates to #37`.
+2. Record the PR URL here and in `docs/features.json`.
+3. After A5 lands, implement A3 (`@SceneStorage`).

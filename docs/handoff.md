@@ -1,27 +1,28 @@
 # Handoff
 
+> Planning note: current `planning-handoff` canonical state is `docs/project-state.md` plus `docs/features.json`. This split file is historical/reference context only and must not be used for current operational instructions.
+
 ## Current objective
 Drive the "standalone Swift app" arc to completion: zero Python at runtime, GRDB-backed Swift data store, Apple-canonical architecture. The arc is structured as three GitHub epics (#24 architecture / #25 backend engine / #26 data store) detailed in `docs/research/synthesis.md`; leaves are filed as their phase approaches, drafts in `docs/research/proposed-issues.md`. The plan-revision binding is in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app".
 
-## Active checkpoint (2026-05-06)
+## Active checkpoint (2026-05-07)
 Phase 1 status: A1 (#27), A2 (#29), and B1 (#31) are merged into `feature/mac-prototype`; their issues are closed. B2 / issue **#33** is also complete: PR **#34** merged into `feature/mac-prototype` on 2026-05-06 as squash commit `965d333`, and issue #33 is closed.
 
 B2 scope clarification: this checkpoint shadow-ports pure `gh.py` status derivation into Swift and locks parity with shared fixtures. It does not make Python call Swift yet; the v0 helper protocol and current Python runtime behavior remain unchanged until later backend-engine slices consume the Swift implementation.
 
 A4 / issue **#35** is complete. PR **#36** merged into `feature/mac-prototype` on 2026-05-06 as squash commit `298955b`, and issue #35 is closed. A4 relocated AppKit/UserNotifications default seams from `AgendumMacWorkflow` to the executable target before A5 module rename. The branch also carried the post-B2 planning cleanup; the user explicitly asked to include planning updates in subsequent feature PRs instead of opening docs-only PRs.
 
-There is no active leaf-work PR. The next checkpoint is A5 / module rename.
+Current-state probe on 2026-05-07: local `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `4cb1ba0`; `gh pr list --state open` returns only draft parent PR **#2** (`feature/mac-prototype` -> `main`), merge state `CLEAN`, GitHub Actions `Test` `SUCCESS`; `gh issue view 24 25 26` shows all three epics still open; `gh issue list --state all --search "A5 module rename in:title"` returns no A5 issue. There is no active leaf-work PR. The next checkpoint is A5 / module rename.
 
-## Probe before acting
-Run these first to find the current live state — the handoff snapshot below rots.
-- `gh pr view 23` — planning-doc PR. If still open and approvable, review and merge before starting any leaf work. If merged, proceed.
-- `gh pr list --state open` — any active leaf-work PRs? If yes, drive the highest-priority one to merge before opening another.
-- `gh issue view 24 25 26` — epic state and any newly-filed leaves under them.
-- `git fetch --prune && git status` — local sync.
-- `git log feature/mac-prototype --oneline -5` — what's actually merged onto the integration branch.
+## Historical probe snapshot
+These commands were useful when this split handoff was active. They are not current instructions. In particular, do not merge any PR unless the user explicitly asks; use `docs/project-state.md` and `docs/features.json` for live state.
+- `gh pr list --state open`
+- `gh issue view 24 25 26`
+- `git fetch --prune && git status`
+- `git log feature/mac-prototype --oneline -5`
 
 ## Branch
-The integration branch is `feature/mac-prototype`. There is no active leaf branch after the A4 merge. All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype` unless the user explicitly requests a maintenance update.
+The current branch is `feature/mac-prototype`, aligned with `origin/feature/mac-prototype` at `4cb1ba0` after `git fetch --prune`. There is no active leaf branch after the A4 merge. All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype` unless the user explicitly requests a maintenance update.
 
 ## Repo state
 - A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `256678d`).
@@ -434,6 +435,9 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - `git diff --check`: passes (on the three modified files; the new `Backend/agendum_engine/` tree is untracked-then-staged and reproduces the upstream `src/agendum/` byte-for-byte).
 
 ## Changed files
+- Current handoff update: `docs/status.md` and `docs/handoff.md` only. No code changed.
+
+## Previous checkpoint changed files (PR #36, A4 platform seams)
 - `Sources/AgendumMac/PlatformSeams.swift`: new executable-target home for AppKit/UserNotifications defaults (`NSWorkspace`, `NSPasteboard`, `UNUserNotificationCenter`, `NSApplication.dockTile`).
 - `Sources/AgendumMac/AgendumMacApp.swift`: constructs the app model through `BackendStatusModel.live()`.
 - `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`: removes AppKit/UserNotifications imports and platform default implementations; keeps pure seam typealiases and non-platform test-safe default closures.
@@ -476,16 +480,20 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - B2 intentionally does not reduce Python runtime surface yet; zero-Python runtime is still B3-B6 work.
 - Native GitHub auth and GRDB-backed persistence are still future epic work; current runtime still uses the helper contract during migration.
 - The Python helper still owns sync/task behavior; B2 only proves parity for a pure Swift backend-engine slice.
+- A5 is intentionally mechanical but broad: directory moves, package target names, imports, fixture paths, docs, and CI references all need to change together. The main implementation risk is stale references to old module names.
 
-## Next actions
-1. File A5 under epic #24 from `docs/research/proposed-issues.md`.
-2. Implement A5 on `codex/a5-module-rename` targeting `feature/mac-prototype`.
-3. After A5 merges, implement A3 (`@SceneStorage`).
+## Historical next actions
+This section was superseded by `docs/project-state.md` on 2026-05-07 and is retained only as historical context.
+1. File A5 under epic #24 from `docs/research/proposed-issues.md` using title `A5: Rename modules — AgendumMacCore → AgendumBackend; AgendumMacWorkflow → AgendumFeature`. Include `relates to #24` in the issue body and use labels `area:architecture`, `phase:2`, and `breaking-change` if they exist.
+2. Implement A5 on `codex/a5-module-rename` targeting `feature/mac-prototype`: rename `Package.swift` products/targets, `Sources/AgendumMacCore/` -> `Sources/AgendumBackend/`, `Sources/AgendumMacWorkflow/` -> `Sources/AgendumFeature/`, test directories/targets, imports, fixture paths, docs, scripts, and CI workflow references. Keep type names (`BackendStatusModel`, `AgendumBackendClient`, `TaskItem`, etc.) unchanged.
+3. Validate A5 with `swift build`, `swift test --enable-code-coverage`, `/opt/homebrew/bin/python3 -m unittest discover -s Tests`, `/opt/homebrew/bin/python3 Scripts/python_coverage.py`, `swift run AgendumMac` smoke, strict build-surface grep, docs audit, and `git diff --check`; then open a PR to `feature/mac-prototype` with `relates to #<A5 issue number>`.
+4. After A5 merges, implement A3 (`@SceneStorage`).
 
 ## After checkpoint
 The active checkpoint at any moment is whichever leaf-work PR is open, or the next-leaf-to-file if none is in flight. The arc finishes when issues #24, #25, #26 are all closed.
 
 ## Drift from original plan
+- 2026-05-07 drift check: no new unapproved drift. A5 is still the named Phase 2 checkpoint in `docs/plan.md`, `docs/research/synthesis.md`, and `docs/research/proposed-issues.md`; A4 landed first as required, and no active PR supersedes A5.
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
 - Approved deviation: public `main` is README-only; prototype work lives on stacked feature branches.
 - Resolved stack state: `codex/task-list-loading` was temporarily based on PR #6, then rebased onto `feature/mac-prototype` after PR #6 merged.

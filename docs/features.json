@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "project": "agendum-mac",
+  "updated_at": "2026-05-07",
+  "active_goal": "Standalone Swift macOS app with native backend engine and GRDB-backed data store",
+  "features": [
+    {
+      "id": "a1-observable",
+      "title": "Migrate BackendStatusModel to @Observable",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #27 merged via PR #28 into feature/mac-prototype on 2026-05-03; validation recorded in docs/status.md.",
+      "notes": "Part of architecture modernization epic #24."
+    },
+    {
+      "id": "a2-os-logger",
+      "title": "Adopt os.Logger across Swift targets",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #29 merged via PR #30 into feature/mac-prototype on 2026-05-04; validation recorded in docs/status.md.",
+      "notes": "Subsystem com.danseely.agendum-mac with backend/workflow/ui categories."
+    },
+    {
+      "id": "b1-vendor-engine",
+      "title": "Fork and vendor Python engine into Backend/agendum_engine",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #31 merged via PR #32 into feature/mac-prototype on 2026-05-05; sibling-isolation validation recorded in docs/status.md.",
+      "notes": "Retired sibling-checkout dependency."
+    },
+    {
+      "id": "b2-status-derivation",
+      "title": "Shadow-port pure GitHub status derivation to Swift with parity fixtures",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #33 merged via PR #34 into feature/mac-prototype on 2026-05-06; shared Python/Swift parity fixtures added.",
+      "notes": "Runtime dispatch remains Python until later backend-engine slices consume Swift implementation."
+    },
+    {
+      "id": "a4-platform-seams",
+      "title": "Move AppKit and UserNotifications default seams into executable target",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #35 merged via PR #36 into feature/mac-prototype on 2026-05-06; A4 validation recorded in docs/status.md.",
+      "notes": "Feature target keeps pure closure seams and test-safe defaults."
+    },
+    {
+      "id": "a5-module-rename",
+      "title": "Rename AgendumMacCore to AgendumBackend and AgendumMacWorkflow to AgendumFeature",
+      "status": "in_progress",
+      "priority": "must",
+      "evidence": "Issue #37 filed under architecture epic #24; branch codex/a5-module-rename created from feature/mac-prototype; local validation passed: swift build, swift test --enable-code-coverage, Python unittest discover, Python coverage 499/540 lines (92.4%), swift run smoke, strict build-surface stale grep, docs audit, jq, and git diff --check.",
+      "notes": "PR remains pending. Type names stay unchanged."
+    },
+    {
+      "id": "a3-scene-storage",
+      "title": "Persist selection, sidebar visibility, and filter state with @SceneStorage",
+      "status": "not_started",
+      "priority": "must",
+      "evidence": "",
+      "notes": "Planned after A5."
+    },
+    {
+      "id": "c-native-store",
+      "title": "Add native GRDB-backed data store",
+      "status": "not_started",
+      "priority": "must",
+      "evidence": "",
+      "notes": "Tracked by epic #26; C1-C5 leaves remain future work."
+    },
+    {
+      "id": "b-python-zero",
+      "title": "Remove Python helper runtime and replace backend engine with Swift services",
+      "status": "in_progress",
+      "priority": "must",
+      "evidence": "B1 and B2 are passed; B3-B6 remain open future work under epic #25.",
+      "notes": "Current runtime still uses helper contract during migration."
+    }
+  ]
+}

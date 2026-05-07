@@ -1,4 +1,4 @@
-@testable import AgendumMacCore
+@testable import AgendumBackend
 import Foundation
 import Testing
 

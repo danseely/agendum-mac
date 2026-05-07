@@ -6,7 +6,7 @@
 > - Epic A: filed as **#24** (https://github.com/danseely/agendum-mac/issues/24)
 > - Epic B: filed as **#25** (https://github.com/danseely/agendum-mac/issues/25)
 > - Epic C: filed as **#26** (https://github.com/danseely/agendum-mac/issues/26)
-> - Filed / closed leaves: A1 #27, A2 #29, A4 #35, B1 #31, B2 #33.
+> - Filed / closed leaves: A1 #27, A2 #29, A4 #35, A5 #37, B1 #31, B2 #33.
 > - Remaining leaf issues: not yet filed; per the user's instruction, leaves are filed as their phase approaches. The drafts below remain authoritative except where a closed issue's scope was narrowed by `docs/decisions.md`.
 >
 > When filing a leaf, replace its placeholder parent reference with the real epic number above. Per the user's global GitHub rule, posting any issue requires explicit approval.
@@ -44,7 +44,7 @@ Drafted from `docs/research/architecture.md` and `docs/research/synthesis.md` af
 - [x] A2 — `os.Logger` across all targets (#29)
 - [ ] A3 — `@SceneStorage` for selection / sidebar / filter state (#)
 - [x] A4 — Relocate AppKit/UN default seams to executable target (#35)
-- [ ] A5 — Module rename: `AgendumMacCore` → `AgendumBackend`; `AgendumMacWorkflow` → `AgendumFeature` (#)
+- [ ] A5 — Module rename: `AgendumMacCore` → `AgendumBackend`; `AgendumMacWorkflow` → `AgendumFeature` (#37)
 - [ ] A6 — Polish bundle: localization, `.onOpenURL`, accessibility audit, `MetricKit` (#)
 
 ## Sequence
@@ -246,7 +246,7 @@ The feature target (`AgendumMacWorkflow`) currently imports `AppKit` and `UserNo
 - `Package.swift`: rename targets, libraries, and test targets.
 - Rename source directories: `Sources/AgendumMacCore/` → `Sources/AgendumBackend/`; `Sources/AgendumMacWorkflow/` → `Sources/AgendumFeature/`.
 - Rename test directories and target names.
-- Find/replace `AgendumMacCore` → `AgendumBackend` and `AgendumMacWorkflow` → `AgendumFeature` across `Sources/`, `Tests/`, `docs/`, `Scripts/`, CI workflow.
+- Find/replace `AgendumMacCore` → `AgendumBackend` and `AgendumMacWorkflow` → `AgendumFeature` across `Sources/`, `Tests/`, `Scripts/`, CI workflow, and active docs. Historical docs may retain old-name mappings where context requires them.
 - Update all `import` statements.
 
 ## Out of scope
@@ -259,15 +259,17 @@ The feature target (`AgendumMacWorkflow`) currently imports `AppKit` and `UserNo
 ## Acceptance criteria
 - New module names compile and link.
 - All imports updated.
-- All planning docs (`docs/plan.md`, `docs/handoff.md`, `docs/status.md`, `docs/decisions.md`, `docs/testing.md`, `docs/packaging.md`, `docs/research/*.md`) refer to the new names.
+- Active planning docs refer to the new names, and legacy/research docs either use the new names or retain old names only as intentional historical mappings.
 - CI workflow YAML references the new names.
 
 ## Validation gates
 - `swift build` passes.
 - `swift test --enable-code-coverage` passes (counts unchanged).
+- `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passes.
+- `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passes.
 - `swift run AgendumMac` smoke launches.
-- `grep -r AgendumMacCore Sources Tests docs Scripts .github` returns nothing.
-- `grep -r AgendumMacWorkflow Sources Tests docs Scripts .github` returns nothing.
+- `rg -n "AgendumMacCore|AgendumMacWorkflow" Package.swift Sources Tests Scripts .github` returns nothing.
+- Active docs audit allows old names only as intentional historical mappings or legacy references.
 - `git diff --check` passes.
 
 ## References

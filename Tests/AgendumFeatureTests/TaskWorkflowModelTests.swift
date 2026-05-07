@@ -1,5 +1,5 @@
-@testable import AgendumMacWorkflow
-import AgendumMacCore
+@testable import AgendumFeature
+import AgendumBackend
 import XCTest
 
 @MainActor

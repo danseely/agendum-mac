@@ -8,33 +8,33 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library(name: "AgendumMacCore", targets: ["AgendumMacCore"]),
-        .library(name: "AgendumMacWorkflow", targets: ["AgendumMacWorkflow"]),
+        .library(name: "AgendumBackend", targets: ["AgendumBackend"]),
+        .library(name: "AgendumFeature", targets: ["AgendumFeature"]),
         .executable(name: "AgendumMac", targets: ["AgendumMac"])
     ],
     targets: [
         .target(
-            name: "AgendumMacCore"
+            name: "AgendumBackend"
         ),
         .target(
-            name: "AgendumMacWorkflow",
-            dependencies: ["AgendumMacCore"]
+            name: "AgendumFeature",
+            dependencies: ["AgendumBackend"]
         ),
         .executableTarget(
             name: "AgendumMac",
-            dependencies: ["AgendumMacCore", "AgendumMacWorkflow"],
+            dependencies: ["AgendumBackend", "AgendumFeature"],
             exclude: ["Info.plist.template"]
         ),
         .testTarget(
-            name: "AgendumMacCoreTests",
-            dependencies: ["AgendumMacCore"],
+            name: "AgendumBackendTests",
+            dependencies: ["AgendumBackend"],
             resources: [
                 .process("Fixtures")
             ]
         ),
         .testTarget(
-            name: "AgendumMacWorkflowTests",
-            dependencies: ["AgendumMacWorkflow"]
+            name: "AgendumFeatureTests",
+            dependencies: ["AgendumFeature"]
         )
     ]
 )
