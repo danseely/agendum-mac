@@ -3,10 +3,12 @@
 ## Current objective
 Drive the "standalone Swift app" arc to completion: zero Python at runtime, GRDB-backed Swift data store, Apple-canonical architecture. The arc is structured as three GitHub epics (#24 architecture / #25 backend engine / #26 data store) detailed in `docs/research/synthesis.md`; leaves are filed as their phase approaches, drafts in `docs/research/proposed-issues.md`. The plan-revision binding is in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app".
 
-## Active checkpoint (2026-05-05)
-Phase 1 status: A1 (#27), A2 (#29), and B1 (#31) are merged into `feature/mac-prototype`; their issues are closed. Active work is B2 / issue **#33** on `codex/b2-status-derivation-port`, draft PR **#34**.
+## Active checkpoint (2026-05-06)
+Phase 1 status: A1 (#27), A2 (#29), and B1 (#31) are merged into `feature/mac-prototype`; their issues are closed. B2 / issue **#33** is also complete: PR **#34** merged into `feature/mac-prototype` on 2026-05-06 as squash commit `965d333`, and issue #33 is closed.
 
 B2 scope clarification: this checkpoint shadow-ports pure `gh.py` status derivation into Swift and locks parity with shared fixtures. It does not make Python call Swift yet; the v0 helper protocol and current Python runtime behavior remain unchanged until later backend-engine slices consume the Swift implementation.
+
+Active work is A4 / issue **#35** on `codex/a4-platform-seams`. A4 relocates AppKit/UserNotifications default seams from `AgendumMacWorkflow` to the executable target before A5 module rename. The branch also carries the post-B2 planning cleanup; the user explicitly asked to include planning updates in subsequent feature PRs instead of opening docs-only PRs.
 
 ## Probe before acting
 Run these first to find the current live state — the handoff snapshot below rots.
@@ -17,13 +19,14 @@ Run these first to find the current live state — the handoff snapshot below ro
 - `git log feature/mac-prototype --oneline -5` — what's actually merged onto the integration branch.
 
 ## Branch
-The integration branch is `feature/mac-prototype`. Current leaf work is on `codex/b2-status-derivation-port` (issue #33). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
+The integration branch is `feature/mac-prototype`. Current leaf work is on `codex/a4-platform-seams` (issue #35). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
 
 ## Repo state
 - A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `256678d`).
 - A2 leaf PR: **#30** (`codex/a2-os-logger` → `feature/mac-prototype`), merged 2026-05-04 (squash merge `6ec1fc2`).
 - B1 leaf PR: **#32** (`codex/b1-fork-and-vendor` → `feature/mac-prototype`), merged 2026-05-05 (squash merge `ca65a00`).
-- B2 leaf issue: **#33** (`codex/b2-status-derivation-port`), draft PR **#34**, ready to mark for review when desired.
+- B2 leaf issue: **#33** (`codex/b2-status-derivation-port`), merged via PR **#34** on 2026-05-06 (squash merge `965d333`); issue #33 closed.
+- A4 leaf issue: **#35** (`codex/a4-platform-seams`), open as PR **#36**; PR #36 is non-draft, mergeable, and GitHub Actions `Test` is passing.
 - Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `3afdb58`).
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
@@ -53,7 +56,7 @@ The integration branch is `feature/mac-prototype`. Current leaf work is on `code
 - PR #19 (item 3 — settings / auth-repair UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c4a6b5a`).
 - PR #20 (item 4 — keyboard shortcuts + menu coverage) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `158954c`).
 - PR #21 (item 5 — notifications + dock badge for sync results) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `4172378`).
-- Last validation date: 2026-05-05 (B2 status-derivation port): `swift build` passed; `swift test --enable-code-coverage` passed with 119 XCTest tests plus 6 Swift Testing cases; `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 67 tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 499/540 lines (92.4%); `swift run AgendumMac` built and stayed running until terminated after a brief smoke; `git diff --check` passed. PR #34 CI `Test` passed after the parity review fixes. Second read-only review found no blocking code issues.
+- Last validation date: 2026-05-06 (A4 platform seams): `swift build` passed; `swift test --enable-code-coverage` passed with 118 XCTest tests plus 7 Swift Testing cases; `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 68 tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 499/540 lines (92.4%); `Scripts/build_app_bundle.sh` passed; bundle `test -d`, executable `test -x`, and `plutil -lint .build/Agendum.app/Contents/Info.plist` passed; `swift run AgendumMac` built and stayed running until terminated after a brief smoke; `git diff --check` passed; A4 grep for platform references in `Sources/AgendumMacWorkflow` and `Tests/AgendumMacWorkflowTests` returned no matches.
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -429,15 +432,11 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - `git diff --check`: passes (on the three modified files; the new `Backend/agendum_engine/` tree is untracked-then-staged and reproduces the upstream `src/agendum/` byte-for-byte).
 
 ## Changed files
-- `Package.swift`: exposes `Tests/AgendumMacCoreTests/Fixtures` as test resources for shared status-derivation fixtures.
-- `Sources/AgendumMacCore/GitHubStatusDerivation.swift`: pure Swift status-derivation functions and `Codable` / `Equatable` / `Sendable` DTOs for the B2 shadow port.
-- `Tests/AgendumMacCoreTests/Fixtures/GitHubStatusDerivationCases.json`: shared Python/Swift parity cases for authored PR, review PR, issue, review-feedback, author-name, and repo-name behavior.
-- `Tests/AgendumMacCoreTests/GitHubStatusDerivationTests.swift`: Swift Testing coverage over the shared fixture plus the explicit whitespace-only author-name behavior.
-- `Tests/test_gh_status_derivation.py`: Python characterization tests over the shared fixture plus the whitespace-only Python exception.
-- `docs/decisions.md`: records B2 being pulled forward, defers Python-to-Swift runtime dispatch, and notes the whitespace-only name behavior difference.
-- `docs/plan.md`, `docs/status.md`, `docs/handoff.md`: refresh the active B2 checkpoint, validation, risks, next actions, and drift.
-
-Note: the Swift DTOs use a normalized fixture-facing shape, not raw GraphQL/Python `comments.nodes` dictionaries. Later slices that consume live GraphQL data need an explicit normalizer before calling `GitHubStatusDerivation`.
+- `Sources/AgendumMac/PlatformSeams.swift`: new executable-target home for AppKit/UserNotifications defaults (`NSWorkspace`, `NSPasteboard`, `UNUserNotificationCenter`, `NSApplication.dockTile`).
+- `Sources/AgendumMac/AgendumMacApp.swift`: constructs the app model through `BackendStatusModel.live()`.
+- `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`: removes AppKit/UserNotifications imports and platform default implementations; keeps pure seam typealiases and non-platform test-safe default closures.
+- `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`: removes the obsolete convenience-init platform-default smoke test.
+- `docs/plan.md`, `docs/status.md`, `docs/handoff.md`, `docs/research/synthesis.md`, `docs/research/proposed-issues.md`: record B2 as merged and A4 as the active Phase 2 checkpoint.
 
 ## Previous checkpoint changed files (PR #15, packaging matrix doc)
 - `docs/packaging.md` (new): packaging matrix with distribution-channel and Python helper runtime sections, interactions with prior decisions, prototype-phase recommendation, and 10 deferred decisions.
@@ -477,9 +476,9 @@ Note: the Swift DTOs use a normalized fixture-facing shape, not raw GraphQL/Pyth
 - The Python helper still owns sync/task behavior; B2 only proves parity for a pure Swift backend-engine slice.
 
 ## Next actions
-1. Mark PR #34 ready for review when desired.
-2. If any formal review or CI finding appears after readiness, address it on `codex/b2-status-derivation-port`.
-3. After PR #34 merges, continue the standalone Swift arc with A3 (`@SceneStorage`) or B3/C1 depending on whether architecture or data-store work should lead next.
+1. Review PR #36; address any findings if they appear.
+2. After A4 merges, file and implement A5 (module rename).
+3. After A5, implement A3 (`@SceneStorage`).
 
 ## After checkpoint
 The active checkpoint at any moment is whichever leaf-work PR is open, or the next-leaf-to-file if none is in flight. The arc finishes when issues #24, #25, #26 are all closed.
@@ -502,4 +501,4 @@ The active checkpoint at any moment is whichever leaf-work PR is open, or the ne
 - Item 1 (PR #17) included an in-scope drive-by fix to `BackendClientConfiguration.firstAncestor` that resolved an infinite-loop bug introduced in PR #16; the reviewer recommended KEEP rather than split it into a separate PR, so the fix landed inside the item-1 PR rather than as its own checkpoint.
 - 2026-05-03 plan revision: large-but-approved deviation. The user explicitly directed "rip all Python out" after the three architecture-direction research streams completed. This contradicts and supersedes three prior `docs/plan.md` non-goals ("No decision has been made to rewrite the Python backend in Swift"; "Whether Swift ever reads SQLite directly. Current bias: no"; "Out Of Scope Until Later: full Swift rewrite of the sync engine"). All three are reversed; the new direction is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app" and the new milestone arc is in `docs/plan.md`.
 - Five-item orchestration shipped without scope drift outside the explicitly-recorded drive-bys (item 1 `firstAncestor` infinite-loop fix; item 3 helper.py:439 `repairInstructions` shared-formatter unification). Both were called out in their PR bodies and reviewer-approved as KEEP.
-- Approved deviation: B2 is being pulled forward immediately after B1 by user direction, even though `docs/research/synthesis.md` lists it in Phase 4. B2 runtime dispatch from Python to Swift is explicitly deferred; the current checkpoint is a parity-locked shadow Swift port.
+- Approved deviation: B2 was pulled forward immediately after B1 by user direction, even though `docs/research/synthesis.md` lists it in Phase 4. B2 runtime dispatch from Python to Swift is explicitly deferred; the completed checkpoint is a parity-locked shadow Swift port.

@@ -46,7 +46,7 @@ Eight phases, with every leaf scoped to fit the same per-PR rhythm as the five-i
 
 ### Phase 4 — Early Swift slices (parallel)
 - **C3** Wire dashboard reads through `TaskStoreProviding`. Helper continues to produce sync (writes to the same SQLite file under WAL).
-- **B2** Port pure status-derivation functions (`gh.py` lines 40–202) to Swift behind unchanged v0 helper boundary; helper now dispatches to either Python or Swift for these calls.
+- **B2** Port pure status-derivation functions (`gh.py` lines 40–202) to Swift behind unchanged v0 helper boundary. Current implementation is a parity-locked shadow port; runtime dispatch from Python to Swift is deferred by the 2026-05-05 decision-log entry.
 
 ### Phase 5 — Data layer Swift-side
 - **B3** Port `db.py` / `config.py` / `task_api.py` equivalents to Swift. Helper task-action commands now route through Swift code.
