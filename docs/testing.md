@@ -100,7 +100,7 @@ Must cover:
 
 Acceptance:
 - New SwiftPM tests run under `swift test --enable-code-coverage`.
-- No Python helper process is needed for these workflow tests; process-boundary behavior remains covered by `AgendumMacCoreTests` and Python subprocess tests.
+- No Python helper process is needed for these workflow tests; process-boundary behavior remains covered by `AgendumBackendTests` and Python subprocess tests.
 - Manual launch smoke remains useful, but it should no longer be the only coverage for force-sync polling and detail-pane task actions.
 
 ### Swift UI / App Validation

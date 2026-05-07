@@ -1,5 +1,7 @@
 # Decisions
 
+> Planning note: current `planning-handoff` canonical state is `docs/project-state.md` plus `docs/features.json`. This split file remains historical/reference context.
+
 ## 2026-04-28
 - Decision: Create a separate local `agendum-mac` project for GUI work.
 - Reason: The GUI exploration should not churn the existing terminal CLI repo.

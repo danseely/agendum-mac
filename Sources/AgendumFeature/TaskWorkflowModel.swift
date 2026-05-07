@@ -1,4 +1,4 @@
-import AgendumMacCore
+import AgendumBackend
 import Foundation
 import Observation
 

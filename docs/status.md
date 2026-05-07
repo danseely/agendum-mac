@@ -1,11 +1,13 @@
 # Status
 
-Last updated: 2026-05-06 (A4 merged; A5 next)
+> Planning note: current `planning-handoff` canonical state is `docs/project-state.md` plus `docs/features.json`. This split file is historical/reference context only and must not be used for current operational instructions.
+
+Last updated: 2026-05-07 (legacy snapshot; see `docs/project-state.md` for live state)
 
 ## Current milestone
 "Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, the 2026-05-03 plan revision redirected the project to a standalone Swift app: zero Python at runtime, GRDB-backed persistence, native GitHub auth, and Apple-canonical app architecture. The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app."
 
-Current checkpoint: A4 / issue #35 is complete. PR #36 (`codex/a4-platform-seams` -> `feature/mac-prototype`) merged on 2026-05-06 as squash commit `298955b`; issue #35 is closed. A4 moved AppKit/UserNotifications default seam implementations out of `AgendumMacWorkflow` and into the executable target while preserving pure closure seams and fake-backed workflow tests. The next checkpoint is A5: module rename (`AgendumMacCore` -> `AgendumBackend`, `AgendumMacWorkflow` -> `AgendumFeature`).
+Current checkpoint at the time this legacy snapshot was last active: A4 / issue #35 was complete, and A5 was next. Current A5 state is tracked in `docs/project-state.md` and `docs/features.json`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -174,13 +176,11 @@ Current checkpoint: A4 / issue #35 is complete. PR #36 (`codex/a4-platform-seams
 - PR #36 was marked ready, passed GitHub Actions `Test`, and merged into `feature/mac-prototype` on 2026-05-06 (squash merge `298955b`). Issue #35 was closed after merge because the PR targeted `feature/mac-prototype`, not the default branch.
 
 ## In progress
-- No active leaf-work PR. A5 module rename is next.
+- Legacy snapshot only. See `docs/project-state.md`.
 
 ## Blocked
 - No implementation-level blockers.
 
 ## Next
-1. File A5 under epic #24 from `docs/research/proposed-issues.md`.
-2. Implement A5 on `codex/a5-module-rename` targeting `feature/mac-prototype`.
-3. After A5 merges, implement A3 (`@SceneStorage`).
-4. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
+1. Use `docs/project-state.md` and `docs/features.json` for current next actions.
+2. Current A5 validation guidance is: `swift build`, `swift test --enable-code-coverage`, `/opt/homebrew/bin/python3 -m unittest discover -s Tests`, `/opt/homebrew/bin/python3 Scripts/python_coverage.py`, `swift run AgendumMac` smoke, strict build-surface stale grep, docs audit, and `git diff --check`.

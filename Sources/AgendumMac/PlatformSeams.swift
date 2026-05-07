@@ -1,4 +1,4 @@
-import AgendumMacWorkflow
+import AgendumFeature
 import AppKit
 import Foundation
 @preconcurrency import UserNotifications
