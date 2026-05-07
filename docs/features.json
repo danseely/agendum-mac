@@ -47,10 +47,10 @@
     {
       "id": "a5-module-rename",
       "title": "Rename AgendumMacCore to AgendumBackend and AgendumMacWorkflow to AgendumFeature",
-      "status": "in_progress",
+      "status": "passed",
       "priority": "must",
-      "evidence": "Issue #37 filed under architecture epic #24; PR #38 is open to feature/mac-prototype. Local validation passed: swift build, swift test --enable-code-coverage, Python unittest discover, Python coverage 499/540 lines (92.4%), swift run smoke, strict build-surface stale grep, docs audit, jq, and git diff --check. GitHub Actions Test passed on PR #38.",
-      "notes": "Type names stay unchanged. Mark passed only after merge or explicit acceptance; do not merge unless explicitly asked."
+      "evidence": "Issue #37 closed as completed; PR #38 merged into feature/mac-prototype on 2026-05-07 as squash commit 6f6d388. Local validation passed: swift build, swift test --enable-code-coverage, Python unittest discover, Python coverage 499/540 lines (92.4%), swift run smoke, strict build-surface stale grep, docs audit, jq, and git diff --check. GitHub Actions Test passed on PR #38.",
+      "notes": "Type names stayed unchanged."
     },
     {
       "id": "a3-scene-storage",
@@ -58,7 +58,7 @@
       "status": "not_started",
       "priority": "must",
       "evidence": "",
-      "notes": "Planned after A5."
+      "notes": "Next checkpoint after A5 merge."
     },
     {
       "id": "c-native-store",

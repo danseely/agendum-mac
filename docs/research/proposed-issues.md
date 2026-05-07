@@ -44,7 +44,7 @@ Drafted from `docs/research/architecture.md` and `docs/research/synthesis.md` af
 - [x] A2 — `os.Logger` across all targets (#29)
 - [ ] A3 — `@SceneStorage` for selection / sidebar / filter state (#)
 - [x] A4 — Relocate AppKit/UN default seams to executable target (#35)
-- [ ] A5 — Module rename: `AgendumMacCore` → `AgendumBackend`; `AgendumMacWorkflow` → `AgendumFeature` (#37)
+- [x] A5 — Module rename: `AgendumMacCore` → `AgendumBackend`; `AgendumMacWorkflow` → `AgendumFeature` (#37)
 - [ ] A6 — Polish bundle: localization, `.onOpenURL`, accessibility audit, `MetricKit` (#)
 
 ## Sequence
