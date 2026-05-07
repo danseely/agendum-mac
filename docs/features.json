@@ -47,10 +47,10 @@
     {
       "id": "a5-module-rename",
       "title": "Rename AgendumMacCore to AgendumBackend and AgendumMacWorkflow to AgendumFeature",
-      "status": "in_progress",
+      "status": "passed",
       "priority": "must",
-      "evidence": "Issue #37 filed under architecture epic #24; branch codex/a5-module-rename created from feature/mac-prototype; local validation passed: swift build, swift test --enable-code-coverage, Python unittest discover, Python coverage 499/540 lines (92.4%), swift run smoke, strict build-surface stale grep, docs audit, jq, and git diff --check.",
-      "notes": "PR remains pending. Type names stay unchanged."
+      "evidence": "Issue #37 filed under architecture epic #24; PR #38 opened to feature/mac-prototype; local validation passed: swift build, swift test --enable-code-coverage, Python unittest discover, Python coverage 499/540 lines (92.4%), swift run smoke, strict build-surface stale grep, docs audit, jq, and git diff --check.",
+      "notes": "Type names stay unchanged. Awaiting PR review/CI; do not merge unless explicitly asked."
     },
     {
       "id": "a3-scene-storage",

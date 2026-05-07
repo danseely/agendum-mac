@@ -28,10 +28,10 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 
 ## Current State
 - Branch: `codex/a5-module-rename`, created from `feature/mac-prototype`.
-- Open PRs: only draft parent PR #2; merge state `CLEAN`; GitHub Actions `Test` passing as of the 2026-05-07 probe.
+- Open PRs: draft parent PR #2 and A5 PR #38 (`codex/a5-module-rename` -> `feature/mac-prototype`).
 - Open epics: #24, #25, #26.
 - Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), and A4 (#35) are merged into `feature/mac-prototype`.
-- In progress: A5 module rename (#37) on `codex/a5-module-rename`.
+- In progress: A5 module rename (#37) is locally complete and open for review as PR #38.
 - Blocked: no implementation-level blocker.
 - Next checkpoint after A5: A3 scene storage.
 
@@ -66,6 +66,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Objective: rename modules from `AgendumMacCore` to `AgendumBackend` and from `AgendumMacWorkflow` to `AgendumFeature`.
 - Parent: architecture epic #24.
 - Leaf issue: #37.
+- PR: #38.
 - Source of issue body: `docs/research/proposed-issues.md` section "A5 - Module rename".
 - Labels: `area:architecture`, `phase:2`, `breaking-change` if they exist.
 - Branch: create `codex/a5-module-rename` from current `feature/mac-prototype`; target PR back to `feature/mac-prototype`.
@@ -82,7 +83,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
   2. Create `codex/a5-module-rename`. Done.
   3. Move directories first, then update `Package.swift`, then imports and references. Done.
   4. Run the stale-reference grep before tests to catch mechanical misses. Done for build surfaces.
-  5. Run the validation gates below and open the PR. Validation is complete; PR is pending.
+  5. Run the validation gates below and open the PR. Done: PR #38.
 - Validation gates:
   - `swift build`
   - `swift test --enable-code-coverage`
@@ -95,6 +96,5 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Open the A5 PR to `feature/mac-prototype` with `relates to #37`.
-2. Record the PR URL here and in `docs/features.json`.
-3. After A5 lands, implement A3 (`@SceneStorage`).
+1. Let PR #38 run through review/CI; do not merge unless explicitly asked.
+2. After A5 lands, implement A3 (`@SceneStorage`).
