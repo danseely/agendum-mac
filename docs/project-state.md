@@ -55,11 +55,13 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Approved deviation: 2026-05-03 plan revision replaces the earlier Python-helper shell framing with standalone Swift app / Python removal.
 - Approved deviation: B2 was pulled forward immediately after B1 by user direction, ahead of its nominal phase order; runtime dispatch was explicitly deferred.
 - 2026-05-07 drift check: no new unapproved drift. A5 remains the named Phase 2 checkpoint, A4 landed first as required, and no active PR supersedes A5.
+- 2026-05-07 review drift fix: `docs/features.json` had marked A5 passed before PR #38 landed, and legacy `docs/handoff.md` still carried stale live-sounding branch/checkpoint guidance. Resolution: A5 is `in_progress` until merge or explicit acceptance; `docs/handoff.md` now points to this canonical state instead of carrying operational instructions.
 
 ## Validation
 - Last full checkpoint validation: A4 / PR #36 on 2026-05-06: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle existence/executable checks; `plutil -lint`; `swift run AgendumMac` launch smoke; `git diff --check`; platform-reference grep for `AgendumMacWorkflow`.
-- Current handoff update validation: `jq . docs/features.json` passed; `git diff --check` passed.
+- Current docs review-fix validation: docs-only change; `jq . docs/features.json`, `git diff --check`, and focused `rg` spot checks passed. Full Swift/Python suite was not rerun; prior A5 local validation and PR #38 GitHub Actions `Test` were already passing.
 - A5 local validation passed: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `swift run AgendumMac` smoke launch stayed running until terminated; strict build-surface stale grep returned no matches; active docs audit found old names only in intentional mappings/historical legacy docs; `jq . docs/features.json`; `git diff --check`.
+- A5 PR #38 GitHub Actions `Test` check passed on 2026-05-07 while the PR remained open.
 - `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 
 ## A5 Work Packet
@@ -96,5 +98,6 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Let PR #38 run through review/CI; do not merge unless explicitly asked.
-2. After A5 lands, implement A3 (`@SceneStorage`).
+1. Let PR #38 run through review; do not merge unless explicitly asked.
+2. Keep `a5-module-rename` in `docs/features.json` as `in_progress` until PR #38 merges or the user explicitly accepts it.
+3. After A5 lands, implement A3 (`@SceneStorage`).
