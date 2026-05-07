@@ -50,7 +50,7 @@ Defined in `docs/research/synthesis.md`. Eight phases total; Phase 1 (mechanical
 The original five-milestone plan and the five-item live-slice orchestration are complete. See `docs/status.md` "Done" for the full record.
 
 ## Active milestone
-"Standalone Swift app" arc, structured as the three epics (A / B / C) above and detailed in `docs/research/synthesis.md`. Phase 1 is complete: A1, A2, and B1 have landed on `feature/mac-prototype`. B2 / issue #33 is complete via PR #34: pure `gh.py` status derivation is shadow-ported into Swift with shared parity fixtures, while preserving current helper/runtime behavior until later backend-engine slices consume the Swift implementation. A4 / issue #35 is complete via PR #36: platform default seams now live in the executable target. The next checkpoint is A5: rename `AgendumMacCore` to `AgendumBackend` and `AgendumMacWorkflow` to `AgendumFeature`, followed by A3 scene storage.
+"Standalone Swift app" arc, structured as the three epics (A / B / C) above and detailed in `docs/research/synthesis.md`. This legacy snapshot is superseded by `docs/project-state.md`; as of the post-A5 planning update, A5 has landed and the next checkpoint is A3 scene storage.
 
 ## Testing Strategy
 Testing grows with each migration slice. Through the Python-to-Swift port, both layers are tested side by side; once a slice ships, the Python tests for that surface either dispatch through the helper façade or are replaced by Swift tests covering the same cases.

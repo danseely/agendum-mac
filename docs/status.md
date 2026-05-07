@@ -183,4 +183,4 @@ Current checkpoint at the time this legacy snapshot was last active: A4 / issue 
 
 ## Next
 1. Use `docs/project-state.md` and `docs/features.json` for current next actions.
-2. Current A5 validation guidance is: `swift build`, `swift test --enable-code-coverage`, `/opt/homebrew/bin/python3 -m unittest discover -s Tests`, `/opt/homebrew/bin/python3 Scripts/python_coverage.py`, `swift run AgendumMac` smoke, strict build-surface stale grep, docs audit, and `git diff --check`.
+2. A5 has landed; the current next checkpoint is A3 (`@SceneStorage`) per `docs/project-state.md`.
