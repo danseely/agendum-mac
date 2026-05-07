@@ -8,7 +8,9 @@ Phase 1 status: A1 (#27), A2 (#29), and B1 (#31) are merged into `feature/mac-pr
 
 B2 scope clarification: this checkpoint shadow-ports pure `gh.py` status derivation into Swift and locks parity with shared fixtures. It does not make Python call Swift yet; the v0 helper protocol and current Python runtime behavior remain unchanged until later backend-engine slices consume the Swift implementation.
 
-Active work is A4 / issue **#35** on `codex/a4-platform-seams`. A4 relocates AppKit/UserNotifications default seams from `AgendumMacWorkflow` to the executable target before A5 module rename. The branch also carries the post-B2 planning cleanup; the user explicitly asked to include planning updates in subsequent feature PRs instead of opening docs-only PRs.
+A4 / issue **#35** is complete. PR **#36** merged into `feature/mac-prototype` on 2026-05-06 as squash commit `298955b`, and issue #35 is closed. A4 relocated AppKit/UserNotifications default seams from `AgendumMacWorkflow` to the executable target before A5 module rename. The branch also carried the post-B2 planning cleanup; the user explicitly asked to include planning updates in subsequent feature PRs instead of opening docs-only PRs.
+
+There is no active leaf-work PR. The next checkpoint is A5 / module rename.
 
 ## Probe before acting
 Run these first to find the current live state — the handoff snapshot below rots.
@@ -19,14 +21,14 @@ Run these first to find the current live state — the handoff snapshot below ro
 - `git log feature/mac-prototype --oneline -5` — what's actually merged onto the integration branch.
 
 ## Branch
-The integration branch is `feature/mac-prototype`. Current leaf work is on `codex/a4-platform-seams` (issue #35). All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype`.
+The integration branch is `feature/mac-prototype`. There is no active leaf branch after the A4 merge. All subsequent work goes on `codex/<slug>` branches that PR into `feature/mac-prototype`. Do not push directly to `feature/mac-prototype` unless the user explicitly requests a maintenance update.
 
 ## Repo state
 - A1 leaf PR: **#28** (`codex/a1-observable-migration` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `256678d`).
 - A2 leaf PR: **#30** (`codex/a2-os-logger` → `feature/mac-prototype`), merged 2026-05-04 (squash merge `6ec1fc2`).
 - B1 leaf PR: **#32** (`codex/b1-fork-and-vendor` → `feature/mac-prototype`), merged 2026-05-05 (squash merge `ca65a00`).
 - B2 leaf issue: **#33** (`codex/b2-status-derivation-port`), merged via PR **#34** on 2026-05-06 (squash merge `965d333`); issue #33 closed.
-- A4 leaf issue: **#35** (`codex/a4-platform-seams`), open as PR **#36**; PR #36 is non-draft, mergeable, and GitHub Actions `Test` is passing.
+- A4 leaf issue: **#35** (`codex/a4-platform-seams`), merged via PR **#36** on 2026-05-06 (squash merge `298955b`); issue #35 closed.
 - Planning-doc PR: **#23** (`codex/standalone-architecture-planning` → `feature/mac-prototype`), merged 2026-05-03 (squash merge `3afdb58`).
 - Epic tracking issues: **#24** Architecture modernization, **#25** Standalone backend engine, **#26** Native data store. Lifecycle via `gh issue view 24 25 26`.
 - Integration branch: `feature/mac-prototype`; PR #21 (item 5 — notifications + dock badge for sync results) merged on 2026-05-03 (squash merge `4172378`).
@@ -56,7 +58,7 @@ The integration branch is `feature/mac-prototype`. Current leaf work is on `code
 - PR #19 (item 3 — settings / auth-repair UI) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `c4a6b5a`).
 - PR #20 (item 4 — keyboard shortcuts + menu coverage) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `158954c`).
 - PR #21 (item 5 — notifications + dock badge for sync results) merged into `feature/mac-prototype` on 2026-05-03 (squash merge `4172378`).
-- Last validation date: 2026-05-06 (A4 platform seams): `swift build` passed; `swift test --enable-code-coverage` passed with 118 XCTest tests plus 7 Swift Testing cases; `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 68 tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 499/540 lines (92.4%); `Scripts/build_app_bundle.sh` passed; bundle `test -d`, executable `test -x`, and `plutil -lint .build/Agendum.app/Contents/Info.plist` passed; `swift run AgendumMac` built and stayed running until terminated after a brief smoke; `git diff --check` passed; A4 grep for platform references in `Sources/AgendumMacWorkflow` and `Tests/AgendumMacWorkflowTests` returned no matches.
+- Last validation date: 2026-05-06 (A4 platform seams): `swift build` passed; `swift test --enable-code-coverage` passed with 118 XCTest tests plus 7 Swift Testing cases; `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed with 68 tests; `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed at 499/540 lines (92.4%); `Scripts/build_app_bundle.sh` passed; bundle `test -d`, executable `test -x`, and `plutil -lint .build/Agendum.app/Contents/Info.plist` passed; `swift run AgendumMac` built and stayed running until terminated after a brief smoke; `git diff --check` passed; A4 grep for platform references in `Sources/AgendumMacWorkflow` and `Tests/AgendumMacWorkflowTests` returned no matches. PR #36 GitHub Actions `Test` passed before merge.
 
 ## Completed
 - Created `agendum-mac` outside `../agendum`.
@@ -436,7 +438,7 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - `Sources/AgendumMac/AgendumMacApp.swift`: constructs the app model through `BackendStatusModel.live()`.
 - `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`: removes AppKit/UserNotifications imports and platform default implementations; keeps pure seam typealiases and non-platform test-safe default closures.
 - `Tests/AgendumMacWorkflowTests/TaskWorkflowModelTests.swift`: removes the obsolete convenience-init platform-default smoke test.
-- `docs/plan.md`, `docs/status.md`, `docs/handoff.md`, `docs/research/synthesis.md`, `docs/research/proposed-issues.md`: record B2 as merged and A4 as the active Phase 2 checkpoint.
+- `docs/plan.md`, `docs/status.md`, `docs/handoff.md`, `docs/research/synthesis.md`, `docs/research/proposed-issues.md`: record B2 and A4 as merged and set A5 as the next Phase 2 checkpoint.
 
 ## Previous checkpoint changed files (PR #15, packaging matrix doc)
 - `docs/packaging.md` (new): packaging matrix with distribution-channel and Python helper runtime sections, interactions with prior decisions, prototype-phase recommendation, and 10 deferred decisions.
@@ -476,9 +478,9 @@ This checkpoint is docs-only; no new gates were introduced and existing gates ma
 - The Python helper still owns sync/task behavior; B2 only proves parity for a pure Swift backend-engine slice.
 
 ## Next actions
-1. Review PR #36; address any findings if they appear.
-2. After A4 merges, file and implement A5 (module rename).
-3. After A5, implement A3 (`@SceneStorage`).
+1. File A5 under epic #24 from `docs/research/proposed-issues.md`.
+2. Implement A5 on `codex/a5-module-rename` targeting `feature/mac-prototype`.
+3. After A5 merges, implement A3 (`@SceneStorage`).
 
 ## After checkpoint
 The active checkpoint at any moment is whichever leaf-work PR is open, or the next-leaf-to-file if none is in flight. The arc finishes when issues #24, #25, #26 are all closed.

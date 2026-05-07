@@ -1,11 +1,11 @@
 # Status
 
-Last updated: 2026-05-06 (A4 PR #36 ready)
+Last updated: 2026-05-06 (A4 merged; A5 next)
 
 ## Current milestone
 "Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, the 2026-05-03 plan revision redirected the project to a standalone Swift app: zero Python at runtime, GRDB-backed persistence, native GitHub auth, and Apple-canonical app architecture. The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app."
 
-Current checkpoint: A4 / issue #35 on branch `codex/a4-platform-seams`. A4 moves AppKit/UserNotifications default seam implementations out of `AgendumMacWorkflow` and into the executable target while preserving pure closure seams and fake-backed workflow tests. This PR also carries the post-B2 planning cleanup, per user direction to avoid separate docs-only PRs.
+Current checkpoint: A4 / issue #35 is complete. PR #36 (`codex/a4-platform-seams` -> `feature/mac-prototype`) merged on 2026-05-06 as squash commit `298955b`; issue #35 is closed. A4 moved AppKit/UserNotifications default seam implementations out of `AgendumMacWorkflow` and into the executable target while preserving pure closure seams and fake-backed workflow tests. The next checkpoint is A5: module rename (`AgendumMacCore` -> `AgendumBackend`, `AgendumMacWorkflow` -> `AgendumFeature`).
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -170,14 +170,17 @@ Current checkpoint: A4 / issue #35 on branch `codex/a4-platform-seams`. A4 moves
 - Updated `Sources/AgendumMac/AgendumMacApp.swift` to construct the live model through `BackendStatusModel.live()`, so the app target injects platform defaults explicitly.
 - Removed `AppKit` and `UserNotifications` imports and platform implementations from `Sources/AgendumMacWorkflow/TaskWorkflowModel.swift`; workflow now keeps pure seam types and safe non-platform default closures for test construction.
 - A4 validation passed locally: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle `test -d` / executable `test -x` / `plutil -lint`; `swift run AgendumMac` launch smoke; `git diff --check`; and `rg -n "import AppKit|UserNotifications|NSWorkspace|NSPasteboard|UNUserNotificationCenter|NSApplication" Sources/AgendumMacWorkflow Tests/AgendumMacWorkflowTests` returned no matches.
+- Adversarial PR #36 review found no code blockers and one stale-doc finding; the stale PR-state docs were fixed before merge. Residual risk: app-target platform defaults are covered by compile + launch smoke, not dedicated app-target unit tests.
+- PR #36 was marked ready, passed GitHub Actions `Test`, and merged into `feature/mac-prototype` on 2026-05-06 (squash merge `298955b`). Issue #35 was closed after merge because the PR targeted `feature/mac-prototype`, not the default branch.
 
 ## In progress
-- A4 / issue **#35** is open as PR **#36** (`codex/a4-platform-seams` -> `feature/mac-prototype`). PR #36 is non-draft, mergeable, and GitHub Actions `Test` is passing.
+- No active leaf-work PR. A5 module rename is next.
 
 ## Blocked
 - No implementation-level blockers.
 
 ## Next
-1. Review PR #36; address any findings if they appear.
-2. After A4 merges, file and implement A5 (module rename), then A3 (`@SceneStorage`).
-3. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
+1. File A5 under epic #24 from `docs/research/proposed-issues.md`.
+2. Implement A5 on `codex/a5-module-rename` targeting `feature/mac-prototype`.
+3. After A5 merges, implement A3 (`@SceneStorage`).
+4. Keep CI aligned with local validation as new test layers are added; keep `main` README-only; keep `feature/mac-prototype` as the integration branch and use short-lived `codex/*` branches.
