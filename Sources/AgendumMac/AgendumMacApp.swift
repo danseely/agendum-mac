@@ -4,139 +4,287 @@ import SwiftUI
 
 @main
 struct AgendumMacApp: App {
-    @State private var backendStatus = BackendStatusModel.live()
-    @State private var isShowingCreateManualTask = false
-    @State private var selectedTask: TaskItem.ID? = nil
+    @State private var settingsBackendStatus = BackendStatusModel.live()
     private let commands = TaskDashboardCommands.standard
 
     var body: some Scene {
         WindowGroup {
-            TaskDashboardView(
-                backendStatus: backendStatus,
-                commands: commands,
-                isShowingCreateManualTask: $isShowingCreateManualTask,
-                selectedTask: $selectedTask
-            )
+            DashboardSceneRoot(commands: commands)
         }
         .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("New Task") {
-                    isShowingCreateManualTask = true
-                }
-                .keyboardShortcut("n", modifiers: [.command])
-                .disabled(!commands.menuNewTask.availability(on: backendStatus))
-                .accessibilityIdentifier("menu-action-new-task")
-
-                Button("Refresh") {
-                    selectedTask = nil
-                    Task {
-                        await commands.menuRefresh.perform(on: backendStatus)
-                    }
-                }
-                .keyboardShortcut("r", modifiers: [.command])
-                .disabled(!commands.menuRefresh.availability(on: backendStatus))
-                .accessibilityIdentifier("menu-action-refresh")
-
-                Button("Sync Now") {
-                    Task {
-                        await commands.menuSync.perform(on: backendStatus)
-                    }
-                }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
-                .disabled(!commands.menuSync.availability(on: backendStatus))
-                .accessibilityIdentifier("menu-action-sync")
-            }
-
-            CommandMenu("Task") {
-                taskMenuButton(
-                    title: "Open in Browser",
-                    command: commands.menuOpenInBrowser,
-                    backendStatus: backendStatus,
-                    shortcut: ("l", [.command, .shift]),
-                    identifier: "menu-action-open-browser"
-                )
-                Divider()
-                taskMenuButton(
-                    title: "Mark Seen",
-                    command: commands.menuMarkSeen,
-                    backendStatus: backendStatus,
-                    shortcut: ("m", [.command, .option]),
-                    identifier: "menu-action-mark-seen"
-                )
-                taskMenuButton(
-                    title: "Mark Reviewed",
-                    command: commands.menuMarkReviewed,
-                    backendStatus: backendStatus,
-                    shortcut: ("r", [.command, .option]),
-                    identifier: "menu-action-mark-reviewed"
-                )
-                taskMenuButton(
-                    title: "Mark In Progress",
-                    command: commands.menuMarkInProgress,
-                    backendStatus: backendStatus,
-                    shortcut: ("i", [.command, .option]),
-                    identifier: "menu-action-mark-in-progress"
-                )
-                taskMenuButton(
-                    title: "Move to Backlog",
-                    command: commands.menuMoveToBacklog,
-                    backendStatus: backendStatus,
-                    shortcut: ("b", [.command, .option]),
-                    identifier: "menu-action-move-to-backlog"
-                )
-                taskMenuButton(
-                    title: "Mark Done",
-                    command: commands.menuMarkDone,
-                    backendStatus: backendStatus,
-                    shortcut: ("d", [.command, .option]),
-                    identifier: "menu-action-mark-done"
-                )
-                Divider()
-                taskMenuButton(
-                    title: "Remove",
-                    command: commands.menuRemove,
-                    backendStatus: backendStatus,
-                    shortcut: (KeyEquivalent.delete, [.command, .shift]),
-                    identifier: "menu-action-remove"
-                )
-            }
+            DashboardMenuCommands(commands: commands)
         }
 
         Settings {
             SettingsView()
-                .environment(backendStatus)
+                .environment(settingsBackendStatus)
         }
     }
 }
 
 @MainActor
-@ViewBuilder
-private func taskMenuButton(
-    title: String,
-    command: TaskDashboardCommand,
-    backendStatus: BackendStatusModel,
-    shortcut: (key: KeyEquivalent, modifiers: EventModifiers),
-    identifier: String
-) -> some View {
-    Button(title) {
-        Task {
-            await command.perform(on: backendStatus)
+private struct DashboardCommandTarget {
+    let backendStatus: BackendStatusModel
+    let isShowingCreateManualTask: Binding<Bool>
+    let selectedTaskID: Binding<TaskItem.ID?>
+}
+
+private struct DashboardCommandTargetKey: FocusedValueKey {
+    typealias Value = DashboardCommandTarget
+}
+
+private extension FocusedValues {
+    var dashboardCommandTarget: DashboardCommandTarget? {
+        get { self[DashboardCommandTargetKey.self] }
+        set { self[DashboardCommandTargetKey.self] = newValue }
+    }
+}
+
+private struct DashboardMenuCommands: Commands {
+    let commands: TaskDashboardCommands
+    @FocusedValue(\.dashboardCommandTarget) private var target
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("New Task") {
+                target?.isShowingCreateManualTask.wrappedValue = true
+            }
+            .keyboardShortcut("n", modifiers: [.command])
+            .disabled(!isAvailable(commands.menuNewTask))
+            .accessibilityIdentifier("menu-action-new-task")
+
+            Button("Refresh") {
+                perform(commands.menuRefresh, clearsSelection: true)
+            }
+            .keyboardShortcut("r", modifiers: [.command])
+            .disabled(!isAvailable(commands.menuRefresh))
+            .accessibilityIdentifier("menu-action-refresh")
+
+            Button("Sync Now") {
+                perform(commands.menuSync)
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
+            .disabled(!isAvailable(commands.menuSync))
+            .accessibilityIdentifier("menu-action-sync")
+        }
+
+        CommandMenu("Task") {
+            taskMenuButton(
+                title: "Open in Browser",
+                command: commands.menuOpenInBrowser,
+                shortcut: ("l", [.command, .shift]),
+                identifier: "menu-action-open-browser"
+            )
+            Divider()
+            taskMenuButton(
+                title: "Mark Seen",
+                command: commands.menuMarkSeen,
+                shortcut: ("m", [.command, .option]),
+                identifier: "menu-action-mark-seen"
+            )
+            taskMenuButton(
+                title: "Mark Reviewed",
+                command: commands.menuMarkReviewed,
+                shortcut: ("r", [.command, .option]),
+                identifier: "menu-action-mark-reviewed"
+            )
+            taskMenuButton(
+                title: "Mark In Progress",
+                command: commands.menuMarkInProgress,
+                shortcut: ("i", [.command, .option]),
+                identifier: "menu-action-mark-in-progress"
+            )
+            taskMenuButton(
+                title: "Move to Backlog",
+                command: commands.menuMoveToBacklog,
+                shortcut: ("b", [.command, .option]),
+                identifier: "menu-action-move-to-backlog"
+            )
+            taskMenuButton(
+                title: "Mark Done",
+                command: commands.menuMarkDone,
+                shortcut: ("d", [.command, .option]),
+                identifier: "menu-action-mark-done"
+            )
+            Divider()
+            taskMenuButton(
+                title: "Remove",
+                command: commands.menuRemove,
+                shortcut: (KeyEquivalent.delete, [.command, .shift]),
+                identifier: "menu-action-remove"
+            )
         }
     }
-    .keyboardShortcut(shortcut.key, modifiers: shortcut.modifiers)
-    .disabled(!command.availability(on: backendStatus))
-    .accessibilityIdentifier(identifier)
+
+    @MainActor
+    private func isAvailable(_ command: TaskDashboardCommand) -> Bool {
+        guard let target else { return false }
+        return command.availability(on: target.backendStatus)
+    }
+
+    @MainActor
+    private func perform(_ command: TaskDashboardCommand, clearsSelection: Bool = false) {
+        guard let target else { return }
+        if clearsSelection {
+            target.selectedTaskID.wrappedValue = nil
+        }
+        let model = target.backendStatus
+        Task {
+            await command.perform(on: model)
+        }
+    }
+
+    @MainActor
+    @ViewBuilder
+    private func taskMenuButton(
+        title: String,
+        command: TaskDashboardCommand,
+        shortcut: (key: KeyEquivalent, modifiers: EventModifiers),
+        identifier: String
+    ) -> some View {
+        Button(title) {
+            perform(command)
+        }
+        .keyboardShortcut(shortcut.key, modifiers: shortcut.modifiers)
+        .disabled(!isAvailable(command))
+        .accessibilityIdentifier(identifier)
+    }
+}
+
+@MainActor
+private struct DashboardSceneRoot: View {
+    let commands: TaskDashboardCommands
+    @State private var backendStatus = BackendStatusModel.live()
+    @State private var isShowingCreateManualTask = false
+    @State private var didInitialRefresh = false
+    @SceneStorage("dashboard.selectedTaskID") private var selectedTaskID: TaskItem.ID?
+    @SceneStorage("dashboard.sourceSelection") private var sourceSelectionRaw = TaskSource.authored.rawValue
+    @SceneStorage("dashboard.columnVisibility") private var columnVisibilityRaw = StoredColumnVisibility.automatic.rawValue
+    @SceneStorage("dashboard.filter.source") private var filterSource = ""
+    @SceneStorage("dashboard.filter.status") private var filterStatus = ""
+    @SceneStorage("dashboard.filter.project") private var filterProject = ""
+    @SceneStorage("dashboard.filter.includeSeen") private var filterIncludeSeen = TaskListFilters.default.includeSeen
+    @SceneStorage("dashboard.filter.limit") private var filterLimit = TaskListFilters.default.limit
+
+    var body: some View {
+        TaskDashboardView(
+            backendStatus: backendStatus,
+            commands: commands,
+            columnVisibility: columnVisibility,
+            selection: sourceSelection,
+            isShowingCreateManualTask: $isShowingCreateManualTask,
+            selectedTask: $selectedTaskID
+        )
+        .focusedSceneValue(
+            \.dashboardCommandTarget,
+            DashboardCommandTarget(
+                backendStatus: backendStatus,
+                isShowingCreateManualTask: $isShowingCreateManualTask,
+                selectedTaskID: $selectedTaskID
+            )
+        )
+        .task {
+            guard !didInitialRefresh else { return }
+            didInitialRefresh = true
+            backendStatus.restoreSceneState(filters: sceneFilters, selectedTaskID: selectedTaskID)
+            await backendStatus.refresh()
+            backendStatus.setBadgeForAttentionCount()
+        }
+        .onChange(of: selectedTaskID) { _, newValue in
+            backendStatus.setSelectedTaskID(newValue)
+        }
+        .onChange(of: backendStatus.filters) { _, newValue in
+            writeSceneFilters(newValue)
+        }
+        .onChange(of: backendStatus.hasAttentionItems) { _, _ in
+            backendStatus.setBadgeForAttentionCount()
+        }
+    }
+
+    private var sourceSelection: Binding<TaskSource?> {
+        Binding(
+            get: { TaskSource(rawValue: sourceSelectionRaw) ?? .authored },
+            set: { sourceSelectionRaw = ($0 ?? .authored).rawValue }
+        )
+    }
+
+    private var columnVisibility: Binding<NavigationSplitViewVisibility> {
+        Binding(
+            get: { StoredColumnVisibility(rawValue: columnVisibilityRaw)?.value ?? .automatic },
+            set: { columnVisibilityRaw = StoredColumnVisibility($0).rawValue }
+        )
+    }
+
+    private var sceneFilters: TaskListFilters {
+        TaskListFilters(
+            source: filterSource.nilIfEmpty,
+            status: filterStatus.nilIfEmpty,
+            project: filterProject.nilIfEmpty,
+            includeSeen: filterIncludeSeen,
+            limit: TaskListFilters.allowedLimits.contains(filterLimit) ? filterLimit : TaskListFilters.default.limit
+        )
+    }
+
+    private func writeSceneFilters(_ filters: TaskListFilters) {
+        filterSource = filters.source ?? ""
+        filterStatus = filters.status ?? ""
+        filterProject = filters.project ?? ""
+        filterIncludeSeen = filters.includeSeen
+        filterLimit = filters.limit
+    }
+}
+
+private enum StoredColumnVisibility: String {
+    case automatic
+    case all
+    case doubleColumn
+    case detailOnly
+
+    init(_ visibility: NavigationSplitViewVisibility) {
+        switch visibility {
+        case .automatic:
+            self = .automatic
+        case .all:
+            self = .all
+        case .doubleColumn:
+            self = .doubleColumn
+        case .detailOnly:
+            self = .detailOnly
+        default:
+            self = .automatic
+        }
+    }
+
+    var value: NavigationSplitViewVisibility {
+        switch self {
+        case .automatic:
+            .automatic
+        case .all:
+            .all
+        case .doubleColumn:
+            .doubleColumn
+        case .detailOnly:
+            .detailOnly
+        }
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
 }
 
 private struct TaskDashboardView: View {
-    @State private var selection: TaskSource? = .authored
     var backendStatus: BackendStatusModel
     let commands: TaskDashboardCommands
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+    @Binding var selection: TaskSource?
     @Binding var isShowingCreateManualTask: Bool
     @Binding var selectedTask: TaskItem.ID?
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List(TaskSource.allCases, selection: $selection) { source in
                 Label(source.rawValue, systemImage: icon(for: source))
                     .badge(backendStatus.tasks.filter { $0.source == source }.count)
@@ -247,21 +395,6 @@ private struct TaskDashboardView: View {
                     description: Text("Select a task from the list.")
                 )
             }
-        }
-        .task {
-            await backendStatus.refresh()
-        }
-        .task {
-            // Cold-start hedge: prime the dock badge from current
-            // attention-item state. Subsequent transitions are covered by
-            // the .onChange below.
-            backendStatus.setBadgeForAttentionCount()
-        }
-        .onChange(of: selectedTask) { _, newValue in
-            backendStatus.setSelectedTaskID(newValue)
-        }
-        .onChange(of: backendStatus.hasAttentionItems) { _, _ in
-            backendStatus.setBadgeForAttentionCount()
         }
     }
 
@@ -802,6 +935,7 @@ private struct SettingsView: View {
         .padding(20)
         .frame(width: 520)
         .task {
+            await backendStatus.refresh()
             await backendStatus.refreshDiagnostics()
             await refreshNotificationSettings()
         }

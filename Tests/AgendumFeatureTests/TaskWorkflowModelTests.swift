@@ -704,6 +704,32 @@ final class TaskWorkflowModelTests: XCTestCase {
         )
     }
 
+    func testRestoredFiltersAreUsedOnFirstRefreshWithoutDefaultListCall() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        let restored = TaskListFilters(
+            source: "pr_review",
+            status: "review received",
+            project: "agendum",
+            includeSeen: false,
+            limit: 100
+        )
+
+        model.restoreSceneState(filters: restored, selectedTaskID: 17)
+        await model.refresh()
+
+        XCTAssertEqual(model.filters, restored)
+        XCTAssertEqual(model.selectedTaskID, 17)
+        let calls = await backend.calls
+        let call = await backend.lastListTasksCall
+        XCTAssertEqual(calls.filter { $0 == "listTasks" }.count, 1)
+        XCTAssertEqual(
+            call,
+            ListTasksCall(source: "pr_review", status: "review received", project: "agendum", includeSeen: false, limit: 100)
+        )
+    }
+
     func testApplyFiltersTriggersExactlyOneReload() async throws {
         let backend = FakeBackend()
         await backend.setTasks([task(id: 17)])
@@ -772,6 +798,27 @@ final class TaskWorkflowModelTests: XCTestCase {
             includeSeen: false,
             limit: 100
         ))
+
+        await backend.setTasks([task(id: 22, title: "Org task", source: "manual")])
+        await model.selectWorkspace(id: "example-org")
+
+        XCTAssertEqual(model.filters, .default)
+        let call = await backend.lastListTasksCall
+        XCTAssertEqual(
+            call,
+            ListTasksCall(source: nil, status: nil, project: nil, includeSeen: true, limit: 50)
+        )
+    }
+
+    func testWorkspaceFilterResetLeavesModelAtSceneDefaultsForMirror() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([task(id: 17)])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+        model.restoreSceneState(
+            filters: TaskListFilters(source: "manual", status: "done", project: "agendum", includeSeen: false, limit: 100),
+            selectedTaskID: 17
+        )
+        await model.refresh()
 
         await backend.setTasks([task(id: 22, title: "Org task", source: "manual")])
         await model.selectWorkspace(id: "example-org")
@@ -1100,6 +1147,25 @@ final class TaskWorkflowModelTests: XCTestCase {
 
         model.setSelectedTaskID(nil)
         XCTAssertNil(model.selectedTaskID)
+    }
+
+    func testRestoredSelectedTaskIDDrivesCommandTarget() async throws {
+        let backend = FakeBackend()
+        await backend.setTasks([
+            task(id: 10, source: "pr_review", seen: false),
+            task(id: 42, source: "pr_review", seen: false),
+        ])
+        let model = BackendStatusModel(client: backend, sleep: immediateSleep)
+
+        model.restoreSceneState(filters: .default, selectedTaskID: 42)
+        await model.refresh()
+        await backend.resetCalls()
+
+        await TaskDashboardCommands.standard.menuMarkSeen.perform(on: model)
+
+        let calls = await backend.calls
+        XCTAssertTrue(calls.contains("markTaskSeen:42"))
+        XCTAssertFalse(calls.contains("markTaskSeen:10"))
     }
 
     func testInitialSelectedTaskIDIsNil() {

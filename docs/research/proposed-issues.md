@@ -6,7 +6,7 @@
 > - Epic A: filed as **#24** (https://github.com/danseely/agendum-mac/issues/24)
 > - Epic B: filed as **#25** (https://github.com/danseely/agendum-mac/issues/25)
 > - Epic C: filed as **#26** (https://github.com/danseely/agendum-mac/issues/26)
-> - Filed / closed leaves: A1 #27, A2 #29, A4 #35, A5 #37, B1 #31, B2 #33.
+> - Filed / closed leaves: A1 #27, A2 #29, A3 #40, A4 #35, A5 #37, B1 #31, B2 #33.
 > - Remaining leaf issues: not yet filed; per the user's instruction, leaves are filed as their phase approaches. The drafts below remain authoritative except where a closed issue's scope was narrowed by `docs/decisions.md`.
 >
 > When filing a leaf, replace its placeholder parent reference with the real epic number above. Per the user's global GitHub rule, posting any issue requires explicit approval.
@@ -42,7 +42,7 @@ Drafted from `docs/research/architecture.md` and `docs/research/synthesis.md` af
 ## Children
 - [x] A1 — Migrate `BackendStatusModel` to `@Observable` (#27)
 - [x] A2 — `os.Logger` across all targets (#29)
-- [ ] A3 — `@SceneStorage` for selection / sidebar / filter state (#)
+- [ ] A3 — `@SceneStorage` for selection / sidebar / filter state (#40)
 - [x] A4 — Relocate AppKit/UN default seams to executable target (#35)
 - [x] A5 — Module rename: `AgendumMacCore` → `AgendumBackend`; `AgendumMacWorkflow` → `AgendumFeature` (#37)
 - [ ] A6 — Polish bundle: localization, `.onOpenURL`, accessibility audit, `MetricKit` (#)
