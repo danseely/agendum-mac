@@ -27,13 +27,14 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
 
 ## Current State
-- Branch: `codex/a5-module-rename`, created from `feature/mac-prototype`.
-- Open PRs: draft parent PR #2 and A5 PR #38 (`codex/a5-module-rename` -> `feature/mac-prototype`).
+- Branch: `codex/a3-scene-storage`, created from `feature/mac-prototype` after the A5 merge and including post-A5 planning commit `8940484` via cherry-pick.
+- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `6f6d388`.
+- Open PRs: draft parent PR #2 and A3 PR #41 (`codex/a3-scene-storage` -> `feature/mac-prototype`).
 - Open epics: #24, #25, #26.
-- Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), and A4 (#35) are merged into `feature/mac-prototype`.
-- In progress: A5 module rename (#37) is locally complete and open for review as PR #38.
+- Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), and A5 (#37) are merged into `feature/mac-prototype`.
+- In progress: A3 scene storage, issue #40, PR #41, branch `codex/a3-scene-storage`.
 - Blocked: no implementation-level blocker.
-- Next checkpoint after A5: A3 scene storage.
+- Next checkpoint: let PR #41 checks/review complete; do not merge unless explicitly asked.
 
 ## Decisions
 - 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
@@ -48,6 +49,10 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - 2026-05-05: Decision: B2 shadow-ports pure GitHub status derivation to Swift before runtime dispatch. Reason: parity for pure functions without temporary Python-to-Swift bridge mechanics. Impact: shared parity fixtures now lock the behavior. Plan change: yes; runtime dispatch deferred.
 - 2026-05-07: Decision: adopt the current `planning-handoff` skill state model. Reason: the skill now makes `docs/project-state.md` and `docs/features.json` canonical. Impact: active state is consolidated here; old split planning files remain legacy references. Plan change: yes for planning artifacts only.
 - 2026-05-07: Decision: A5 stale-reference validation is strict only for executable/build surfaces. Reason: research and legacy docs intentionally preserve old module-name history and mapping context. Impact: `rg -n "AgendumMacCore|AgendumMacWorkflow" Package.swift Sources Tests Scripts .github` is the zero-match gate; docs are audited separately for intentional historical mappings/legacy references. Plan change: yes for validation guidance.
+- 2026-05-07: Decision: A5 landed as a pure module rename without type renames. Reason: keep the rename mechanical and avoid behavior churn before A3/C/B work. Impact: SwiftPM targets are now `AgendumBackend` and `AgendumFeature`; type names such as `BackendStatusModel`, `AgendumBackendClient`, and `TaskItem` stay unchanged. Plan change: no.
+- 2026-05-07: Decision: A3 dashboard workflow model ownership moved from `AgendumMacApp` app scope into `DashboardSceneRoot` scene scope. Reason: per-window `@SceneStorage` restoration must not share one `BackendStatusModel` across windows. Impact: each `WindowGroup` scene has its own `BackendStatusModel.live()`, selection, source selection, split-view visibility, and active filters; Settings uses a separate app/settings model. Plan change: yes for A3 architecture.
+- 2026-05-07: Decision: A3 menu commands route through a focused scene value instead of app-global state. Reason: menu actions must target the active window and avoid a "last changed window wins" shared mirror. Impact: command availability and task actions read the focused scene's model and selected-task binding. Plan change: yes for A3 architecture.
+- 2026-05-07: Decision: keep `@SceneStorage` bridges in `AgendumMac` and expose only plain restoration helpers in `AgendumFeature`. Reason: workflow model tests should stay SwiftUI-free while first refresh still uses restored filters. Impact: `BackendStatusModel.restoreSceneState(filters:selectedTaskID:)` seeds plain model state before `refresh()`. Plan change: no.
 
 ## Drift
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
@@ -56,12 +61,19 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Approved deviation: B2 was pulled forward immediately after B1 by user direction, ahead of its nominal phase order; runtime dispatch was explicitly deferred.
 - 2026-05-07 drift check: no new unapproved drift. A5 remains the named Phase 2 checkpoint, A4 landed first as required, and no active PR supersedes A5.
 - 2026-05-07 review drift fix: `docs/features.json` had marked A5 passed before PR #38 landed, and legacy `docs/handoff.md` still carried stale live-sounding branch/checkpoint guidance. Resolution: A5 is `in_progress` until merge or explicit acceptance; `docs/handoff.md` now points to this canonical state instead of carrying operational instructions.
+- 2026-05-07 post-merge drift check: no new unapproved drift. A5 landed after explicit user approval to merge PR #38; A3 remains the next architecture checkpoint.
+- 2026-05-07 A3 drift check: approved deviation from the original A3 draft: do not use an app-scoped dashboard model. Revised A3 scope requires per-scene models and focused command routing; implementation follows that reviewed design.
 
 ## Validation
 - Last full checkpoint validation: A4 / PR #36 on 2026-05-06: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle existence/executable checks; `plutil -lint`; `swift run AgendumMac` launch smoke; `git diff --check`; platform-reference grep for `AgendumMacWorkflow`.
 - Current docs review-fix validation: docs-only change; `jq . docs/features.json`, `git diff --check`, and focused `rg` spot checks passed. Full Swift/Python suite was not rerun; prior A5 local validation and PR #38 GitHub Actions `Test` were already passing.
 - A5 local validation passed: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `swift run AgendumMac` smoke launch stayed running until terminated; strict build-surface stale grep returned no matches; active docs audit found old names only in intentional mappings/historical legacy docs; `jq . docs/features.json`; `git diff --check`.
-- A5 PR #38 GitHub Actions `Test` check passed on 2026-05-07 while the PR remained open.
+- A5 PR #38 GitHub Actions `Test` check passed on 2026-05-07 and PR #38 merged into `feature/mac-prototype` as squash commit `6f6d388`.
+- A5 issue #37 was closed as completed after PR #38 merged.
+- A3 local validation on branch `codex/a3-scene-storage` / PR #41: `swift build` passed; `swift test --enable-code-coverage` passed (121 XCTest tests plus 7 Swift Testing tests); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed (499/540 lines, 92.4%); `swift run AgendumMac` startup smoke stayed running until terminated with `kill`.
+- A3 PR #41 GitHub Actions `Test` check passed on 2026-05-07.
+- A3 manual bundle smoke on 2026-05-08 found two bugs: sidebar source rows were not selectable and filters did not persist across launch. Fix: tag sidebar rows explicitly and write filter/source/selection state through scene storage plus UserDefaults fallback for fresh default-window launches. Retest confirmed sidebar selection and filter/source/page-size persistence across launches. Residual: split-view column width changes do not persist; treat as layout polish outside A3 state-restoration scope unless visual redesign requires it.
+- A3 follow-up adversarial review found the fallback could overwrite an intentionally default restored scene. Fix: added a scene-local `dashboard.didInitializeState` sentinel so the UserDefaults fallback only applies to fresh default-window launches, not restored scene sessions.
 - `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 
 ## A5 Work Packet
@@ -73,6 +85,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Labels: `area:architecture`, `phase:2`, `breaking-change` if they exist.
 - Branch: create `codex/a5-module-rename` from current `feature/mac-prototype`; target PR back to `feature/mac-prototype`.
 - PR body: include `relates to #<A5 issue number>`.
+- Status: complete; PR #38 merged as `6f6d388`, issue #37 closed.
 - Implementation scope:
   - Rename `Package.swift` products, targets, test targets, and dependencies.
   - Rename directories: `Sources/AgendumMacCore/` -> `Sources/AgendumBackend/`; `Sources/AgendumMacWorkflow/` -> `Sources/AgendumFeature/`; `Tests/AgendumMacCoreTests/` -> `Tests/AgendumBackendTests/`; `Tests/AgendumMacWorkflowTests/` -> `Tests/AgendumFeatureTests/`.
@@ -98,6 +111,6 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Let PR #38 run through review; do not merge unless explicitly asked.
-2. Keep `a5-module-rename` in `docs/features.json` as `in_progress` until PR #38 merges or the user explicitly accepts it.
-3. After A5 lands, implement A3 (`@SceneStorage`).
+1. Push the A3 fallback-sentinel fix to PR #41 and wait for CI.
+2. If additional A3 edits are needed, keep them on `codex/a3-scene-storage`.
+3. Do not mark A3 passed in `docs/features.json` until PR merge or explicit user acceptance.

@@ -331,6 +331,11 @@ public final class BackendStatusModel {
         selectedTaskID = id
     }
 
+    public func restoreSceneState(filters: TaskListFilters, selectedTaskID: TaskItem.ID?) {
+        self.filters = filters
+        self.selectedTaskID = selectedTaskID
+    }
+
     public var errorMessage: String? { error?.message }
 
     private let client: any AgendumBackendServicing
