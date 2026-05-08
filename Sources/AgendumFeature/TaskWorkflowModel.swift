@@ -58,7 +58,7 @@ public struct TaskItem: Identifiable, Hashable, Sendable {
         backendSource = task.source
         source = TaskSource(backendSource: task.source)
         status = task.status
-        project = task.project ?? "No project"
+        project = task.project ?? task.ghRepo ?? "No project"
         author = task.ghAuthorName ?? task.ghAuthor
         number = task.ghNumber
         url = task.ghUrl.flatMap(URL.init(string:))

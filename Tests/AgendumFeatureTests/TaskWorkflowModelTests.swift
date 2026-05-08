@@ -515,6 +515,18 @@ final class TaskWorkflowModelTests: XCTestCase {
         )
     }
 
+    func testTaskItemUsesGitHubRepoWhenProjectIsMissing() {
+        let item = TaskItem(task: task(id: 1, source: "pr_review", project: nil, ghRepo: "danseely/agendum-mac"))
+
+        XCTAssertEqual(item.project, "danseely/agendum-mac")
+    }
+
+    func testTaskItemKeepsNoProjectFallbackWhenProjectAndRepoAreMissing() {
+        let item = TaskItem(task: task(id: 1, source: "manual", project: nil, ghRepo: nil))
+
+        XCTAssertEqual(item.project, "No project")
+    }
+
     func testTaskSourceDefaultIsAll() {
         XCTAssertEqual(TaskSource.default, .all)
     }
@@ -2237,6 +2249,8 @@ private func task(
     title: String = "Task",
     source: String = "manual",
     status: String = "backlog",
+    project: String? = "agendum-mac",
+    ghRepo: String? = nil,
     url: String? = nil,
     seen: Bool = true
 ) -> AgendumTask {
@@ -2247,8 +2261,8 @@ private func task(
             "title": "\(title)",
             "source": "\(source)",
             "status": "\(status)",
-            "project": "agendum-mac",
-            "ghRepo": null,
+            "project": \(project.map { "\"\($0)\"" } ?? "null"),
+            "ghRepo": \(ghRepo.map { "\"\($0)\"" } ?? "null"),
             "ghUrl": \(url.map { "\"\($0)\"" } ?? "null"),
             "ghNumber": null,
             "ghAuthor": null,
