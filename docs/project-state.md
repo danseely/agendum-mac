@@ -71,6 +71,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - A5 PR #38 GitHub Actions `Test` check passed on 2026-05-07 and PR #38 merged into `feature/mac-prototype` as squash commit `6f6d388`.
 - A5 issue #37 was closed as completed after PR #38 merged.
 - A3 local validation on branch `codex/a3-scene-storage` / PR #41: `swift build` passed; `swift test --enable-code-coverage` passed (121 XCTest tests plus 7 Swift Testing tests); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed (499/540 lines, 92.4%); `swift run AgendumMac` startup smoke stayed running until terminated with `kill`.
+- A3 PR #41 GitHub Actions `Test` check passed on 2026-05-07.
 - `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 
 ## A5 Work Packet
@@ -108,6 +109,6 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Watch PR #41 GitHub checks and address review feedback.
+1. Await review on PR #41; checks are green.
 2. If additional A3 edits are needed, keep them on `codex/a3-scene-storage`.
 3. Do not mark A3 passed in `docs/features.json` until PR merge or explicit user acceptance.
