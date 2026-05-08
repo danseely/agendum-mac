@@ -29,12 +29,12 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 ## Current State
 - Branch: `codex/visual-layout-direction`, created from `feature/mac-prototype` after the A3 merge.
 - Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `0650976`.
-- Open PRs: draft parent PR #2.
+- Open PRs: draft parent PR #2 and visual list PR #43 (`codex/visual-layout-direction` -> `feature/mac-prototype`).
 - Open epics: #24, #25, #26.
 - Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), and A3 (#40) are merged into `feature/mac-prototype`.
-- In progress: visual list/dashboard realignment, issue #42, branch `codex/visual-layout-direction`.
+- In progress: visual list/dashboard realignment, issue #42, PR #43, branch `codex/visual-layout-direction`.
 - Blocked: no implementation-level blocker.
-- Next checkpoint: review/open PR for issue #42 targeting `feature/mac-prototype`; include `relates to #42`.
+- Next checkpoint: let PR #43 checks/review complete; do not merge unless explicitly asked.
 
 ## Decisions
 - 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
@@ -77,7 +77,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - A3 manual bundle smoke on 2026-05-08 found two bugs: sidebar source rows were not selectable and filters did not persist across launch. Fix: tag sidebar rows explicitly and write filter/source/selection state through scene storage plus UserDefaults fallback for fresh default-window launches. Retest confirmed sidebar selection and filter/source/page-size persistence across launches. Residual: split-view column width changes do not persist; treat as layout polish outside A3 state-restoration scope unless visual redesign requires it.
 - A3 follow-up adversarial review found the fallback could overwrite an intentionally default restored scene. Fix: added a scene-local `dashboard.didInitializeState` sentinel so the UserDefaults fallback only applies to fresh default-window launches, not restored scene sessions.
 - A3 PR #41 merged into `feature/mac-prototype` on 2026-05-08 as squash commit `0650976`; issue #40 closed as completed.
-- Visual list local validation on branch `codex/visual-layout-direction` / issue #42: `swift build`; `swift build --target AgendumMac`; `swift test --filter AgendumFeatureTests.TaskWorkflowModelTests` (111 XCTest tests); `swift test --enable-code-coverage` (126 XCTest tests plus 7 Swift Testing tests); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle existence/executable checks; `plutil -lint .build/Agendum.app/Contents/Info.plist`; `swift run AgendumMac` launch smoke stayed running until terminated with `kill`; `jq . docs/features.json`; `git diff --check`.
+- Visual list local validation on branch `codex/visual-layout-direction` / issue #42 / PR #43: `swift build`; `swift build --target AgendumMac`; `swift test --filter AgendumFeatureTests.TaskWorkflowModelTests` (111 XCTest tests); `swift test --enable-code-coverage` (126 XCTest tests plus 7 Swift Testing tests); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle existence/executable checks; `plutil -lint .build/Agendum.app/Contents/Info.plist`; `swift run AgendumMac` launch smoke stayed running until terminated with `kill`; `jq . docs/features.json`; `git diff --check`.
 - `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 
 ## A5 Work Packet
@@ -115,6 +115,6 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Review the visual list implementation on `codex/visual-layout-direction`.
-2. Open a PR targeting `feature/mac-prototype` with `relates to #42`.
-3. If the PR lands, close issue #42 and mark the visual list feature passed in `docs/features.json`.
+1. Let PR #43 checks/review complete.
+2. If additional visual-list edits are needed, keep them on `codex/visual-layout-direction`.
+3. Do not mark issue #42 / visual list passed in `docs/features.json` until PR merge or explicit user acceptance.
