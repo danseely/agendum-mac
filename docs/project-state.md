@@ -27,14 +27,14 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
 
 ## Current State
-- Branch: `codex/visual-layout-direction`, created from `feature/mac-prototype` after the A3 merge.
-- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `0650976`.
-- Open PRs: draft parent PR #2 and visual list PR #43 (`codex/visual-layout-direction` -> `feature/mac-prototype`).
+- Branch: `feature/mac-prototype`.
+- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `d516b86`.
+- Open PRs: draft parent PR #2 only.
 - Open epics: #24, #25, #26.
-- Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), and A3 (#40) are merged into `feature/mac-prototype`.
-- In progress: visual list/dashboard realignment, issue #42, PR #43, branch `codex/visual-layout-direction`.
+- Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), and the visual list/dashboard realignment (#42) are merged into `feature/mac-prototype`.
+- In progress: no active leaf implementation branch.
 - Blocked: no implementation-level blocker.
-- Next checkpoint: let PR #43 checks/review complete; do not merge unless explicitly asked.
+- Next checkpoint: choose the next leaf under epics #24, #25, or #26 before creating a new implementation branch.
 
 ## Decisions
 - 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
@@ -80,6 +80,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Visual list local validation on branch `codex/visual-layout-direction` / issue #42 / PR #43: `swift build`; `swift build --target AgendumMac`; `swift test --filter AgendumFeatureTests.TaskWorkflowModelTests` (111 XCTest tests before review fix); `swift test --enable-code-coverage` (126 XCTest tests plus 7 Swift Testing tests before review fix); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle existence/executable checks; `plutil -lint .build/Agendum.app/Contents/Info.plist`; `swift run AgendumMac` launch smoke stayed running until terminated with `kill`; `jq . docs/features.json`; `git diff --check`.
 - Visual list PR #43 review-fix validation: stale hidden-task selection/action targeting fixed by revalidating visible selection and resolving action tasks only from visible sections; `swift build --target AgendumMac`; `swift test --filter TaskWorkflowModelTests/testTaskDisplaySectionsTaskLookupOnlySearchesVisibleSections`; `swift test --enable-code-coverage` (127 XCTest tests plus 7 Swift Testing tests); `git diff --check`.
 - Visual list PR #43 adversarial F1 validation: repo display fallback was real; fixed `TaskItem.project` fallback to `project -> ghRepo -> "No project"` so rows/modals show GitHub repo when project is nil; `swift test --filter TaskWorkflowModelTests` (114 XCTest tests); `swift build --target AgendumMac`; `git diff --check`.
+- Visual list PR #43 merged into `feature/mac-prototype` on 2026-05-08 as squash commit `d516b86`; GitHub Actions `Test` passed on the merge head; issue #42 closed as completed.
 - `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 
 ## A5 Work Packet
@@ -117,6 +118,6 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Let PR #43 checks/review complete.
-2. If additional visual-list edits are needed, keep them on `codex/visual-layout-direction`.
-3. Do not mark issue #42 / visual list passed in `docs/features.json` until PR merge or explicit user acceptance.
+1. Start any fresh session from `feature/mac-prototype` at `d516b86` or later, then read this file and `docs/features.json`.
+2. Pick the next leaf under #24, #25, or #26 before creating a short-lived `codex/*` branch.
+3. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.

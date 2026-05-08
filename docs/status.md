@@ -2,12 +2,12 @@
 
 > Planning note: current `planning-handoff` canonical state is `docs/project-state.md` plus `docs/features.json`. This split file is historical/reference context only and must not be used for current operational instructions.
 
-Last updated: 2026-05-07 (legacy snapshot; see `docs/project-state.md` for live state)
+Last updated: 2026-05-08 (legacy snapshot; see `docs/project-state.md` for live state)
 
 ## Current milestone
 "Standalone Swift app" arc. The five-item live-slice orchestration finished 2026-05-03 (PRs #17–#21 squash-merged into `feature/mac-prototype`); after that, the 2026-05-03 plan revision redirected the project to a standalone Swift app: zero Python at runtime, GRDB-backed persistence, native GitHub auth, and Apple-canonical app architecture. The plan revision is recorded in `docs/decisions.md` under "2026-05-03 — Plan revision: standalone Swift app."
 
-Current checkpoint at the time this legacy snapshot was last active: A4 / issue #35 was complete, and A5 was next. Current A5 state is tracked in `docs/project-state.md` and `docs/features.json`.
+Current checkpoint at the time this legacy snapshot was last active: visual list/dashboard realignment (#42) was complete via PR #43. Current live state is tracked in `docs/project-state.md` and `docs/features.json`.
 
 ## Milestone exit criteria
 - `docs/backend-contract.md` exists and covers task loading, task actions, sync, namespace, auth, error schema, and protocol versioning. Done.
@@ -183,4 +183,4 @@ Current checkpoint at the time this legacy snapshot was last active: A4 / issue 
 
 ## Next
 1. Use `docs/project-state.md` and `docs/features.json` for current next actions.
-2. A5 has landed; the current next checkpoint is A3 (`@SceneStorage`) per `docs/project-state.md`.
+2. A3, A5, and visual list/dashboard realignment have landed; pick the next leaf under #24, #25, or #26 before creating a new implementation branch.

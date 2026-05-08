@@ -213,3 +213,10 @@ This is the largest plan revision since the 2026-04-28 "Mac-native shell around 
 - Reason: The user asked to move on to B2 after merging B1. The draft B2 issue named Python-to-Swift delegation, but a Python helper subprocess cannot call SwiftPM library code without adding a temporary CLI/FFI bridge. For pure functions, a shadow Swift port with shared fixtures proves behavior parity without introducing bridge mechanics that will be discarded when B3-B6 shrink the helper.
 - Impact: `Sources/AgendumMacCore/GitHubStatusDerivation.swift` becomes the first Swift backend-engine port surface. `Tests/AgendumMacCoreTests/Fixtures/GitHubStatusDerivationCases.json` is shared by Swift Testing tests and Python `unittest` characterization tests so future slices can consume the Swift implementation with parity already locked. Python remains load-bearing for sync/task behavior after B2; runtime reduction resumes in B3-B6. One deliberate edge-case improvement is recorded: Swift returns `nil` for whitespace-only display names, while Python `parse_author_first_name("   ")` raises `IndexError`; tests characterize both behaviors so the difference is explicit.
 - Plan change: yes — B2 is pulled forward by user direction ahead of the nominal Phase 4 sequencing, and its runtime-dispatch sub-scope is explicitly deferred.
+
+## 2026-05-08 — Visual dashboard realignment landed
+
+- Decision: Keep the Mac dashboard aligned with the terminal app's dense sectioned triage workflow: `All` as the default sidebar source, separate PR / review / issue / manual sections, inline row fields for status/title/author/project-or-repo/number, and a focused task-action sheet instead of a dominant persistent viewer pane.
+- Reason: The earlier Mac-first layout drifted away from the workflow the user actually wants from the terminal app.
+- Impact: PR #43 merged into `feature/mac-prototype` as `d516b86`; issue #42 is complete. Future UI changes should preserve the sectioned-list-first workflow unless explicitly redirected.
+- Plan change: yes for visual/layout direction.

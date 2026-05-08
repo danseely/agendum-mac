@@ -50,7 +50,7 @@ Defined in `docs/research/synthesis.md`. Eight phases total; Phase 1 (mechanical
 The original five-milestone plan and the five-item live-slice orchestration are complete. See `docs/status.md` "Done" for the full record.
 
 ## Active milestone
-"Standalone Swift app" arc, structured as the three epics (A / B / C) above and detailed in `docs/research/synthesis.md`. This legacy snapshot is superseded by `docs/project-state.md`; as of the post-A5 planning update, A5 has landed and the next checkpoint is A3 scene storage.
+"Standalone Swift app" arc, structured as the three epics (A / B / C) above and detailed in `docs/research/synthesis.md`. This legacy snapshot is superseded by `docs/project-state.md`; as of the post-PR-#43 handoff update, A3, A5, and the visual list/dashboard realignment have landed, and the next leaf should be chosen from the open epics before creating a new implementation branch.
 
 ## Testing Strategy
 Testing grows with each migration slice. Through the Python-to-Swift port, both layers are tested side by side; once a slice ships, the Python tests for that surface either dispatch through the helper façade or are replaced by Swift tests covering the same cases.
