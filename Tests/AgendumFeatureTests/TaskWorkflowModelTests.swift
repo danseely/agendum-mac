@@ -504,6 +504,61 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertEqual(issue.availableDetailActions, [.remove])
     }
 
+    func testTaskSourceMapsBackendSourcesWithoutCollapsingIssueAndManual() {
+        XCTAssertEqual(TaskItem(task: task(id: 1, source: "pr_authored")).source, .authored)
+        XCTAssertEqual(TaskItem(task: task(id: 2, source: "pr_review")).source, .review)
+        XCTAssertEqual(TaskItem(task: task(id: 3, source: "issue")).source, .issues)
+        XCTAssertEqual(TaskItem(task: task(id: 4, source: "manual")).source, .manual)
+        XCTAssertNotEqual(
+            TaskItem(task: task(id: 3, source: "issue")).source,
+            TaskItem(task: task(id: 4, source: "manual")).source
+        )
+    }
+
+    func testTaskSourceDefaultIsAll() {
+        XCTAssertEqual(TaskSource.default, .all)
+    }
+
+    func testTaskDisplaySectionsGroupsAllSelectionInDisplayOrder() {
+        let tasks = [
+            TaskItem(task: task(id: 4, source: "manual")),
+            TaskItem(task: task(id: 2, source: "pr_review")),
+            TaskItem(task: task(id: 5, source: "manual")),
+            TaskItem(task: task(id: 1, source: "pr_authored")),
+            TaskItem(task: task(id: 3, source: "issue")),
+        ]
+
+        let sections = TaskDisplaySection.sections(for: tasks, selection: .all)
+
+        XCTAssertEqual(sections.map(\.source), [.authored, .review, .issues, .manual])
+        XCTAssertEqual(sections.map { $0.tasks.map(\.id) }, [[1], [2], [3], [4, 5]])
+    }
+
+    func testTaskDisplaySectionsSingleSourceSelectionOnlyReturnsThatSource() {
+        let tasks = [
+            TaskItem(task: task(id: 1, source: "pr_authored")),
+            TaskItem(task: task(id: 2, source: "issue")),
+            TaskItem(task: task(id: 3, source: "manual")),
+        ]
+
+        let issueSections = TaskDisplaySection.sections(for: tasks, selection: .issues)
+        let manualSections = TaskDisplaySection.sections(for: tasks, selection: .manual)
+
+        XCTAssertEqual(issueSections.map(\.source), [.issues])
+        XCTAssertEqual(issueSections.first?.tasks.map(\.id), [2])
+        XCTAssertEqual(manualSections.map(\.source), [.manual])
+        XCTAssertEqual(manualSections.first?.tasks.map(\.id), [3])
+    }
+
+    func testTaskDisplaySectionsOmitEmptySections() {
+        let tasks = [
+            TaskItem(task: task(id: 1, source: "pr_review")),
+        ]
+
+        XCTAssertEqual(TaskDisplaySection.sections(for: tasks, selection: .all).map(\.source), [.review])
+        XCTAssertTrue(TaskDisplaySection.sections(for: tasks, selection: .manual).isEmpty)
+    }
+
     func testOpenTaskURLInvokesOpenerWithTaskURL() async throws {
         let backend = FakeBackend()
         await backend.setTasks([task(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])

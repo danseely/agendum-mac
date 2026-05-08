@@ -158,7 +158,7 @@ private struct DashboardSceneRoot: View {
     @State private var isShowingCreateManualTask = false
     @State private var didInitialRefresh = false
     @SceneStorage("dashboard.selectedTaskID") private var selectedTaskID: TaskItem.ID?
-    @SceneStorage("dashboard.sourceSelection") private var sourceSelectionRaw = TaskSource.authored.rawValue
+    @SceneStorage("dashboard.v2.sourceSelection") private var sourceSelectionRaw = TaskSource.default.rawValue
     @SceneStorage("dashboard.columnVisibility") private var columnVisibilityRaw = StoredColumnVisibility.automatic.rawValue
     @SceneStorage("dashboard.filter.source") private var filterSource = ""
     @SceneStorage("dashboard.filter.status") private var filterStatus = ""
@@ -167,7 +167,7 @@ private struct DashboardSceneRoot: View {
     @SceneStorage("dashboard.filter.limit") private var filterLimit = TaskListFilters.default.limit
     @SceneStorage("dashboard.didInitializeState") private var didInitializeSceneState = false
     @AppStorage("dashboard.persisted.selectedTaskID") private var persistedSelectedTaskID = -1
-    @AppStorage("dashboard.persisted.sourceSelection") private var persistedSourceSelectionRaw = TaskSource.authored.rawValue
+    @AppStorage("dashboard.v2.persisted.sourceSelection") private var persistedSourceSelectionRaw = TaskSource.default.rawValue
     @AppStorage("dashboard.persisted.columnVisibility") private var persistedColumnVisibilityRaw = StoredColumnVisibility.automatic.rawValue
     @AppStorage("dashboard.persisted.filter.source") private var persistedFilterSource = ""
     @AppStorage("dashboard.persisted.filter.status") private var persistedFilterStatus = ""
@@ -217,9 +217,9 @@ private struct DashboardSceneRoot: View {
 
     private var sourceSelection: Binding<TaskSource?> {
         Binding(
-            get: { TaskSource(rawValue: sourceSelectionRaw) ?? .authored },
+            get: { taskSource(from: sourceSelectionRaw) ?? .default },
             set: {
-                let rawValue = ($0 ?? .authored).rawValue
+                let rawValue = ($0 ?? .default).rawValue
                 didInitializeSceneState = true
                 sourceSelectionRaw = rawValue
                 persistedSourceSelectionRaw = rawValue
@@ -276,8 +276,8 @@ private struct DashboardSceneRoot: View {
         if selectedTaskID == nil, persistedSelectedTaskID > 0 {
             selectedTaskID = persistedSelectedTaskID
         }
-        if TaskSource(rawValue: sourceSelectionRaw) == nil || sourceSelectionRaw == TaskSource.authored.rawValue {
-            sourceSelectionRaw = TaskSource(rawValue: persistedSourceSelectionRaw)?.rawValue ?? TaskSource.authored.rawValue
+        if taskSource(from: sourceSelectionRaw) == nil || taskSource(from: sourceSelectionRaw) == .default {
+            sourceSelectionRaw = (taskSource(from: persistedSourceSelectionRaw) ?? .default).rawValue
         }
         if StoredColumnVisibility(rawValue: columnVisibilityRaw) == nil || columnVisibilityRaw == StoredColumnVisibility.automatic.rawValue {
             columnVisibilityRaw = StoredColumnVisibility(rawValue: persistedColumnVisibilityRaw)?.rawValue ?? StoredColumnVisibility.automatic.rawValue
@@ -296,6 +296,23 @@ private struct DashboardSceneRoot: View {
         }
         if filterLimit == TaskListFilters.default.limit {
             filterLimit = TaskListFilters.allowedLimits.contains(persistedFilterLimit) ? persistedFilterLimit : TaskListFilters.default.limit
+        }
+    }
+
+    private func taskSource(from rawValue: String) -> TaskSource? {
+        switch rawValue {
+        case "all":
+            .all
+        case "pr_authored":
+            .authored
+        case "pr_review":
+            .review
+        case "issue":
+            .issues
+        case "manual":
+            .manual
+        default:
+            TaskSource(rawValue: rawValue)
         }
     }
 }
@@ -341,6 +358,112 @@ private extension String {
     }
 }
 
+private extension TaskSource {
+    var systemImage: String {
+        switch self {
+        case .all:
+            "tray.2"
+        case .authored:
+            "arrow.triangle.pull"
+        case .review:
+            "person.crop.circle.badge.checkmark"
+        case .issues:
+            "tray.full"
+        case .manual:
+            "checklist"
+        }
+    }
+
+    func matches(_ task: TaskItem) -> Bool {
+        switch self {
+        case .all:
+            true
+        case .authored:
+            task.source == .authored
+        case .review:
+            task.source == .review
+        case .issues:
+            task.source == .issues
+        case .manual:
+            task.source == .manual
+        }
+    }
+
+    var sectionTitle: String {
+        switch self {
+        case .all:
+            "ALL"
+        case .authored:
+            "MY PULL REQUESTS"
+        case .review:
+            "REVIEWS REQUESTED"
+        case .issues:
+            "ISSUES"
+        case .manual:
+            "MANUAL"
+        }
+    }
+
+    var sectionColor: Color {
+        switch self {
+        case .all:
+            Palette.sectionIssuesManual
+        case .authored:
+            Palette.sectionAuthored
+        case .review:
+            Palette.sectionReview
+        case .issues, .manual:
+            Palette.sectionIssuesManual
+        }
+    }
+}
+
+private enum Palette {
+    static let sectionAuthored = Color(hex: "#ffaa00")
+    static let sectionReview = Color(hex: "#a78bfa")
+    static let sectionIssuesManual = Color(hex: "#60a5fa")
+
+    static func status(_ value: String) -> Color {
+        switch value {
+        case "open":
+            Color(hex: "#60a5fa")
+        case "awaiting review":
+            Color(hex: "#ffaa00")
+        case "changes requested":
+            Color(hex: "#f87171")
+        case "review received":
+            Color(hex: "#f59e0b")
+        case "approved":
+            Color(hex: "#4ade80")
+        case "review requested":
+            Color(hex: "#a78bfa")
+        case "reviewed":
+            Color(hex: "#7c6aad")
+        case "re-review requested":
+            Color(hex: "#e879f9")
+        case "backlog":
+            Color(hex: "#c7a17a")
+        case "in progress":
+            Color(hex: "#2dd4bf")
+        case "draft", "merged", "closed", "done":
+            Color(hex: "#888888")
+        default:
+            Color(hex: "#888888")
+        }
+    }
+}
+
+private extension Color {
+    init(hex: String) {
+        let trimmed = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        let value = Int(trimmed, radix: 16) ?? 0x888888
+        let red = Double((value >> 16) & 0xff) / 255
+        let green = Double((value >> 8) & 0xff) / 255
+        let blue = Double(value & 0xff) / 255
+        self.init(red: red, green: green, blue: blue)
+    }
+}
+
 private struct TaskDashboardView: View {
     var backendStatus: BackendStatusModel
     let commands: TaskDashboardCommands
@@ -349,12 +472,13 @@ private struct TaskDashboardView: View {
     @Binding var filters: TaskListFilters
     @Binding var isShowingCreateManualTask: Bool
     @Binding var selectedTask: TaskItem.ID?
+    @State private var actionTaskID: TaskItem.ID?
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             List(TaskSource.allCases, selection: $selection) { source in
-                Label(source.rawValue, systemImage: icon(for: source))
-                    .badge(backendStatus.tasks.filter { $0.source == source }.count)
+                Label(source.rawValue, systemImage: source.systemImage)
+                    .badge(backendStatus.tasks.filter(source.matches).count)
                     .tag(source)
             }
             .navigationTitle("Agendum")
@@ -366,12 +490,35 @@ private struct TaskDashboardView: View {
                     }
                 }
             }
-        } content: {
-            List(filteredTasks, selection: $selectedTask) { task in
-                TaskRow(task: task)
-                    .tag(task.id)
+        } detail: {
+            List(selection: $selectedTask) {
+                ForEach(sections) { section in
+                    Section {
+                        ForEach(section.tasks) { task in
+                            TaskRow(task: task)
+                                .tag(task.id)
+                                .contentShape(Rectangle())
+                                .simultaneousGesture(
+                                    TapGesture(count: 2).onEnded {
+                                        presentActions(for: task.id)
+                                    }
+                                )
+                        }
+                    } header: {
+                        TaskSectionHeader(section: section)
+                    }
+                }
             }
-            .navigationTitle(selection?.rawValue ?? "Tasks")
+            .navigationTitle(selectedSource.rawValue)
+            .controlSize(.small)
+            .onKeyPress(.return) {
+                presentSelectedTaskActions()
+                return .handled
+            }
+            .onKeyPress(.space) {
+                presentSelectedTaskActions()
+                return .handled
+            }
             .toolbar {
                 ToolbarItem {
                     Button {
@@ -419,70 +566,88 @@ private struct TaskDashboardView: View {
                     }
                 )
             }
-        } detail: {
-            if let task = selectedTask.flatMap(taskByID) {
-                TaskDetail(
-                    task: task,
-                    isLoading: backendStatus.isLoading,
-                    actionError: backendStatus.errorForTask(id: task.id),
-                    markSeen: {
-                        await backendStatus.markSeen(id: task.id)
-                    },
-                    markReviewed: {
-                        await backendStatus.markReviewed(id: task.id)
-                        if backendStatus.errorForTask(id: task.id) == nil {
-                            selectedTask = nil
+            .sheet(isPresented: actionSheetBinding) {
+                if let task = actionTaskID.flatMap(taskByID) {
+                    TaskActionModal(
+                        task: task,
+                        isLoading: backendStatus.isLoading,
+                        actionError: backendStatus.errorForTask(id: task.id),
+                        perform: { action in
+                            await perform(action, on: task)
+                        },
+                        dismiss: {
+                            actionTaskID = nil
                         }
-                    },
-                    markInProgress: {
-                        await backendStatus.markInProgress(id: task.id)
-                    },
-                    moveToBacklog: {
-                        await backendStatus.moveToBacklog(id: task.id)
-                    },
-                    markDone: {
-                        await backendStatus.markDone(id: task.id)
-                        if backendStatus.errorForTask(id: task.id) == nil {
-                            selectedTask = nil
-                        }
-                    },
-                    remove: {
-                        await backendStatus.removeTask(id: task.id)
-                        if backendStatus.errorForTask(id: task.id) == nil {
-                            selectedTask = nil
-                        }
-                    },
-                    openInBrowser: {
-                        await backendStatus.openTaskURL(id: task.id)
-                    }
-                )
-            } else {
-                ContentUnavailableView(
-                    "No Task Selected",
-                    systemImage: "checklist",
-                    description: Text("Select a task from the list.")
-                )
+                    )
+                }
             }
         }
     }
 
+    private var selectedSource: TaskSource {
+        selection ?? .all
+    }
+
     private var filteredTasks: [TaskItem] {
-        backendStatus.tasks.filter { $0.source == selection }
+        backendStatus.tasks.filter(selectedSource.matches)
+    }
+
+    private var sections: [TaskDisplaySection] {
+        TaskDisplaySection.sections(for: filteredTasks, selection: selectedSource)
+    }
+
+    private var actionSheetBinding: Binding<Bool> {
+        Binding(
+            get: { actionTaskID != nil },
+            set: { isPresented in
+                if !isPresented {
+                    actionTaskID = nil
+                }
+            }
+        )
+    }
+
+    private func presentSelectedTaskActions() {
+        guard let selectedTask else { return }
+        presentActions(for: selectedTask)
+    }
+
+    private func presentActions(for id: TaskItem.ID) {
+        selectedTask = id
+        backendStatus.setSelectedTaskID(id)
+        actionTaskID = id
     }
 
     private func taskByID(_ id: TaskItem.ID) -> TaskItem? {
         backendStatus.tasks.first { $0.id == id }
     }
 
-    private func icon(for source: TaskSource) -> String {
-        switch source {
-        case .authored:
-            "arrow.triangle.pull"
-        case .review:
-            "person.crop.circle.badge.checkmark"
-        case .issues:
-            "tray.full"
+    private func perform(_ action: TaskDetailAction, on task: TaskItem) async {
+        selectedTask = task.id
+        backendStatus.setSelectedTaskID(task.id)
+
+        switch action {
+        case .openBrowser:
+            await backendStatus.openTaskURL(id: task.id)
+        case .markSeen:
+            await backendStatus.markSeen(id: task.id)
+        case .markReviewed:
+            await backendStatus.markReviewed(id: task.id)
+        case .markInProgress:
+            await backendStatus.markInProgress(id: task.id)
+        case .moveToBacklog:
+            await backendStatus.moveToBacklog(id: task.id)
+        case .markDone:
+            await backendStatus.markDone(id: task.id)
+        case .remove:
+            await backendStatus.removeTask(id: task.id)
         }
+
+        guard backendStatus.errorForTask(id: task.id) == nil else { return }
+        if action == .markReviewed || action == .markDone || action == .remove {
+            selectedTask = nil
+        }
+        actionTaskID = nil
     }
 }
 
@@ -695,121 +860,131 @@ private struct TaskRow: View {
     let task: TaskItem
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             Circle()
-                .fill(task.isUnseen ? Color.red : Color.clear)
+                .fill(task.isUnseen ? Palette.status("changes requested") : Color.clear)
                 .frame(width: 7, height: 7)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.title)
-                    .lineLimit(2)
-                HStack {
+                .accessibilityLabel(task.isUnseen ? "Unread" : "Read")
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(task.title)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 12)
+
+                    Text(linkLabel)
+                        .font(.caption)
+                        .foregroundStyle(linkColor)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                }
+
+                HStack(spacing: 8) {
                     Text(task.status)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.status(task.status))
+                        .lineLimit(1)
+
+                    if let author = task.author, !author.isEmpty {
+                        Text(author)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
                     Text(task.project)
                         .foregroundStyle(.tertiary)
-                    if let number = task.number {
-                        Text("#\(number)")
-                            .foregroundStyle(.tertiary)
-                    }
+                        .lineLimit(1)
                 }
                 .font(.caption)
             }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 2)
+    }
+
+    private var linkLabel: String {
+        guard let number = task.number else {
+            return task.source == .manual ? "Manual" : "No number"
+        }
+        return task.backendSource.hasPrefix("pr") ? "PR #\(number)" : "Issue #\(number)"
+    }
+
+    private var linkColor: Color {
+        task.number == nil ? Color.secondary.opacity(0.65) : Palette.sectionIssuesManual
     }
 }
 
-private struct TaskDetail: View {
+private struct TaskSectionHeader: View {
+    let section: TaskDisplaySection
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Rectangle()
+                .fill(section.source.sectionColor)
+                .frame(width: 3, height: 13)
+            Text(section.source.sectionTitle)
+                .foregroundStyle(section.source.sectionColor)
+                .font(.caption)
+                .fontWeight(.semibold)
+            Text("\(section.tasks.count)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+            Spacer()
+        }
+        .textCase(nil)
+        .padding(.top, 6)
+    }
+}
+
+private struct TaskActionModal: View {
     let task: TaskItem
     let isLoading: Bool
     let actionError: PresentedError?
-    let markSeen: () async -> Void
-    let markReviewed: () async -> Void
-    let markInProgress: () async -> Void
-    let moveToBacklog: () async -> Void
-    let markDone: () async -> Void
-    let remove: () async -> Void
-    let openInBrowser: () async -> Void
+    let perform: (TaskDetailAction) async -> Void
+    let dismiss: () -> Void
+
+    @State private var runningAction: TaskDetailAction?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(task.title)
-                .font(.title2)
-                .fontWeight(.semibold)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(task.title)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .lineLimit(2)
 
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                GridRow {
-                    Text("Status").foregroundStyle(.secondary)
+                HStack(spacing: 8) {
                     Text(task.status)
-                }
-                GridRow {
-                    Text("Project").foregroundStyle(.secondary)
-                    Text(task.project)
-                }
-                if let author = task.author {
-                    GridRow {
-                        Text("Author").foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.status(task.status))
+                    if let author = task.author, !author.isEmpty {
                         Text(author)
+                            .foregroundStyle(.secondary)
                     }
+                    Text(task.project)
+                        .foregroundStyle(.tertiary)
+                    Text(linkLabel)
+                        .foregroundStyle(linkColor)
                 }
+                .font(.caption)
             }
 
-            HStack {
-                if task.availableDetailActions.contains(.openBrowser) {
-                    Button("Open in Browser") {
-                        Task {
-                            await openInBrowser()
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(availableActions, id: \.self) { action in
+                    Button(role: action == .remove ? .destructive : nil) {
+                        run(action)
+                    } label: {
+                        HStack {
+                            Label(action.title, systemImage: action.systemImage)
+                            Spacer()
+                            if runningAction == action {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
                         }
                     }
-                    .accessibilityIdentifier("task-action-open-browser")
-                }
-                if task.availableDetailActions.contains(.markSeen) {
-                    Button("Mark Seen") {
-                        Task {
-                            await markSeen()
-                        }
-                    }
-                    .disabled(isLoading)
-                }
-                if task.availableDetailActions.contains(.markReviewed) {
-                    Button("Mark Reviewed") {
-                        Task {
-                            await markReviewed()
-                        }
-                    }
-                    .disabled(isLoading)
-                }
-                if task.availableDetailActions.contains(.moveToBacklog) {
-                    Button("Move to Backlog") {
-                        Task {
-                            await moveToBacklog()
-                        }
-                    }
-                    .disabled(isLoading)
-                }
-                if task.availableDetailActions.contains(.markInProgress) {
-                    Button("Mark In Progress") {
-                        Task {
-                            await markInProgress()
-                        }
-                    }
-                    .disabled(isLoading)
-                }
-                if task.availableDetailActions.contains(.markDone) {
-                    Button("Mark Done") {
-                        Task {
-                            await markDone()
-                        }
-                    }
-                    .disabled(isLoading)
-                }
-                if task.availableDetailActions.contains(.remove) {
-                    Button("Remove") {
-                        Task {
-                            await remove()
-                        }
-                    }
-                    .disabled(isLoading)
+                    .disabled(isLoading || runningAction != nil)
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("task-action-\(action.rawValue)")
                 }
             }
 
@@ -823,17 +998,96 @@ private struct TaskDetail: View {
                     if let recovery = actionError.recovery {
                         Text(recovery)
                             .font(.caption2)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(.tertiary)
                             .lineLimit(3)
                             .accessibilityIdentifier("task-action-error-recovery")
                     }
                 }
             }
 
-            Spacer()
+            HStack {
+                Spacer()
+                Button("Close", role: .cancel) {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+                .disabled(runningAction != nil)
+            }
         }
-        .padding(24)
-        .frame(minWidth: 340, alignment: .topLeading)
+        .padding(20)
+        .frame(width: 420)
+    }
+
+    private var availableActions: [TaskDetailAction] {
+        let preferredOrder: [TaskDetailAction] = [
+            .openBrowser,
+            .markSeen,
+            .markReviewed,
+            .markInProgress,
+            .moveToBacklog,
+            .markDone,
+            .remove,
+        ]
+        return preferredOrder.filter(task.availableDetailActions.contains)
+    }
+
+    private var linkLabel: String {
+        guard let number = task.number else {
+            return task.source == .manual ? "Manual" : "No number"
+        }
+        return task.backendSource.hasPrefix("pr") ? "PR #\(number)" : "Issue #\(number)"
+    }
+
+    private var linkColor: Color {
+        task.number == nil ? Color.secondary.opacity(0.65) : Palette.sectionIssuesManual
+    }
+
+    private func run(_ action: TaskDetailAction) {
+        runningAction = action
+        Task {
+            await perform(action)
+            runningAction = nil
+        }
+    }
+}
+
+private extension TaskDetailAction {
+    var title: String {
+        switch self {
+        case .openBrowser:
+            "Open in Browser"
+        case .markSeen:
+            "Mark Seen"
+        case .markReviewed:
+            "Mark Reviewed"
+        case .markInProgress:
+            "Mark In Progress"
+        case .moveToBacklog:
+            "Move to Backlog"
+        case .markDone:
+            "Mark Done"
+        case .remove:
+            "Remove"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .openBrowser:
+            "safari"
+        case .markSeen:
+            "circle"
+        case .markReviewed:
+            "checkmark.bubble"
+        case .markInProgress:
+            "play.circle"
+        case .moveToBacklog:
+            "tray"
+        case .markDone:
+            "checkmark.circle"
+        case .remove:
+            "trash"
+        }
     }
 }
 

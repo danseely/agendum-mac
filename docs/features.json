@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project": "agendum-mac",
-  "updated_at": "2026-05-07",
+  "updated_at": "2026-05-08",
   "active_goal": "Standalone Swift macOS app with native backend engine and GRDB-backed data store",
   "features": [
     {
@@ -55,10 +55,18 @@
     {
       "id": "a3-scene-storage",
       "title": "Persist selection, sidebar visibility, and filter state with @SceneStorage",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #40 closed as completed; PR #41 merged into feature/mac-prototype on 2026-05-08 as squash commit 0650976. Local validation passed: swift build, swift test --enable-code-coverage (121 XCTest tests plus 7 Swift Testing tests), Python unittest discover (68 tests), Python coverage 499/540 lines (92.4%), swift run startup smoke, jq, git diff --check. GitHub Actions Test passed on PR #41. Manual bundle smoke found and fixed sidebar selection and filter/source/page-size persistence across launches; adversarial follow-up fixed fallback overwrite risk for restored default scenes.",
+      "notes": "Residual split-view column-width persistence is layout polish, not A3 state-restoration scope."
+    },
+    {
+      "id": "a-visual-list-dashboard",
+      "title": "Realign Mac dashboard around terminal-style sectioned task list",
       "status": "in_progress",
       "priority": "must",
-      "evidence": "Issue #40 filed under architecture epic #24; PR #41 opened to feature/mac-prototype. Branch codex/a3-scene-storage has local validation passing: swift build; swift test --enable-code-coverage (121 XCTest tests plus 7 Swift Testing tests); Python unittest discover (68 tests); Python coverage 499/540 lines (92.4%); swift run AgendumMac startup smoke. GitHub Actions Test passed on PR #41. Manual bundle smoke found and fixed sidebar selection and filter/source/page-size persistence across launches; adversarial follow-up fixed fallback overwrite risk for restored default scenes.",
-      "notes": "Do not mark passed until PR merge or explicit user acceptance. Residual split-view column-width persistence is layout polish, not A3 state-restoration scope."
+      "evidence": "Issue #42 filed under architecture epic #24. Local implementation on codex/visual-layout-direction passes: swift build; swift build --target AgendumMac; swift test --filter AgendumFeatureTests.TaskWorkflowModelTests (111 XCTest tests); swift test --enable-code-coverage (126 XCTest tests plus 7 Swift Testing tests); Python unittest discover (68 tests); Python coverage 499/540 lines (92.4%); Scripts/build_app_bundle.sh; bundle existence/executable checks; plutil -lint; swift run AgendumMac launch smoke; jq; git diff --check.",
+      "notes": "Default source is All; Issues and Manual are separate sections; task actions are in a focused sheet opened from the selected row; status/section colors mirror ../agendum/src/agendum/widgets.py. Do not mark passed until PR merge or explicit acceptance."
     },
     {
       "id": "c-native-store",

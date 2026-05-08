@@ -85,11 +85,22 @@ public struct TaskItem: Identifiable, Hashable, Sendable {
 }
 
 public enum TaskSource: String, CaseIterable, Identifiable, Sendable {
+    case all = "All"
     case authored = "My Pull Requests"
     case review = "Reviews Requested"
-    case issues = "Issues & Manual"
+    case issues = "Issues"
+    case manual = "Manual"
 
     public var id: String { rawValue }
+
+    public static let `default`: TaskSource = .all
+
+    public static let displayOrder: [TaskSource] = [
+        .authored,
+        .review,
+        .issues,
+        .manual,
+    ]
 
     init(backendSource: String) {
         switch backendSource {
@@ -97,8 +108,39 @@ public enum TaskSource: String, CaseIterable, Identifiable, Sendable {
             self = .authored
         case "pr_review":
             self = .review
-        default:
+        case "issue":
             self = .issues
+        case "manual":
+            self = .manual
+        default:
+            self = .manual
+        }
+    }
+}
+
+public struct TaskDisplaySection: Identifiable, Equatable, Sendable {
+    public let source: TaskSource
+    public let tasks: [TaskItem]
+
+    public var id: TaskSource.ID { source.id }
+    public var title: String { source.rawValue }
+
+    public init(source: TaskSource, tasks: [TaskItem]) {
+        self.source = source
+        self.tasks = tasks
+    }
+
+    public static func sections(
+        for tasks: [TaskItem],
+        selection: TaskSource = .default
+    ) -> [TaskDisplaySection] {
+        let sources = selection == .all ? TaskSource.displayOrder : [selection]
+
+        return sources.compactMap { source in
+            guard source != .all else { return nil }
+            let sourceTasks = tasks.filter { $0.source == source }
+            guard !sourceTasks.isEmpty else { return nil }
+            return TaskDisplaySection(source: source, tasks: sourceTasks)
         }
     }
 }

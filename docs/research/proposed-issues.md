@@ -42,9 +42,10 @@ Drafted from `docs/research/architecture.md` and `docs/research/synthesis.md` af
 ## Children
 - [x] A1 — Migrate `BackendStatusModel` to `@Observable` (#27)
 - [x] A2 — `os.Logger` across all targets (#29)
-- [ ] A3 — `@SceneStorage` for selection / sidebar / filter state (#40)
+- [x] A3 — `@SceneStorage` for selection / sidebar / filter state (#40)
 - [x] A4 — Relocate AppKit/UN default seams to executable target (#35)
 - [x] A5 — Module rename: `AgendumMacCore` → `AgendumBackend`; `AgendumMacWorkflow` → `AgendumFeature` (#37)
+- [ ] A-Visual — Terminal-style sectioned dashboard realignment (#42)
 - [ ] A6 — Polish bundle: localization, `.onOpenURL`, accessibility audit, `MetricKit` (#)
 
 ## Sequence
