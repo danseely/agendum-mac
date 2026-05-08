@@ -57,8 +57,8 @@
       "title": "Persist selection, sidebar visibility, and filter state with @SceneStorage",
       "status": "in_progress",
       "priority": "must",
-      "evidence": "Issue #40 filed under architecture epic #24; PR #41 opened to feature/mac-prototype. Branch codex/a3-scene-storage has local validation passing: swift build; swift test --enable-code-coverage (121 XCTest tests plus 7 Swift Testing tests); Python unittest discover (68 tests); Python coverage 499/540 lines (92.4%); swift run AgendumMac startup smoke. GitHub Actions Test passed on PR #41.",
-      "notes": "Do not mark passed until PR merge or explicit user acceptance."
+      "evidence": "Issue #40 filed under architecture epic #24; PR #41 opened to feature/mac-prototype. Branch codex/a3-scene-storage has local validation passing: swift build; swift test --enable-code-coverage (121 XCTest tests plus 7 Swift Testing tests); Python unittest discover (68 tests); Python coverage 499/540 lines (92.4%); swift run AgendumMac startup smoke. GitHub Actions Test passed on PR #41. Manual bundle smoke found and fixed sidebar selection and filter/source/page-size persistence across launches.",
+      "notes": "Do not mark passed until PR merge or explicit user acceptance. Residual split-view column-width persistence is layout polish, not A3 state-restoration scope."
     },
     {
       "id": "c-native-store",

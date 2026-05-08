@@ -165,6 +165,14 @@ private struct DashboardSceneRoot: View {
     @SceneStorage("dashboard.filter.project") private var filterProject = ""
     @SceneStorage("dashboard.filter.includeSeen") private var filterIncludeSeen = TaskListFilters.default.includeSeen
     @SceneStorage("dashboard.filter.limit") private var filterLimit = TaskListFilters.default.limit
+    @AppStorage("dashboard.persisted.selectedTaskID") private var persistedSelectedTaskID = -1
+    @AppStorage("dashboard.persisted.sourceSelection") private var persistedSourceSelectionRaw = TaskSource.authored.rawValue
+    @AppStorage("dashboard.persisted.columnVisibility") private var persistedColumnVisibilityRaw = StoredColumnVisibility.automatic.rawValue
+    @AppStorage("dashboard.persisted.filter.source") private var persistedFilterSource = ""
+    @AppStorage("dashboard.persisted.filter.status") private var persistedFilterStatus = ""
+    @AppStorage("dashboard.persisted.filter.project") private var persistedFilterProject = ""
+    @AppStorage("dashboard.persisted.filter.includeSeen") private var persistedFilterIncludeSeen = TaskListFilters.default.includeSeen
+    @AppStorage("dashboard.persisted.filter.limit") private var persistedFilterLimit = TaskListFilters.default.limit
 
     var body: some View {
         TaskDashboardView(
@@ -172,6 +180,7 @@ private struct DashboardSceneRoot: View {
             commands: commands,
             columnVisibility: columnVisibility,
             selection: sourceSelection,
+            filters: sceneFilterBinding,
             isShowingCreateManualTask: $isShowingCreateManualTask,
             selectedTask: $selectedTaskID
         )
@@ -186,11 +195,13 @@ private struct DashboardSceneRoot: View {
         .task {
             guard !didInitialRefresh else { return }
             didInitialRefresh = true
+            restoreDefaultWindowStateIfNeeded()
             backendStatus.restoreSceneState(filters: sceneFilters, selectedTaskID: selectedTaskID)
             await backendStatus.refresh()
             backendStatus.setBadgeForAttentionCount()
         }
         .onChange(of: selectedTaskID) { _, newValue in
+            persistedSelectedTaskID = newValue ?? -1
             backendStatus.setSelectedTaskID(newValue)
         }
         .onChange(of: backendStatus.filters) { _, newValue in
@@ -204,14 +215,29 @@ private struct DashboardSceneRoot: View {
     private var sourceSelection: Binding<TaskSource?> {
         Binding(
             get: { TaskSource(rawValue: sourceSelectionRaw) ?? .authored },
-            set: { sourceSelectionRaw = ($0 ?? .authored).rawValue }
+            set: {
+                let rawValue = ($0 ?? .authored).rawValue
+                sourceSelectionRaw = rawValue
+                persistedSourceSelectionRaw = rawValue
+            }
         )
     }
 
     private var columnVisibility: Binding<NavigationSplitViewVisibility> {
         Binding(
             get: { StoredColumnVisibility(rawValue: columnVisibilityRaw)?.value ?? .automatic },
-            set: { columnVisibilityRaw = StoredColumnVisibility($0).rawValue }
+            set: {
+                let rawValue = StoredColumnVisibility($0).rawValue
+                columnVisibilityRaw = rawValue
+                persistedColumnVisibilityRaw = rawValue
+            }
+        )
+    }
+
+    private var sceneFilterBinding: Binding<TaskListFilters> {
+        Binding(
+            get: { sceneFilters },
+            set: { writeSceneFilters($0) }
         )
     }
 
@@ -231,6 +257,38 @@ private struct DashboardSceneRoot: View {
         filterProject = filters.project ?? ""
         filterIncludeSeen = filters.includeSeen
         filterLimit = filters.limit
+        persistedFilterSource = filterSource
+        persistedFilterStatus = filterStatus
+        persistedFilterProject = filterProject
+        persistedFilterIncludeSeen = filterIncludeSeen
+        persistedFilterLimit = filterLimit
+    }
+
+    private func restoreDefaultWindowStateIfNeeded() {
+        if selectedTaskID == nil, persistedSelectedTaskID > 0 {
+            selectedTaskID = persistedSelectedTaskID
+        }
+        if TaskSource(rawValue: sourceSelectionRaw) == nil || sourceSelectionRaw == TaskSource.authored.rawValue {
+            sourceSelectionRaw = TaskSource(rawValue: persistedSourceSelectionRaw)?.rawValue ?? TaskSource.authored.rawValue
+        }
+        if StoredColumnVisibility(rawValue: columnVisibilityRaw) == nil || columnVisibilityRaw == StoredColumnVisibility.automatic.rawValue {
+            columnVisibilityRaw = StoredColumnVisibility(rawValue: persistedColumnVisibilityRaw)?.rawValue ?? StoredColumnVisibility.automatic.rawValue
+        }
+        if filterSource.isEmpty {
+            filterSource = persistedFilterSource
+        }
+        if filterStatus.isEmpty {
+            filterStatus = persistedFilterStatus
+        }
+        if filterProject.isEmpty {
+            filterProject = persistedFilterProject
+        }
+        if filterIncludeSeen == TaskListFilters.default.includeSeen {
+            filterIncludeSeen = persistedFilterIncludeSeen
+        }
+        if filterLimit == TaskListFilters.default.limit {
+            filterLimit = TaskListFilters.allowedLimits.contains(persistedFilterLimit) ? persistedFilterLimit : TaskListFilters.default.limit
+        }
     }
 }
 
@@ -280,6 +338,7 @@ private struct TaskDashboardView: View {
     let commands: TaskDashboardCommands
     @Binding var columnVisibility: NavigationSplitViewVisibility
     @Binding var selection: TaskSource?
+    @Binding var filters: TaskListFilters
     @Binding var isShowingCreateManualTask: Bool
     @Binding var selectedTask: TaskItem.ID?
 
@@ -288,11 +347,12 @@ private struct TaskDashboardView: View {
             List(TaskSource.allCases, selection: $selection) { source in
                 Label(source.rawValue, systemImage: icon(for: source))
                     .badge(backendStatus.tasks.filter { $0.source == source }.count)
+                    .tag(source)
             }
             .navigationTitle("Agendum")
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 0) {
-                    TaskListFiltersPanel(status: backendStatus)
+                    TaskListFiltersPanel(status: backendStatus, filters: $filters)
                     BackendStatusPanel(status: backendStatus) {
                         selectedTask = nil
                     }
@@ -420,8 +480,8 @@ private struct TaskDashboardView: View {
 
 private struct TaskListFiltersPanel: View {
     var status: BackendStatusModel
+    @Binding var filters: TaskListFilters
     @AppStorage("task-list-filters-expanded") private var isExpanded: Bool = true
-    @State private var pendingFilters: TaskListFilters = .default
 
     private static let statusOptions: [String] = [
         "draft",
@@ -451,9 +511,11 @@ private struct TaskListFiltersPanel: View {
         DisclosureGroup("Filters", isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: 8) {
                 Picker("Status", selection: Binding(
-                    get: { pendingFilters.status ?? "" },
+                    get: { filters.status ?? "" },
                     set: { newValue in
-                        pendingFilters.status = newValue.isEmpty ? nil : newValue
+                        var next = filters
+                        next.status = newValue.isEmpty ? nil : newValue
+                        apply(next)
                     }
                 )) {
                     Text("All").tag("")
@@ -464,9 +526,11 @@ private struct TaskListFiltersPanel: View {
                 .accessibilityIdentifier("task-list-filter-status")
 
                 Picker("Source", selection: Binding(
-                    get: { pendingFilters.source ?? "" },
+                    get: { filters.source ?? "" },
                     set: { newValue in
-                        pendingFilters.source = newValue.isEmpty ? nil : newValue
+                        var next = filters
+                        next.source = newValue.isEmpty ? nil : newValue
+                        apply(next)
                     }
                 )) {
                     Text("All").tag("")
@@ -477,20 +541,36 @@ private struct TaskListFiltersPanel: View {
                 .accessibilityIdentifier("task-list-filter-source")
 
                 TextField("Project", text: Binding(
-                    get: { pendingFilters.project ?? "" },
+                    get: { filters.project ?? "" },
                     set: { newValue in
-                        pendingFilters.project = newValue.isEmpty ? nil : newValue
+                        var next = filters
+                        next.project = newValue.isEmpty ? nil : newValue
+                        filters = next
                     }
                 ), prompt: Text("Exact match"))
                     .onSubmit {
-                        Task { await status.applyFilters(pendingFilters) }
+                        Task { await status.applyFilters(filters) }
                     }
                     .accessibilityIdentifier("task-list-filter-project")
 
-                Toggle("Include seen items", isOn: $pendingFilters.includeSeen)
+                Toggle("Include seen items", isOn: Binding(
+                    get: { filters.includeSeen },
+                    set: { newValue in
+                        var next = filters
+                        next.includeSeen = newValue
+                        apply(next)
+                    }
+                ))
                     .accessibilityIdentifier("task-list-filter-include-seen")
 
-                Picker("Limit", selection: $pendingFilters.limit) {
+                Picker("Limit", selection: Binding(
+                    get: { filters.limit },
+                    set: { newValue in
+                        var next = filters
+                        next.limit = newValue
+                        apply(next)
+                    }
+                )) {
                     ForEach(TaskListFilters.allowedLimits, id: \.self) { value in
                         Text("\(value)").tag(value)
                     }
@@ -498,8 +578,7 @@ private struct TaskListFiltersPanel: View {
                 .accessibilityIdentifier("task-list-filter-limit")
 
                 Button("Clear filters") {
-                    pendingFilters = .default
-                    Task { await status.applyFilters(.default) }
+                    apply(.default)
                 }
                 .accessibilityIdentifier("task-list-filter-clear")
             }
@@ -510,25 +589,12 @@ private struct TaskListFiltersPanel: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.bar)
-        .onAppear {
-            pendingFilters = status.filters
-        }
-        .onChange(of: status.filters) { _, newValue in
-            if pendingFilters != newValue {
-                pendingFilters = newValue
-            }
-        }
-        .onChange(of: pendingFilters.status) { _, _ in
-            Task { await status.applyFilters(pendingFilters) }
-        }
-        .onChange(of: pendingFilters.source) { _, _ in
-            Task { await status.applyFilters(pendingFilters) }
-        }
-        .onChange(of: pendingFilters.includeSeen) { _, _ in
-            Task { await status.applyFilters(pendingFilters) }
-        }
-        .onChange(of: pendingFilters.limit) { _, _ in
-            Task { await status.applyFilters(pendingFilters) }
+    }
+
+    private func apply(_ next: TaskListFilters) {
+        filters = next
+        Task {
+            await status.applyFilters(next)
         }
     }
 }
