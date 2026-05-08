@@ -73,6 +73,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - A3 local validation on branch `codex/a3-scene-storage` / PR #41: `swift build` passed; `swift test --enable-code-coverage` passed (121 XCTest tests plus 7 Swift Testing tests); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` passed (499/540 lines, 92.4%); `swift run AgendumMac` startup smoke stayed running until terminated with `kill`.
 - A3 PR #41 GitHub Actions `Test` check passed on 2026-05-07.
 - A3 manual bundle smoke on 2026-05-08 found two bugs: sidebar source rows were not selectable and filters did not persist across launch. Fix: tag sidebar rows explicitly and write filter/source/selection state through scene storage plus UserDefaults fallback for fresh default-window launches. Retest confirmed sidebar selection and filter/source/page-size persistence across launches. Residual: split-view column width changes do not persist; treat as layout polish outside A3 state-restoration scope unless visual redesign requires it.
+- A3 follow-up adversarial review found the fallback could overwrite an intentionally default restored scene. Fix: added a scene-local `dashboard.didInitializeState` sentinel so the UserDefaults fallback only applies to fresh default-window launches, not restored scene sessions.
 - `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 
 ## A5 Work Packet
@@ -110,6 +111,6 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Push the A3 manual-smoke fix to PR #41 and wait for CI.
+1. Push the A3 fallback-sentinel fix to PR #41 and wait for CI.
 2. If additional A3 edits are needed, keep them on `codex/a3-scene-storage`.
 3. Do not mark A3 passed in `docs/features.json` until PR merge or explicit user acceptance.

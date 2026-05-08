@@ -165,6 +165,7 @@ private struct DashboardSceneRoot: View {
     @SceneStorage("dashboard.filter.project") private var filterProject = ""
     @SceneStorage("dashboard.filter.includeSeen") private var filterIncludeSeen = TaskListFilters.default.includeSeen
     @SceneStorage("dashboard.filter.limit") private var filterLimit = TaskListFilters.default.limit
+    @SceneStorage("dashboard.didInitializeState") private var didInitializeSceneState = false
     @AppStorage("dashboard.persisted.selectedTaskID") private var persistedSelectedTaskID = -1
     @AppStorage("dashboard.persisted.sourceSelection") private var persistedSourceSelectionRaw = TaskSource.authored.rawValue
     @AppStorage("dashboard.persisted.columnVisibility") private var persistedColumnVisibilityRaw = StoredColumnVisibility.automatic.rawValue
@@ -196,11 +197,13 @@ private struct DashboardSceneRoot: View {
             guard !didInitialRefresh else { return }
             didInitialRefresh = true
             restoreDefaultWindowStateIfNeeded()
+            didInitializeSceneState = true
             backendStatus.restoreSceneState(filters: sceneFilters, selectedTaskID: selectedTaskID)
             await backendStatus.refresh()
             backendStatus.setBadgeForAttentionCount()
         }
         .onChange(of: selectedTaskID) { _, newValue in
+            didInitializeSceneState = true
             persistedSelectedTaskID = newValue ?? -1
             backendStatus.setSelectedTaskID(newValue)
         }
@@ -217,6 +220,7 @@ private struct DashboardSceneRoot: View {
             get: { TaskSource(rawValue: sourceSelectionRaw) ?? .authored },
             set: {
                 let rawValue = ($0 ?? .authored).rawValue
+                didInitializeSceneState = true
                 sourceSelectionRaw = rawValue
                 persistedSourceSelectionRaw = rawValue
             }
@@ -228,6 +232,7 @@ private struct DashboardSceneRoot: View {
             get: { StoredColumnVisibility(rawValue: columnVisibilityRaw)?.value ?? .automatic },
             set: {
                 let rawValue = StoredColumnVisibility($0).rawValue
+                didInitializeSceneState = true
                 columnVisibilityRaw = rawValue
                 persistedColumnVisibilityRaw = rawValue
             }
@@ -252,6 +257,7 @@ private struct DashboardSceneRoot: View {
     }
 
     private func writeSceneFilters(_ filters: TaskListFilters) {
+        didInitializeSceneState = true
         filterSource = filters.source ?? ""
         filterStatus = filters.status ?? ""
         filterProject = filters.project ?? ""
@@ -265,6 +271,8 @@ private struct DashboardSceneRoot: View {
     }
 
     private func restoreDefaultWindowStateIfNeeded() {
+        guard !didInitializeSceneState else { return }
+
         if selectedTaskID == nil, persistedSelectedTaskID > 0 {
             selectedTaskID = persistedSelectedTaskID
         }
