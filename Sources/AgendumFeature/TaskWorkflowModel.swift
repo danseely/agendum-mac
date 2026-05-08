@@ -143,6 +143,23 @@ public struct TaskDisplaySection: Identifiable, Equatable, Sendable {
             return TaskDisplaySection(source: source, tasks: sourceTasks)
         }
     }
+
+    public static func task(
+        withID id: TaskItem.ID,
+        in sections: [TaskDisplaySection]
+    ) -> TaskItem? {
+        sections
+            .lazy
+            .flatMap(\.tasks)
+            .first { $0.id == id }
+    }
+
+    public static func containsTask(
+        withID id: TaskItem.ID,
+        in sections: [TaskDisplaySection]
+    ) -> Bool {
+        task(withID: id, in: sections) != nil
+    }
 }
 
 public enum TaskDetailAction: String, Hashable, Sendable {

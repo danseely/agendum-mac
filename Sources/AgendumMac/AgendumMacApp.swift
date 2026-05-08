@@ -519,6 +519,18 @@ private struct TaskDashboardView: View {
                 presentSelectedTaskActions()
                 return .handled
             }
+            .onChange(of: visibleTaskIDs) { _, _ in
+                revalidateSelectionForVisibleTasks()
+            }
+            .onChange(of: backendStatus.tasks) { _, _ in
+                revalidateSelectionForVisibleTasks()
+            }
+            .onChange(of: selectedSource) { _, _ in
+                revalidateSelectionForVisibleTasks()
+            }
+            .onChange(of: filters) { _, _ in
+                revalidateSelectionForVisibleTasks()
+            }
             .toolbar {
                 ToolbarItem {
                     Button {
@@ -567,7 +579,7 @@ private struct TaskDashboardView: View {
                 )
             }
             .sheet(isPresented: actionSheetBinding) {
-                if let task = actionTaskID.flatMap(taskByID) {
+                if let task = actionTaskID.flatMap(visibleTask) {
                     TaskActionModal(
                         task: task,
                         isLoading: backendStatus.isLoading,
@@ -596,9 +608,13 @@ private struct TaskDashboardView: View {
         TaskDisplaySection.sections(for: filteredTasks, selection: selectedSource)
     }
 
+    private var visibleTaskIDs: [TaskItem.ID] {
+        sections.flatMap { $0.tasks.map(\.id) }
+    }
+
     private var actionSheetBinding: Binding<Bool> {
         Binding(
-            get: { actionTaskID != nil },
+            get: { actionTaskID.flatMap(visibleTask) != nil },
             set: { isPresented in
                 if !isPresented {
                     actionTaskID = nil
@@ -608,18 +624,39 @@ private struct TaskDashboardView: View {
     }
 
     private func presentSelectedTaskActions() {
-        guard let selectedTask else { return }
+        guard
+            let selectedTask,
+            TaskDisplaySection.containsTask(withID: selectedTask, in: sections)
+        else {
+            revalidateSelectionForVisibleTasks()
+            return
+        }
         presentActions(for: selectedTask)
     }
 
     private func presentActions(for id: TaskItem.ID) {
+        guard TaskDisplaySection.containsTask(withID: id, in: sections) else {
+            revalidateSelectionForVisibleTasks()
+            return
+        }
         selectedTask = id
         backendStatus.setSelectedTaskID(id)
         actionTaskID = id
     }
 
-    private func taskByID(_ id: TaskItem.ID) -> TaskItem? {
-        backendStatus.tasks.first { $0.id == id }
+    private func visibleTask(_ id: TaskItem.ID) -> TaskItem? {
+        TaskDisplaySection.task(withID: id, in: sections)
+    }
+
+    private func revalidateSelectionForVisibleTasks() {
+        if let selectedTask, !TaskDisplaySection.containsTask(withID: selectedTask, in: sections) {
+            self.selectedTask = nil
+            backendStatus.setSelectedTaskID(nil)
+        }
+
+        if let actionTaskID, !TaskDisplaySection.containsTask(withID: actionTaskID, in: sections) {
+            self.actionTaskID = nil
+        }
     }
 
     private func perform(_ action: TaskDetailAction, on task: TaskItem) async {

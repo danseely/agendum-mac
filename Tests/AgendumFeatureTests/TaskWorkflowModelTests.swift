@@ -559,6 +559,19 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertTrue(TaskDisplaySection.sections(for: tasks, selection: .manual).isEmpty)
     }
 
+    func testTaskDisplaySectionsTaskLookupOnlySearchesVisibleSections() {
+        let tasks = [
+            TaskItem(task: task(id: 1, source: "pr_review")),
+            TaskItem(task: task(id: 2, source: "manual")),
+        ]
+        let sections = TaskDisplaySection.sections(for: tasks, selection: .review)
+
+        XCTAssertEqual(TaskDisplaySection.task(withID: 1, in: sections)?.id, 1)
+        XCTAssertTrue(TaskDisplaySection.containsTask(withID: 1, in: sections))
+        XCTAssertNil(TaskDisplaySection.task(withID: 2, in: sections))
+        XCTAssertFalse(TaskDisplaySection.containsTask(withID: 2, in: sections))
+    }
+
     func testOpenTaskURLInvokesOpenerWithTaskURL() async throws {
         let backend = FakeBackend()
         await backend.setTasks([task(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
