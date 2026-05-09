@@ -65,6 +65,30 @@ public struct TaskItem: Identifiable, Hashable, Sendable {
         isUnseen = !task.seen
     }
 
+    public init(
+        id: Int,
+        title: String,
+        backendSource: String,
+        source: TaskSource,
+        status: String,
+        project: String,
+        author: String?,
+        number: Int?,
+        url: URL?,
+        isUnseen: Bool
+    ) {
+        self.id = id
+        self.title = title
+        self.backendSource = backendSource
+        self.source = source
+        self.status = status
+        self.project = project
+        self.author = author
+        self.number = number
+        self.url = url
+        self.isUnseen = isUnseen
+    }
+
     public var availableDetailActions: Set<TaskDetailAction> {
         var actions: Set<TaskDetailAction> = [.remove]
         if url != nil {
@@ -102,7 +126,7 @@ public enum TaskSource: String, CaseIterable, Identifiable, Sendable {
         .manual,
     ]
 
-    init(backendSource: String) {
+    public init(backendSource: String) {
         switch backendSource {
         case "pr_authored":
             self = .authored

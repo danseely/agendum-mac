@@ -27,14 +27,14 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
 
 ## Current State
-- Branch: `feature/mac-prototype`.
-- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype`; C1 code landed as `c9cebde` and the post-C1 handoff refresh landed as `63a0efa`.
+- Branch: `codex/c2-task-store-actor` (targeting `feature/mac-prototype`).
+- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `74b0a6e`.
 - Open PRs: draft parent PR #2 only.
 - Open epics: #24, #25, #26.
 - Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), visual list/dashboard realignment (#42), and C1 native store schema foundation (#44) are merged into `feature/mac-prototype`.
-- In progress: native data store epic #26 remains active; C2 is the next C-epic leaf.
+- In progress: C2 `TaskStore` actor + `TaskStoreProviding` seam (issue #48, branch `codex/c2-task-store-actor`). Local implementation complete; ready for PR.
 - Blocked: no implementation-level blocker.
-- Next checkpoint: file/start C2 when ready, using the residual notes below.
+- Next checkpoint: open PR for C2, run adversarial review, merge when green.
 
 ## Decisions
 - 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
@@ -92,6 +92,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - C1 final pre-publication validation on branch `codex/c1-grdb-store-schema`: `swift build` passed; `swift test --enable-code-coverage` passed (129 XCTest tests plus 16 Swift Testing tests); `swift run AgendumMac` built and launch-smoked until terminated with `kill`; `jq . docs/features.json` passed; `git diff --check` passed. No `agent-check` script exists in this repo.
 - C1 PR #45 GitHub Actions `Test` check passed on 2026-05-09; PR #45 merged into `feature/mac-prototype` as squash commit `c9cebde`; issue #44 closed as completed.
 - `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
+- C2 local validation on branch `codex/c2-task-store-actor`: `swift build` passed; `swift test --filter AgendumMacStoreTests.TaskStoreTests` passed (11 Swift Testing tests); `swift test --enable-code-coverage` passed (129 XCTest tests plus 29 Swift Testing tests); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed (68 tests); `swift run AgendumMac` built and launch-smoked; `git diff --check` passed. During test development: initial mapping had `seen == 0` for `isUnseen`, but null `seen` must also map to `isUnseen = true` (Python treats NULL as falsy); fixed to `(seen ?? 0) == 0`.
 
 ## C1 Work Packet
 - Objective: add the native GRDB store foundation without changing runtime dashboard behavior.
@@ -156,6 +157,30 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
   - `git diff --check`
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
+## C2 Work Packet
+- Objective: add `TaskStore` actor and `TaskStoreProviding` protocol seam; no runtime wiring yet.
+- Parent: native data store epic #26.
+- Leaf issue: #48.
+- Branch: `codex/c2-task-store-actor`, based on `feature/mac-prototype` at `63a0efa`.
+- PR: #49.
+- Status: local implementation + adversarial review complete; awaiting CI.
+- Implementation scope:
+  - `protocol TaskStoreProviding` in `AgendumFeature/TaskStoreProviding.swift`.
+  - Public `TaskItem.init(id:title:backendSource:source:status:project:author:number:url:isUnseen:)` and public `TaskSource.init(backendSource:)` in `AgendumFeature`.
+  - `TaskStore` actor in `AgendumMacStore/TaskStore.swift` implementing all four protocol methods.
+  - `TaskRecord.toTaskItem()` mapping: `(seen ?? 0) == 0` for `isUnseen` (null treated as unseen, matching Python).
+  - `markSeen` sets `seen = 1`, `last_seen_at`, and `updated_at` (matching Python's `mark_task_seen`).
+  - `observe` stores the returned `Task` and cancels it via `continuation.onTermination` to prevent leaks.
+  - `Package.swift`: `AgendumMacStore` and `AgendumMacStoreTests` gain `AgendumFeature` dependency.
+  - 11 `TaskStoreTests` in `AgendumMacStoreTests` covering read/filter/observe/markSeen+timestamps/nullable-seen/legacy-timestamps.
+  - `FakeTaskStore` actor + 2 smoke tests in `AgendumFeatureTests/FakeTaskStore.swift`.
+  - Internal test helpers `insert(_:)`, `insertRaw(...)`, `rawRecord(id:)` on `TaskStore` (accessible via `@testable import`).
+- Follow-up notes for C3 (blocking architectural concern):
+  - `ValueObservation` is blind to external-process writes: GRDB's `sqlite3_commit_hook` only fires for commits made through the same GRDB connection. Python writes via a separate `sqlite3` process. Live observation of Python sync results will require a file-system watcher (`DispatchSource`/kqueue) calling `db.notifyChanges(in: .fullDatabase)` after sync, or IPC from Python to Swift after each sync cycle.
+  - `TaskStore.init(path:)` uses `DatabaseQueue`; should set `Configuration.journalMode = .wal` and/or switch to `DatabasePool` to match the Python side's WAL mode.
+  - `FakeTaskStore.observe` returns an immediately-finishing stream; expand for C3 workflow model tests that exercise live observation.
+
 ## Handoff / Next Actions
-1. Start C2 when ready; use `DatabaseSchema.prepare(_:)` for store opening and cover nullable `seen` / legacy nullable timestamps in mapping tests.
-2. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
+1. Merge PR #49 for C2 after CI passes.
+2. Before C3 wiring: decide on observation strategy for Python-side writes (file-system watcher vs IPC vs polling), and switch `init(path:)` to `DatabasePool` with WAL configuration.
+3. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.

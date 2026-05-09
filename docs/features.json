@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project": "agendum-mac",
-  "updated_at": "2026-05-08",
+  "updated_at": "2026-05-09",
   "active_goal": "Standalone Swift macOS app with native backend engine and GRDB-backed data store",
   "features": [
     {
@@ -67,6 +67,14 @@
       "priority": "must",
       "evidence": "Issue #42 closed as completed; PR #43 merged into feature/mac-prototype on 2026-05-08 as squash commit d516b86. Local implementation on codex/visual-layout-direction passed: swift build; swift build --target AgendumMac; swift test --filter AgendumFeatureTests.TaskWorkflowModelTests (111 XCTest tests before review fix); swift test --enable-code-coverage (126 XCTest tests plus 7 Swift Testing tests before review fix); Python unittest discover (68 tests); Python coverage 499/540 lines (92.4%); Scripts/build_app_bundle.sh; bundle existence/executable checks; plutil -lint; swift run AgendumMac launch smoke; jq; git diff --check. PR review fix for stale hidden-task selection/action targeting passed: swift build --target AgendumMac; focused visible-section lookup test; swift test --enable-code-coverage (127 XCTest tests plus 7 Swift Testing tests); git diff --check. Adversarial F1 repo fallback fix passed: swift test --filter TaskWorkflowModelTests (114 XCTest tests); swift build --target AgendumMac; git diff --check. GitHub Actions Test passed on PR #43 merge head.",
       "notes": "Default source is All; Issues and Manual are separate sections; task actions are in a focused sheet opened from the selected row; status/section colors mirror ../agendum/src/agendum/widgets.py."
+    },
+    {
+      "id": "c2-task-store",
+      "title": "TaskStore actor + TaskStoreProviding protocol seam",
+      "status": "in_progress",
+      "priority": "must",
+      "evidence": "Issue #48, PR #49, branch codex/c2-task-store-actor. Local validation + adversarial review passed: swift build; swift test --enable-code-coverage (129 XCTest + 29 Swift Testing); Python unittest 68 tests; swift run smoke; git diff --check. Review fixes: Task leak in observe (onTermination cancels task), markSeen now sets last_seen_at + updated_at, insertTask helper default changed to seen=0.",
+      "notes": "C3 blocking: ValueObservation is blind to Python-process writes; needs DispatchSource/kqueue notifyChanges or IPC. init(path:) should use DatabasePool + WAL config. FakeTaskStore.observe immediately finishes — expand for C3 live observation tests."
     },
     {
       "id": "c-native-store",
