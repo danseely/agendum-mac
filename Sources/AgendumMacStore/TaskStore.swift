@@ -29,7 +29,7 @@ public actor TaskStore: TaskStoreProviding {
         let (sql, args) = filterSQL(matching: filters)
         let db = database
         let (stream, continuation) = AsyncStream.makeStream(of: [TaskItem].self)
-        Task {
+        let task = Task {
             let observation = ValueObservation.tracking { database in
                 try TaskRecord.fetchAll(database, sql: sql, arguments: args)
                     .compactMap { $0.toTaskItem() }
@@ -38,9 +38,12 @@ public actor TaskStore: TaskStoreProviding {
                 for try await items in observation.values(in: db) {
                     continuation.yield(items)
                 }
-            } catch { }
+            } catch {
+                logger.error("TaskStore observation error: \(error)")
+            }
             continuation.finish()
         }
+        continuation.onTermination = { _ in task.cancel() }
         return stream
     }
 
@@ -53,10 +56,11 @@ public actor TaskStore: TaskStoreProviding {
 
     public func markSeen(id: TaskItem.ID) async throws {
         let taskID = id
+        let now = ISO8601DateFormatter().string(from: Date())
         try await database.write { db in
             try db.execute(
-                sql: "UPDATE tasks SET seen = 1 WHERE id = ?",
-                arguments: [taskID]
+                sql: "UPDATE tasks SET seen = 1, last_seen_at = ?, updated_at = ? WHERE id = ?",
+                arguments: [now, now, taskID]
             )
         }
     }
@@ -65,6 +69,10 @@ public actor TaskStore: TaskStoreProviding {
 
     func insert(_ record: TaskRecord) async throws {
         try await database.write { db in try record.insert(db) }
+    }
+
+    func rawRecord(id: Int64) async throws -> TaskRecord? {
+        try await database.read { db in try TaskRecord.fetchOne(db, key: id) }
     }
 
     func insertRaw(

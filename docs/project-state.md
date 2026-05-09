@@ -162,22 +162,25 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Parent: native data store epic #26.
 - Leaf issue: #48.
 - Branch: `codex/c2-task-store-actor`, based on `feature/mac-prototype` at `63a0efa`.
-- PR: pending.
-- Status: local implementation complete; awaiting PR, adversarial review, and CI.
+- PR: #49.
+- Status: local implementation + adversarial review complete; awaiting CI.
 - Implementation scope:
   - `protocol TaskStoreProviding` in `AgendumFeature/TaskStoreProviding.swift`.
   - Public `TaskItem.init(id:title:backendSource:source:status:project:author:number:url:isUnseen:)` and public `TaskSource.init(backendSource:)` in `AgendumFeature`.
   - `TaskStore` actor in `AgendumMacStore/TaskStore.swift` implementing all four protocol methods.
   - `TaskRecord.toTaskItem()` mapping: `(seen ?? 0) == 0` for `isUnseen` (null treated as unseen, matching Python).
+  - `markSeen` sets `seen = 1`, `last_seen_at`, and `updated_at` (matching Python's `mark_task_seen`).
+  - `observe` stores the returned `Task` and cancels it via `continuation.onTermination` to prevent leaks.
   - `Package.swift`: `AgendumMacStore` and `AgendumMacStoreTests` gain `AgendumFeature` dependency.
-  - 11 `TaskStoreTests` in `AgendumMacStoreTests` covering read/filter/observe/markSeen/nullable-seen/legacy-timestamps.
+  - 11 `TaskStoreTests` in `AgendumMacStoreTests` covering read/filter/observe/markSeen+timestamps/nullable-seen/legacy-timestamps.
   - `FakeTaskStore` actor + 2 smoke tests in `AgendumFeatureTests/FakeTaskStore.swift`.
-  - Internal test helpers `insert(_:)` and `insertRaw(...)` on `TaskStore` (accessible via `@testable import`).
-- Follow-up notes for C3:
-  - `TaskStore.init(path:)` uses `DatabaseQueue`; evaluate switching to `DatabasePool` for WAL concurrent-read mode before or during C3 wiring.
+  - Internal test helpers `insert(_:)`, `insertRaw(...)`, `rawRecord(id:)` on `TaskStore` (accessible via `@testable import`).
+- Follow-up notes for C3 (blocking architectural concern):
+  - `ValueObservation` is blind to external-process writes: GRDB's `sqlite3_commit_hook` only fires for commits made through the same GRDB connection. Python writes via a separate `sqlite3` process. Live observation of Python sync results will require a file-system watcher (`DispatchSource`/kqueue) calling `db.notifyChanges(in: .fullDatabase)` after sync, or IPC from Python to Swift after each sync cycle.
+  - `TaskStore.init(path:)` uses `DatabaseQueue`; should set `Configuration.journalMode = .wal` and/or switch to `DatabasePool` to match the Python side's WAL mode.
   - `FakeTaskStore.observe` returns an immediately-finishing stream; expand for C3 workflow model tests that exercise live observation.
 
 ## Handoff / Next Actions
-1. Open PR for C2 (issue #48, branch `codex/c2-task-store-actor`), targeting `feature/mac-prototype`.
-2. Run adversarial review; merge when CI is green.
+1. Merge PR #49 for C2 after CI passes.
+2. Before C3 wiring: decide on observation strategy for Python-side writes (file-system watcher vs IPC vs polling), and switch `init(path:)` to `DatabasePool` with WAL configuration.
 3. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.

@@ -73,8 +73,8 @@
       "title": "TaskStore actor + TaskStoreProviding protocol seam",
       "status": "in_progress",
       "priority": "must",
-      "evidence": "Issue #48 on branch codex/c2-task-store-actor. Local validation passed: swift build; swift test --enable-code-coverage (129 XCTest + 29 Swift Testing); Python unittest 68 tests; swift run smoke; git diff --check. PR pending.",
-      "notes": "TaskStore uses DatabaseQueue; evaluate DatabasePool for WAL mode before C3 wiring. FakeTaskStore.observe immediately finishes — expand for C3 live observation tests."
+      "evidence": "Issue #48, PR #49, branch codex/c2-task-store-actor. Local validation + adversarial review passed: swift build; swift test --enable-code-coverage (129 XCTest + 29 Swift Testing); Python unittest 68 tests; swift run smoke; git diff --check. Review fixes: Task leak in observe (onTermination cancels task), markSeen now sets last_seen_at + updated_at, insertTask helper default changed to seen=0.",
+      "notes": "C3 blocking: ValueObservation is blind to Python-process writes; needs DispatchSource/kqueue notifyChanges or IPC. init(path:) should use DatabasePool + WAL config. FakeTaskStore.observe immediately finishes — expand for C3 live observation tests."
     },
     {
       "id": "c-native-store",

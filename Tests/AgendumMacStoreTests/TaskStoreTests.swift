@@ -98,7 +98,7 @@ struct TaskStoreTests {
     }
 
     @Test
-    func markSeenSetsSeenToOne() async throws {
+    func markSeenSetsSeenAndTimestamps() async throws {
         let store = try TaskStore()
         try await insertTask(store, id: 1, title: "Unseen task", source: "manual", seen: 0)
 
@@ -106,7 +106,14 @@ struct TaskStoreTests {
 
         try await store.markSeen(id: 1)
 
-        #expect((try await store.task(id: 1))?.isUnseen == false)
+        let item = try await store.task(id: 1)
+        #expect(item?.isUnseen == false)
+
+        let record = try await store.rawRecord(id: 1)
+        #expect(record?.lastSeenAt != nil)
+        #expect(record?.updatedAt != nil)
+        // updatedAt should differ from the original "2026-05-09T00:00:00+00:00" fixture value
+        #expect(record?.updatedAt != "2026-05-09T00:00:00+00:00")
     }
 
     @Test
@@ -150,7 +157,7 @@ private func insertTask(
     title: String,
     source: String,
     status: String = "backlog",
-    seen: Int? = 1
+    seen: Int? = 0
 ) async throws {
     let record = TaskRecord(
         id: id,
