@@ -27,8 +27,8 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
 
 ## Current State
-- Branch: `codex/c2-post-merge-handoff` for this handoff refresh.
-- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `b33e8d6` after C2 merge.
+- Branch: `codex/c2-handoff-branch-fix` for this small post-handoff cleanup.
+- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `65ffe21` after the C2 handoff-refresh merge (PR #50).
 - Open PRs: draft parent PR #2 only.
 - Open epics: #24, #25, #26.
 - Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), visual list/dashboard realignment (#42), C1 native store schema foundation (#44), and C2 `TaskStore` + `TaskStoreProviding` seam (#48) are merged into `feature/mac-prototype`.
@@ -197,7 +197,6 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - **`FakeTaskStore.observe` for workflow tests**: needs to emit at least the current stored tasks on subscription and re-emit on `setTasks(_:)` so C3 workflow tests can exercise live observation through the seam.
 
 ## Handoff / Next Actions
-1. Publish this post-merge handoff refresh as a small PR (precedent: PR #46 / PR #47 after C1) and merge.
-2. Resolve the C3 prerequisites above (observation strategy + WAL config). User decision needed on option 1 vs 2 vs 3 before filing C3.
-3. File C3 leaf issue from `docs/research/proposed-issues.md` once observation strategy is decided; PR back to `feature/mac-prototype`.
-4. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
+1. Resolve the C3 prerequisites above (observation strategy + WAL config). User decision needed on option 1 (helper IPC) vs 2 (file-system watcher) vs 3 (polling) before filing C3.
+2. File C3 leaf issue from `docs/research/proposed-issues.md` once observation strategy is decided; PR back to `feature/mac-prototype`.
+3. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
