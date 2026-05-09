@@ -117,6 +117,51 @@ struct TaskStoreTests {
     }
 
     @Test
+    func tasksExcludesTerminalStatusesByDefault() async throws {
+        let store = try TaskStore()
+        try await insertTask(store, id: 1, title: "Open task", source: "manual", status: "backlog")
+        try await insertTask(store, id: 2, title: "Merged PR", source: "pr_authored", status: "merged")
+        try await insertTask(store, id: 3, title: "Closed issue", source: "issue", status: "closed")
+        try await insertTask(store, id: 4, title: "Done manual", source: "manual", status: "done")
+        try await insertTask(store, id: 5, title: "Review needed", source: "pr_review", status: "review requested")
+
+        let items = try await store.tasks(matching: .default)
+
+        #expect(items.map(\.id).sorted() == [1, 5])
+    }
+
+    @Test
+    func tasksWithExplicitStatusFilterCanReturnTerminalRows() async throws {
+        let store = try TaskStore()
+        try await insertTask(store, id: 1, title: "Open task", source: "manual", status: "backlog")
+        try await insertTask(store, id: 2, title: "Merged PR", source: "pr_authored", status: "merged")
+
+        // Explicit status filter takes precedence and bypasses the default exclusion
+        let items = try await store.tasks(matching: TaskListFilters(status: "merged"))
+
+        #expect(items.count == 1)
+        #expect(items[0].title == "Merged PR")
+    }
+
+    @Test
+    func markSeenTimestampMatchesPythonISOFormat() async throws {
+        let store = try TaskStore()
+        try await insertTask(store, id: 1, title: "T", source: "manual", seen: 0)
+
+        try await store.markSeen(id: 1)
+
+        let record = try await store.rawRecord(id: 1)
+        let updatedAt = try #require(record?.updatedAt)
+        // Match Python datetime.now(timezone.utc).isoformat():
+        // YYYY-MM-DDTHH:MM:SS.ffffff+00:00 — fractional seconds + +00:00 suffix
+        // (not the ISO8601DateFormatter default of `Z`)
+        #expect(updatedAt.hasSuffix("+00:00"))
+        #expect(!updatedAt.hasSuffix("Z"))
+        // Confirm fractional seconds are present (6 digits after the dot)
+        #expect(updatedAt.range(of: #"\.\d{6}\+00:00$"#, options: .regularExpression) != nil)
+    }
+
+    @Test
     func markSeenWithNonExistentIDSucceedsSilently() async throws {
         let store = try TaskStore()
         // Protocol contract: silent no-op when id is not found

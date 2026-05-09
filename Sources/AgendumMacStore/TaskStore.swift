@@ -2,11 +2,21 @@ import Foundation
 import GRDB
 import AgendumFeature
 
+/// Statuses Python's `get_active_tasks` excludes from the default list.
+/// Mirrors `Backend/agendum_engine/agendum/db.py` `TERMINAL_STATUSES`.
+private let terminalStatuses: [String] = ["merged", "closed", "done"]
+
 public actor TaskStore: TaskStoreProviding {
     private let database: DatabaseQueue
-    private let timestampFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
+    /// Matches Python `datetime.now(timezone.utc).isoformat()` exactly so Swift-written
+    /// `updated_at` / `last_seen_at` strings sort lexicographically against Python's
+    /// (which produce `YYYY-MM-DDTHH:MM:SS.ffffff+00:00`). `ISO8601DateFormatter` would
+    /// emit a `Z` suffix and only second precision, breaking mixed sort order.
+    private let timestampFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'+00:00'"
         return f
     }()
 
@@ -104,6 +114,16 @@ public actor TaskStore: TaskStoreProviding {
     private nonisolated func filterSQL(matching filters: TaskListFilters) -> (String, StatementArguments) {
         var conditions: [String] = []
         var args: [DatabaseValueConvertible?] = []
+
+        // Match Python `get_active_tasks`: hard-exclude terminal statuses so the
+        // dashboard never surfaces merged/closed/done rows. An explicit `status`
+        // filter takes precedence and bypasses this default (e.g., a future
+        // archive view could pass `status: "merged"` to look at terminal rows).
+        if filters.status == nil {
+            let placeholders = terminalStatuses.map { _ in "?" }.joined(separator: ", ")
+            conditions.append("status NOT IN (\(placeholders))")
+            args.append(contentsOf: terminalStatuses.map { $0 as DatabaseValueConvertible? })
+        }
 
         if let source = filters.source {
             conditions.append("source = ?")
