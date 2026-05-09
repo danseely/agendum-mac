@@ -27,8 +27,8 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
 
 ## Current State
-- Branch: `codex/c1-post-merge-handoff` for this handoff refresh.
-- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `c9cebde`.
+- Branch: `feature/mac-prototype`.
+- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype`; C1 code landed as `c9cebde` and the post-C1 handoff refresh landed as `63a0efa`.
 - Open PRs: draft parent PR #2 only.
 - Open epics: #24, #25, #26.
 - Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), visual list/dashboard realignment (#42), and C1 native store schema foundation (#44) are merged into `feature/mac-prototype`.
@@ -157,6 +157,5 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Publish this post-merge handoff refresh, then return to `feature/mac-prototype`.
-2. Start C2 when ready; use `DatabaseSchema.prepare(_:)` for store opening and cover nullable `seen` / legacy nullable timestamps in mapping tests.
-3. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
+1. Start C2 when ready; use `DatabaseSchema.prepare(_:)` for store opening and cover nullable `seen` / legacy nullable timestamps in mapping tests.
+2. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
