@@ -71,18 +71,26 @@
     {
       "id": "c2-task-store",
       "title": "TaskStore actor + TaskStoreProviding protocol seam",
-      "status": "in_progress",
+      "status": "passed",
       "priority": "must",
-      "evidence": "Issue #48, PR #49, branch codex/c2-task-store-actor. Local validation + adversarial review passed: swift build; swift test --enable-code-coverage (129 XCTest + 29 Swift Testing); Python unittest 68 tests; swift run smoke; git diff --check. Review fixes: Task leak in observe (onTermination cancels task), markSeen now sets last_seen_at + updated_at, insertTask helper default changed to seen=0.",
-      "notes": "C3 blocking: ValueObservation is blind to Python-process writes; needs DispatchSource/kqueue notifyChanges or IPC. init(path:) should use DatabasePool + WAL config. FakeTaskStore.observe immediately finishes — expand for C3 live observation tests."
+      "evidence": "Issue #48 closed; PR #49 merged into feature/mac-prototype on 2026-05-09 as squash commit b33e8d6 after four adversarial review passes. Final validation: swift build; swift test --enable-code-coverage (129 XCTest + 36 Swift Testing tests, 18 of which are TaskStoreTests); Python unittest 68 tests; swift run smoke; git diff --check; GitHub Actions Test passed (1m33s). Review fixes across four passes: Task leak in observe fixed via onTermination cancellation; markSeen sets seen + last_seen_at + updated_at to match Python update_task; sort order changed to seen ASC, updated_at DESC, id DESC to match Python get_active_tasks; limit clamped to 1..200; terminal statuses (merged/closed/done) excluded by default; timestamps emitted in Python-compatible yyyy-MM-dd'T'HH:mm:ss.SSSSSS+00:00 format so Swift- and Python-written rows sort lexicographically together.",
+      "notes": "C3 prerequisites: (1) decide observation strategy for Python-process writes (helper IPC vs file-system watcher vs polling) since ValueObservation does not see external commits; (2) switch init(path:) from DatabaseQueue to DatabasePool with WAL config; (3) expand FakeTaskStore.observe to emit live values for C3 workflow tests."
+    },
+    {
+      "id": "c3-store-reads",
+      "title": "Wire dashboard reads through TaskStoreProviding",
+      "status": "blocked",
+      "priority": "must",
+      "evidence": "Not yet filed. Source: docs/research/proposed-issues.md section C3.",
+      "notes": "Blocked on user decision for the Python-process observation strategy (helper IPC vs file-system watcher vs polling) and the DatabaseQueue → DatabasePool + WAL switch. File from proposed-issues.md once unblocked."
     },
     {
       "id": "c-native-store",
       "title": "Add native GRDB-backed data store",
       "status": "in_progress",
       "priority": "must",
-      "evidence": "C1 issue #44 was completed by PR #45, merged into feature/mac-prototype as squash commit c9cebde. Validation passed: swift build; swift test --filter AgendumMacStoreTests (9 Swift Testing tests after fifth-review fixes); swift test --enable-code-coverage (129 XCTest tests plus 16 Swift Testing tests after fifth-review fixes); swift run AgendumMac launch smoke; jq; git diff --check; GitHub Actions Test passed on PR #45.",
-      "notes": "Tracked by epic #26. C2-C5 remain future work."
+      "evidence": "C1 (PR #45, c9cebde) and C2 (PR #49, b33e8d6) merged into feature/mac-prototype. C3 dashboard read wiring is the next leaf, blocked on observation-strategy decision. C4 mutations and C5 Application Support relocation remain future work.",
+      "notes": "Tracked by epic #26."
     },
     {
       "id": "c1-store-schema",

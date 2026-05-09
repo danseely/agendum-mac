@@ -27,14 +27,14 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
 
 ## Current State
-- Branch: `codex/c2-task-store-actor` (targeting `feature/mac-prototype`).
-- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `74b0a6e`.
+- Branch: `codex/c2-post-merge-handoff` for this handoff refresh.
+- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `b33e8d6` after C2 merge.
 - Open PRs: draft parent PR #2 only.
 - Open epics: #24, #25, #26.
-- Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), visual list/dashboard realignment (#42), and C1 native store schema foundation (#44) are merged into `feature/mac-prototype`.
-- In progress: C2 `TaskStore` actor + `TaskStoreProviding` seam (issue #48, branch `codex/c2-task-store-actor`). Local implementation complete; ready for PR.
-- Blocked: no implementation-level blocker.
-- Next checkpoint: open PR for C2, run adversarial review, merge when green.
+- Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), visual list/dashboard realignment (#42), C1 native store schema foundation (#44), and C2 `TaskStore` + `TaskStoreProviding` seam (#48) are merged into `feature/mac-prototype`.
+- In progress: native data store epic #26 remains active; C3 dashboard read wiring is the next leaf, but the WAL / external-process observation question must be resolved first.
+- Blocked: no implementation-level blocker. C3 has an architectural prerequisite captured under "C3 prerequisites" below.
+- Next checkpoint: file/start C3 once observation strategy is decided; current handoff branch is docs-only.
 
 ## Decisions
 - 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
@@ -55,6 +55,10 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - 2026-05-07: Decision: keep `@SceneStorage` bridges in `AgendumMac` and expose only plain restoration helpers in `AgendumFeature`. Reason: workflow model tests should stay SwiftUI-free while first refresh still uses restored filters. Impact: `BackendStatusModel.restoreSceneState(filters:selectedTaskID:)` seeds plain model state before `refresh()`. Plan change: no.
 - 2026-05-08: Decision: realign the Mac dashboard around the terminal app's sectioned triage list. Reason: the previous sidebar/detail-pane design drifted from the desired single-list workflow. Impact: `All` is the default source, issues and manual tasks are separate sections, task actions move to a focused sheet, and status/section colors mirror `../agendum/src/agendum/widgets.py`. Plan change: yes for visual/layout direction.
 - 2026-05-08: Decision: publish C1 after adversarial review loop and merge when green. Reason: user explicitly requested that all follow-up findings be captured, the handoff docs updated, and the C1 PR merged after checks pass. Impact: C1 leaf issue #44 was completed by PR #45, merged into `feature/mac-prototype` as `c9cebde`. Plan change: no.
+- 2026-05-09: Decision: C2 `markSeen` writes `seen`, `last_seen_at`, AND `updated_at`. Reason: Python single-task path is `helper.py:mark_task_seen` → `db.py:update_task`, and `update_task` always appends `updated_at = NOW`. The `mark_all_seen` bulk function is a different code path that only writes `seen + last_seen_at` and is not the helper-callable single-task path. A fourth-pass review proposed dropping `updated_at` based on misreading `mark_all_seen`; rejected after verifying source. Impact: Swift `markSeen` matches Python's per-task helper command. Plan change: no.
+- 2026-05-09: Decision: C2 timestamps use Python-compatible format `yyyy-MM-dd'T'HH:mm:ss.SSSSSS'+00:00'` via `DateFormatter`, not `ISO8601DateFormatter`. Reason: `ISO8601DateFormatter` emits `Z` suffix and second-precision; mixing those rows with Python-written `+00:00` microsecond rows in `ORDER BY updated_at DESC` mis-sorts because `+` (0x2B) lexicographically precedes `Z` (0x5A). Impact: Swift- and Python-written timestamps now sort correctly together. Plan change: no.
+- 2026-05-09: Decision: C2 `tasks(matching:)` hard-excludes terminal statuses (`merged`, `closed`, `done`) by default unless an explicit `status` filter is supplied. Reason: matches Python `get_active_tasks`; without it the dashboard would surface closed PRs once C3 wires up. Impact: store mirrors Python's active-list contract; archive views can pass `status: "merged"` etc. to opt in. Plan change: no.
+- 2026-05-09: Decision: publish C2 after a four-pass adversarial review loop and merge when green. Reason: user explicitly requested the loop. Impact: C2 leaf issue #48 was completed by PR #49, merged into `feature/mac-prototype` as `b33e8d6`. Plan change: no.
 
 ## Drift
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
@@ -67,6 +71,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - 2026-05-07 A3 drift check: approved deviation from the original A3 draft: do not use an app-scoped dashboard model. Revised A3 scope requires per-scene models and focused command routing; implementation follows that reviewed design.
 - 2026-05-08 visual/layout drift check: approved correction. The product direction now prioritizes the terminal app's dense sectioned triage list over the earlier Mac detail-pane layout, while retaining native sidebar, toolbar, sheets, menus, and state restoration.
 - 2026-05-08 C1 drift check: no unapproved drift. C1 is the next critical-path leaf because B3 explicitly depends on C1/C2 and A6 is Phase 8 polish. Leaf issue #44 was filed after explicit user approval to publish.
+- 2026-05-09 C2 drift check: no unapproved drift. C2 was the named next C-epic leaf after C1; landed as PR #49. C3 is now the next leaf but has a documented architectural prerequisite (Python-process write observation) that must be resolved before implementation, not after.
 
 ## Validation
 - Last full checkpoint validation: A4 / PR #36 on 2026-05-06: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle existence/executable checks; `plutil -lint`; `swift run AgendumMac` launch smoke; `git diff --check`; platform-reference grep for `AgendumMacWorkflow`.
@@ -93,6 +98,12 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - C1 PR #45 GitHub Actions `Test` check passed on 2026-05-09; PR #45 merged into `feature/mac-prototype` as squash commit `c9cebde`; issue #44 closed as completed.
 - `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 - C2 local validation on branch `codex/c2-task-store-actor`: `swift build` passed; `swift test --filter AgendumMacStoreTests.TaskStoreTests` passed (11 Swift Testing tests); `swift test --enable-code-coverage` passed (129 XCTest tests plus 29 Swift Testing tests); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed (68 tests); `swift run AgendumMac` built and launch-smoked; `git diff --check` passed. During test development: initial mapping had `seen == 0` for `isUnseen`, but null `seen` must also map to `isUnseen = true` (Python treats NULL as falsy); fixed to `(seen ?? 0) == 0`.
+- C2 first adversarial review: fixed `observe` Task leak (now stored and cancelled via `continuation.onTermination`); added `last_seen_at` and `updated_at` writes to `markSeen` to match Python `update_task`; flipped test helper `seen` default from 1 to 0; added `rawRecord(id:)` test helper; observation errors now logged not silently swallowed.
+- C2 second adversarial review: switched `markSeen` formatter to actor-scoped `ISO8601DateFormatter` with `withInternetDateTime`; aligned `insertRawTask` default `seen` to 0; added `tasksRespectsLimit` and `observeEmitsNewTaskInsertedAfterSubscription` tests; FakeTaskStore.observe gained C3 TODO comment.
+- C2 third adversarial review: aligned sort order to Python (`seen ASC, updated_at DESC, id DESC` — was `last_changed_at DESC, id DESC`); clamped limit to 1..200; marked `observe` `nonisolated` in protocol; documented `markSeen` silent no-op on missing id and added regression tests `markSeenWithNonExistentIDSucceedsSilently` and `tasksOrdersUnseenBeforeSeenThenByUpdatedAt`.
+- C2 fourth adversarial review: switched `timestampFormatter` from `ISO8601DateFormatter` to `DateFormatter` with `"yyyy-MM-dd'T'HH:mm:ss.SSSSSS'+00:00'"` to match Python `datetime.isoformat()` (avoids `Z`-vs-`+00:00` lexicographic divergence); added default exclusion of terminal statuses (`merged`/`closed`/`done`) to `tasks(matching:)`; added regression tests `tasksExcludesTerminalStatusesByDefault`, `tasksWithExplicitStatusFilterCanReturnTerminalRows`, and `markSeenTimestampMatchesPythonISOFormat`. One reviewer finding (drop `updated_at` from `markSeen`) was rejected after verifying Python source: `mark_task_seen` calls `update_task` which always writes `updated_at`; reviewer had confused this with the unrelated `mark_all_seen` bulk function.
+- C2 final pre-merge validation on branch `codex/c2-task-store-actor` (after rebase onto `74b0a6e`): `swift build` passed; `swift test --enable-code-coverage` passed (129 XCTest tests plus 36 Swift Testing tests, of which 18 are `TaskStoreTests`); `swift test --filter AgendumMacStoreTests.TaskStoreTests` passed; `/opt/homebrew/bin/python3 -m unittest discover -s Tests` passed (68 tests); `swift run AgendumMac` built and launch-smoked; `git diff --check` passed.
+- C2 PR #49 GitHub Actions `Test` check passed on 2026-05-09 (1m33s); PR #49 squash-merged into `feature/mac-prototype` as `b33e8d6`; issue #48 closed as completed.
 
 ## C1 Work Packet
 - Objective: add the native GRDB store foundation without changing runtime dashboard behavior.
@@ -161,26 +172,32 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Objective: add `TaskStore` actor and `TaskStoreProviding` protocol seam; no runtime wiring yet.
 - Parent: native data store epic #26.
 - Leaf issue: #48.
-- Branch: `codex/c2-task-store-actor`, based on `feature/mac-prototype` at `63a0efa`.
+- Branch: `codex/c2-task-store-actor`, originally based on `feature/mac-prototype` at `63a0efa`, rebased onto `74b0a6e` before merge.
 - PR: #49.
-- Status: local implementation + adversarial review complete; awaiting CI.
-- Implementation scope:
-  - `protocol TaskStoreProviding` in `AgendumFeature/TaskStoreProviding.swift`.
+- Status: complete; PR #49 merged as `b33e8d6` on 2026-05-09 after a four-pass adversarial review; issue #48 is closed.
+- Implementation as merged:
+  - `protocol TaskStoreProviding: Sendable` in `AgendumFeature/TaskStoreProviding.swift`. `observe(matching:)` is `nonisolated`; `markSeen` documents silent no-op on missing id.
   - Public `TaskItem.init(id:title:backendSource:source:status:project:author:number:url:isUnseen:)` and public `TaskSource.init(backendSource:)` in `AgendumFeature`.
-  - `TaskStore` actor in `AgendumMacStore/TaskStore.swift` implementing all four protocol methods.
-  - `TaskRecord.toTaskItem()` mapping: `(seen ?? 0) == 0` for `isUnseen` (null treated as unseen, matching Python).
-  - `markSeen` sets `seen = 1`, `last_seen_at`, and `updated_at` (matching Python's `mark_task_seen`).
-  - `observe` stores the returned `Task` and cancels it via `continuation.onTermination` to prevent leaks.
+  - `TaskStore` actor in `AgendumMacStore/TaskStore.swift` with `init(path:)` and `init(inMemory:)`. `tasks(matching:)`, `task(id:)`, `markSeen(id:)` are actor-isolated; `observe(matching:)` is `nonisolated` and stores/cancels its `Task` via `continuation.onTermination`.
+  - `filterSQL` defaults: hard-excludes terminal statuses (`merged`/`closed`/`done`) unless explicit `status` is supplied; clamps `limit` to 1..200; orders `seen ASC, updated_at DESC, id DESC` (matches Python `get_active_tasks`).
+  - `markSeen` writes `seen = 1, last_seen_at = NOW, updated_at = NOW`. Timestamps formatted as `yyyy-MM-dd'T'HH:mm:ss.SSSSSS'+00:00'` to match Python `datetime.now(tz=utc).isoformat()` (lexicographically sortable against Python-written rows).
+  - `TaskRecord.toTaskItem()` mapping in `AgendumMacStore/TaskStore.swift`: `isUnseen = (seen ?? 0) == 0` (null treated as unseen, matching Python's `bool(NULL)`).
   - `Package.swift`: `AgendumMacStore` and `AgendumMacStoreTests` gain `AgendumFeature` dependency.
-  - 11 `TaskStoreTests` in `AgendumMacStoreTests` covering read/filter/observe/markSeen+timestamps/nullable-seen/legacy-timestamps.
-  - `FakeTaskStore` actor + 2 smoke tests in `AgendumFeatureTests/FakeTaskStore.swift`.
+  - 18 `TaskStoreTests` covering reads/filter/observe (including post-subscription insert)/markSeen+timestamps/nullable-seen/legacy-timestamps/limit/sort-order/terminal-status-exclusion/Python-ISO-format.
+  - `FakeTaskStore` actor + 2 smoke tests in `AgendumFeatureTests/FakeTaskStore.swift` (C3 TODO note: expand `observe` to emit live values).
   - Internal test helpers `insert(_:)`, `insertRaw(...)`, `rawRecord(id:)` on `TaskStore` (accessible via `@testable import`).
-- Follow-up notes for C3 (blocking architectural concern):
-  - `ValueObservation` is blind to external-process writes: GRDB's `sqlite3_commit_hook` only fires for commits made through the same GRDB connection. Python writes via a separate `sqlite3` process. Live observation of Python sync results will require a file-system watcher (`DispatchSource`/kqueue) calling `db.notifyChanges(in: .fullDatabase)` after sync, or IPC from Python to Swift after each sync cycle.
-  - `TaskStore.init(path:)` uses `DatabaseQueue`; should set `Configuration.journalMode = .wal` and/or switch to `DatabasePool` to match the Python side's WAL mode.
-  - `FakeTaskStore.observe` returns an immediately-finishing stream; expand for C3 workflow model tests that exercise live observation.
+
+## C3 Prerequisites (resolve before filing C3)
+- **Observation of Python-process writes**: `ValueObservation` only sees commits made through the same GRDB connection. Python writes through a separate `sqlite3` process; those commits are invisible to GRDB's `sqlite3_commit_hook`. Decide on one of:
+  1. File-system watcher (`DispatchSource.makeFileSystemObjectSource` / kqueue) on the WAL/journal that calls `database.notifyChanges(in: .fullDatabase)` after Python syncs.
+  2. IPC from Python (e.g., a tiny stdio "sync-complete" event from the existing helper) into Swift to trigger `notifyChanges`.
+  3. Periodic polling fallback (cheap but wastes wakeups).
+  Recommendation: start with option 2 (the helper already has stdio open, and sync events are already a concept) and add option 1 as a defense-in-depth signal.
+- **WAL configuration**: `TaskStore.init(path:)` currently uses `DatabaseQueue` with default `Configuration`. Switch to `DatabasePool` with `Configuration.journalMode = .wal` so Swift opens the same journal mode as Python. `DatabasePool` does not support in-memory; keep `init(inMemory:)` on `DatabaseQueue` for tests.
+- **`FakeTaskStore.observe` for workflow tests**: needs to emit at least the current stored tasks on subscription and re-emit on `setTasks(_:)` so C3 workflow tests can exercise live observation through the seam.
 
 ## Handoff / Next Actions
-1. Merge PR #49 for C2 after CI passes.
-2. Before C3 wiring: decide on observation strategy for Python-side writes (file-system watcher vs IPC vs polling), and switch `init(path:)` to `DatabasePool` with WAL configuration.
-3. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
+1. Publish this post-merge handoff refresh as a small PR (precedent: PR #46 / PR #47 after C1) and merge.
+2. Resolve the C3 prerequisites above (observation strategy + WAL config). User decision needed on option 1 vs 2 vs 3 before filing C3.
+3. File C3 leaf issue from `docs/research/proposed-issues.md` once observation strategy is decided; PR back to `feature/mac-prototype`.
+4. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
