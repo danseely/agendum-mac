@@ -6,7 +6,7 @@
 > - Epic A: filed as **#24** (https://github.com/danseely/agendum-mac/issues/24)
 > - Epic B: filed as **#25** (https://github.com/danseely/agendum-mac/issues/25)
 > - Epic C: filed as **#26** (https://github.com/danseely/agendum-mac/issues/26)
-> - Filed / closed leaves: A1 #27, A2 #29, A3 #40, A4 #35, A5 #37, A-Visual #42, B1 #31, B2 #33.
+> - Filed / closed leaves: A1 #27, A2 #29, A3 #40, A4 #35, A5 #37, A-Visual #42, B1 #31, B2 #33, C1 #44.
 > - Remaining leaf issues: not yet filed; per the user's instruction, leaves are filed as their phase approaches. The drafts below remain authoritative except where a closed issue's scope was narrowed by `docs/decisions.md`.
 >
 > When filing a leaf, replace its placeholder parent reference with the real epic number above. Per the user's global GitHub rule, posting any issue requires explicit approval.
@@ -678,8 +678,9 @@ This issue does NOT change runtime behavior — nothing reads from the store yet
 ## Scope
 - New SwiftPM target `AgendumMacStore` (placement: a sibling library target alongside `AgendumBackend` and `AgendumFeature`).
 - Add GRDB.swift v7+ as a package dependency.
-- `TaskRecord: Codable, FetchableRecord, PersistableRecord` mirroring the 16 columns of the existing `tasks` table.
-- `DatabaseSchema` wrapper exposing `DatabaseMigrator` registration; v1 = "current Python schema" (no-op when opening an existing DB; full schema create when opening a fresh DB).
+- `TaskRecord: Codable, FetchableRecord, PersistableRecord` mirroring the 17 columns of the existing `tasks` table.
+- `DatabaseSchema` wrapper exposing `DatabaseMigrator` registration; v1 = "current Python schema" (full schema create when opening a fresh DB; existing DBs preserve data while ensuring `gh_node_id`, indexes, and legacy `active` -> `backlog` status migration).
+- `DatabaseSchema.prepare(_:)` helper for future store-opening code that runs migrations plus repeatable Python-compatible legacy cleanup.
 - New file `AgendumMacStore/Schema.swift` documenting the schema for future migrations.
 
 ## Out of scope
@@ -694,6 +695,9 @@ This issue does NOT change runtime behavior — nothing reads from the store yet
 - `swift build` includes `AgendumMacStore`.
 - Tests for `TaskRecord` round-trip via in-memory DB pass.
 - Opening an existing `~/.agendum/agendum.db` file returns the expected schema with no migration error.
+- Legacy rows with nullable `seen` can be read.
+- Swift persistence refuses to write rows with nil required timestamps.
+- Repeatable legacy `active` -> `backlog` cleanup is available through the schema preparation API.
 
 ## Validation gates
 - `swift build` passes.
