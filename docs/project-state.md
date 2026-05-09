@@ -27,14 +27,14 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
 
 ## Current State
-- Branch: `codex/c1-grdb-store-schema`.
-- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `a6b679c`.
-- Open PRs: draft parent PR #2 and C1 PR #45.
+- Branch: `codex/c1-post-merge-handoff` for this handoff refresh.
+- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `c9cebde`.
+- Open PRs: draft parent PR #2 only.
 - Open epics: #24, #25, #26.
-- Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), and the visual list/dashboard realignment (#42) are merged into `feature/mac-prototype`.
-- In progress: C1 native store schema foundation on local branch `codex/c1-grdb-store-schema`; leaf issue #44 is filed.
+- Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), visual list/dashboard realignment (#42), and C1 native store schema foundation (#44) are merged into `feature/mac-prototype`.
+- In progress: native data store epic #26 remains active; C2 is the next C-epic leaf.
 - Blocked: no implementation-level blocker.
-- Next checkpoint: wait for PR #45 checks and merge when green; user explicitly authorized merge once the PR is green.
+- Next checkpoint: file/start C2 when ready, using the residual notes below.
 
 ## Decisions
 - 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
@@ -54,7 +54,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - 2026-05-07: Decision: A3 menu commands route through a focused scene value instead of app-global state. Reason: menu actions must target the active window and avoid a "last changed window wins" shared mirror. Impact: command availability and task actions read the focused scene's model and selected-task binding. Plan change: yes for A3 architecture.
 - 2026-05-07: Decision: keep `@SceneStorage` bridges in `AgendumMac` and expose only plain restoration helpers in `AgendumFeature`. Reason: workflow model tests should stay SwiftUI-free while first refresh still uses restored filters. Impact: `BackendStatusModel.restoreSceneState(filters:selectedTaskID:)` seeds plain model state before `refresh()`. Plan change: no.
 - 2026-05-08: Decision: realign the Mac dashboard around the terminal app's sectioned triage list. Reason: the previous sidebar/detail-pane design drifted from the desired single-list workflow. Impact: `All` is the default source, issues and manual tasks are separate sections, task actions move to a focused sheet, and status/section colors mirror `../agendum/src/agendum/widgets.py`. Plan change: yes for visual/layout direction.
-- 2026-05-08: Decision: publish C1 after adversarial review loop and merge when green. Reason: user explicitly requested that all follow-up findings be captured, the handoff docs updated, and the C1 PR merged after checks pass. Impact: C1 leaf issue #44 and PR #45 are filed; PR #45 targets `feature/mac-prototype`. Plan change: no.
+- 2026-05-08: Decision: publish C1 after adversarial review loop and merge when green. Reason: user explicitly requested that all follow-up findings be captured, the handoff docs updated, and the C1 PR merged after checks pass. Impact: C1 leaf issue #44 was completed by PR #45, merged into `feature/mac-prototype` as `c9cebde`. Plan change: no.
 
 ## Drift
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
@@ -90,6 +90,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - C1 fifth adversarial review found `seen` was nullable in SQLite but non-optional in `TaskRecord`, and `active` status cleanup was migration-only rather than repeatable like Python `init_db`. Fix: `TaskRecord.seen` is nullable, `DatabaseSchema.prepare(_:)` runs migrations plus repeatable legacy status cleanup, and tests cover nullable `seen` reads plus post-migration `active` cleanup. Post-fix validation: `swift test --filter AgendumMacStoreTests` passed (9 Swift Testing tests); `swift test --enable-code-coverage` passed (129 XCTest tests plus 16 Swift Testing tests).
 - C1 sixth adversarial review found no findings. Residuals for C2: store-opening code should use `DatabaseSchema.prepare(_:)`; mapping tests should cover nullable `seen` and legacy nullable timestamps when converting records to app-facing tasks. Publication residual: include `Package.resolved` with the PR.
 - C1 final pre-publication validation on branch `codex/c1-grdb-store-schema`: `swift build` passed; `swift test --enable-code-coverage` passed (129 XCTest tests plus 16 Swift Testing tests); `swift run AgendumMac` built and launch-smoked until terminated with `kill`; `jq . docs/features.json` passed; `git diff --check` passed. No `agent-check` script exists in this repo.
+- C1 PR #45 GitHub Actions `Test` check passed on 2026-05-09; PR #45 merged into `feature/mac-prototype` as squash commit `c9cebde`; issue #44 closed as completed.
 - `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
 
 ## C1 Work Packet
@@ -98,7 +99,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Leaf issue: #44, filed from `docs/research/proposed-issues.md` section "C1 - Add `AgendumMacStore` target on GRDB".
 - Branch: `codex/c1-grdb-store-schema`, based on `feature/mac-prototype` at `a6b679c`.
 - PR: #45.
-- Status: implementation complete; PR #45 is open and waiting on checks.
+- Status: complete; PR #45 merged as `c9cebde`, and issue #44 is closed.
 - Implementation scope:
   - Add SwiftPM product/target `AgendumMacStore`.
   - Add GRDB.swift dependency, currently resolved to `7.10.0` in `Package.resolved`; include `Package.resolved` when committing/publishing this slice.
@@ -156,6 +157,6 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Wait for PR #45 GitHub Actions to pass.
-2. Merge PR #45 into `feature/mac-prototype` after green checks, then close issue #44 if it remains open.
+1. Publish this post-merge handoff refresh, then return to `feature/mac-prototype`.
+2. Start C2 when ready; use `DatabaseSchema.prepare(_:)` for store opening and cover nullable `seen` / legacy nullable timestamps in mapping tests.
 3. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
