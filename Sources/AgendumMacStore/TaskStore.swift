@@ -125,9 +125,11 @@ public actor TaskStore: TaskStoreProviding {
         if !conditions.isEmpty {
             sql += " WHERE " + conditions.joined(separator: " AND ")
         }
-        sql += " ORDER BY last_changed_at DESC, id DESC"
+        // Match Python db.py ordering: unseen first, then most-recently-updated.
+        // (Source grouping is omitted; TaskDisplaySection handles that at the display layer.)
+        sql += " ORDER BY seen ASC, updated_at DESC, id DESC"
         sql += " LIMIT ?"
-        args.append(filters.limit)
+        args.append(max(1, min(filters.limit, 200)))
 
         return (sql, StatementArguments(args))
     }

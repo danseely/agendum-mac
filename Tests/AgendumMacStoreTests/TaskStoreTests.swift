@@ -117,6 +117,32 @@ struct TaskStoreTests {
     }
 
     @Test
+    func markSeenWithNonExistentIDSucceedsSilently() async throws {
+        let store = try TaskStore()
+        // Protocol contract: silent no-op when id is not found
+        try await store.markSeen(id: 999)
+    }
+
+    @Test
+    func tasksOrdersUnseenBeforeSeenThenByUpdatedAt() async throws {
+        let store = try TaskStore()
+        // Insert seen task with older updated_at
+        try await insertRawTask(store, id: 1, title: "Seen older", source: "manual",
+                                seen: 1, updatedAt: "2026-05-01T00:00:00+00:00")
+        // Insert unseen task with newer updated_at
+        try await insertRawTask(store, id: 2, title: "Unseen newer", source: "manual",
+                                seen: 0, updatedAt: "2026-05-09T00:00:00+00:00")
+        // Insert unseen task with older updated_at
+        try await insertRawTask(store, id: 3, title: "Unseen older", source: "manual",
+                                seen: 0, updatedAt: "2026-05-05T00:00:00+00:00")
+
+        let items = try await store.tasks(matching: .default)
+
+        // Unseen tasks first (seen ASC), then seen; within each group by updated_at DESC
+        #expect(items.map(\.id) == [2, 3, 1])
+    }
+
+    @Test
     func tasksRespectsLimit() async throws {
         let store = try TaskStore()
         for i in 1...5 {
