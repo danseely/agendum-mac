@@ -27,14 +27,14 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
 
 ## Current State
-- Branch: `feature/mac-prototype`.
-- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `d516b86`.
-- Open PRs: draft parent PR #2 only.
+- Branch: `codex/c1-grdb-store-schema`.
+- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `a6b679c`.
+- Open PRs: draft parent PR #2 and C1 PR #45.
 - Open epics: #24, #25, #26.
 - Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), and the visual list/dashboard realignment (#42) are merged into `feature/mac-prototype`.
-- In progress: no active leaf implementation branch.
+- In progress: C1 native store schema foundation on local branch `codex/c1-grdb-store-schema`; leaf issue #44 is filed.
 - Blocked: no implementation-level blocker.
-- Next checkpoint: choose the next leaf under epics #24, #25, or #26 before creating a new implementation branch.
+- Next checkpoint: wait for PR #45 checks and merge when green; user explicitly authorized merge once the PR is green.
 
 ## Decisions
 - 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
@@ -54,6 +54,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - 2026-05-07: Decision: A3 menu commands route through a focused scene value instead of app-global state. Reason: menu actions must target the active window and avoid a "last changed window wins" shared mirror. Impact: command availability and task actions read the focused scene's model and selected-task binding. Plan change: yes for A3 architecture.
 - 2026-05-07: Decision: keep `@SceneStorage` bridges in `AgendumMac` and expose only plain restoration helpers in `AgendumFeature`. Reason: workflow model tests should stay SwiftUI-free while first refresh still uses restored filters. Impact: `BackendStatusModel.restoreSceneState(filters:selectedTaskID:)` seeds plain model state before `refresh()`. Plan change: no.
 - 2026-05-08: Decision: realign the Mac dashboard around the terminal app's sectioned triage list. Reason: the previous sidebar/detail-pane design drifted from the desired single-list workflow. Impact: `All` is the default source, issues and manual tasks are separate sections, task actions move to a focused sheet, and status/section colors mirror `../agendum/src/agendum/widgets.py`. Plan change: yes for visual/layout direction.
+- 2026-05-08: Decision: publish C1 after adversarial review loop and merge when green. Reason: user explicitly requested that all follow-up findings be captured, the handoff docs updated, and the C1 PR merged after checks pass. Impact: C1 leaf issue #44 and PR #45 are filed; PR #45 targets `feature/mac-prototype`. Plan change: no.
 
 ## Drift
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
@@ -65,6 +66,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - 2026-05-07 post-merge drift check: no new unapproved drift. A5 landed after explicit user approval to merge PR #38; A3 remains the next architecture checkpoint.
 - 2026-05-07 A3 drift check: approved deviation from the original A3 draft: do not use an app-scoped dashboard model. Revised A3 scope requires per-scene models and focused command routing; implementation follows that reviewed design.
 - 2026-05-08 visual/layout drift check: approved correction. The product direction now prioritizes the terminal app's dense sectioned triage list over the earlier Mac detail-pane layout, while retaining native sidebar, toolbar, sheets, menus, and state restoration.
+- 2026-05-08 C1 drift check: no unapproved drift. C1 is the next critical-path leaf because B3 explicitly depends on C1/C2 and A6 is Phase 8 polish. Leaf issue #44 was filed after explicit user approval to publish.
 
 ## Validation
 - Last full checkpoint validation: A4 / PR #36 on 2026-05-06: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle existence/executable checks; `plutil -lint`; `swift run AgendumMac` launch smoke; `git diff --check`; platform-reference grep for `AgendumMacWorkflow`.
@@ -81,7 +83,43 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Visual list PR #43 review-fix validation: stale hidden-task selection/action targeting fixed by revalidating visible selection and resolving action tasks only from visible sections; `swift build --target AgendumMac`; `swift test --filter TaskWorkflowModelTests/testTaskDisplaySectionsTaskLookupOnlySearchesVisibleSections`; `swift test --enable-code-coverage` (127 XCTest tests plus 7 Swift Testing tests); `git diff --check`.
 - Visual list PR #43 adversarial F1 validation: repo display fallback was real; fixed `TaskItem.project` fallback to `project -> ghRepo -> "No project"` so rows/modals show GitHub repo when project is nil; `swift test --filter TaskWorkflowModelTests` (114 XCTest tests); `swift build --target AgendumMac`; `git diff --check`.
 - Visual list PR #43 merged into `feature/mac-prototype` on 2026-05-08 as squash commit `d516b86`; GitHub Actions `Test` passed on the merge head; issue #42 closed as completed.
+- Post-visual handoff refresh landed on `feature/mac-prototype` as `a6b679c`.
+- C1 local validation on branch `codex/c1-grdb-store-schema`: `swift build` passed and resolved GRDB.swift `7.10.0`; `swift test --filter AgendumMacStoreTests` passed (3 Swift Testing tests); `swift test --enable-code-coverage` passed (129 XCTest tests plus 10 Swift Testing tests); `swift run AgendumMac` built and launch-smoked until terminated with `kill`; `git diff --check` passed.
+- C1 adversarial review found a real legacy migration gap: existing DBs without `gh_node_id` would fail when creating `idx_tasks_gh_node_id`. Fix: `DatabaseSchema` now ensures `gh_node_id` before index creation; store tests now cover the missing-column migration path plus column metadata, partial indexes, and `gh_url` uniqueness. Post-fix validation: `swift test --filter AgendumMacStoreTests` passed (5 Swift Testing tests); `swift test --enable-code-coverage` passed (129 XCTest tests plus 12 Swift Testing tests). Review also found stale C1 draft issue wording; fixed in `docs/research/proposed-issues.md`.
+- C1 second/third/fourth adversarial reviews found `TaskRecord` could allow Swift insert paths to encode `NULL` timestamps, unlike Python `add_task`, which always writes `last_changed_at`, `created_at`, and `updated_at`. Fix: the public initializer now requires non-optional timestamp values, timestamp fields are not externally settable, and custom GRDB persistence encoding throws rather than writing `NULL` when a legacy-read record has nil required timestamps. Post-fix validation: `swift test --filter AgendumMacStoreTests` passed (7 Swift Testing tests); `swift test --enable-code-coverage` passed (129 XCTest tests plus 14 Swift Testing tests).
+- C1 fifth adversarial review found `seen` was nullable in SQLite but non-optional in `TaskRecord`, and `active` status cleanup was migration-only rather than repeatable like Python `init_db`. Fix: `TaskRecord.seen` is nullable, `DatabaseSchema.prepare(_:)` runs migrations plus repeatable legacy status cleanup, and tests cover nullable `seen` reads plus post-migration `active` cleanup. Post-fix validation: `swift test --filter AgendumMacStoreTests` passed (9 Swift Testing tests); `swift test --enable-code-coverage` passed (129 XCTest tests plus 16 Swift Testing tests).
+- C1 sixth adversarial review found no findings. Residuals for C2: store-opening code should use `DatabaseSchema.prepare(_:)`; mapping tests should cover nullable `seen` and legacy nullable timestamps when converting records to app-facing tasks. Publication residual: include `Package.resolved` with the PR.
+- C1 final pre-publication validation on branch `codex/c1-grdb-store-schema`: `swift build` passed; `swift test --enable-code-coverage` passed (129 XCTest tests plus 16 Swift Testing tests); `swift run AgendumMac` built and launch-smoked until terminated with `kill`; `jq . docs/features.json` passed; `git diff --check` passed. No `agent-check` script exists in this repo.
 - `python3` in the user shell may resolve to pyenv 3.10.2, which lacks `tomllib`; use `/opt/homebrew/bin/python3` for local helper validation.
+
+## C1 Work Packet
+- Objective: add the native GRDB store foundation without changing runtime dashboard behavior.
+- Parent: native data store epic #26.
+- Leaf issue: #44, filed from `docs/research/proposed-issues.md` section "C1 - Add `AgendumMacStore` target on GRDB".
+- Branch: `codex/c1-grdb-store-schema`, based on `feature/mac-prototype` at `a6b679c`.
+- PR: #45.
+- Status: implementation complete; PR #45 is open and waiting on checks.
+- Implementation scope:
+  - Add SwiftPM product/target `AgendumMacStore`.
+  - Add GRDB.swift dependency, currently resolved to `7.10.0` in `Package.resolved`; include `Package.resolved` when committing/publishing this slice.
+  - Add `DatabaseSchema.migrator()` with the current Python `tasks` schema and indexes.
+  - Add `DatabaseSchema.prepare(_:)` for migration plus repeatable Python-compatible legacy status cleanup.
+  - Add `TaskRecord` mirroring the current task table columns; public construction and custom persistence encoding prevent new Swift writes with nil required timestamps.
+  - Add in-memory migration/round-trip tests in `AgendumMacStoreTests`, including older DBs missing `gh_node_id`.
+- Out of scope:
+  - `TaskStore` actor and `TaskStoreProviding` seam (C2).
+  - Dashboard reads through store (C3).
+  - Mutations through store (C4).
+  - Application Support relocation/import (C5).
+- Follow-up notes:
+  - C2 should open databases through `DatabaseSchema.prepare(_:)`, not only `DatabaseSchema.migrator().migrate(...)`.
+  - C2 record-to-domain mapping tests should cover nullable `seen` and legacy nullable timestamp rows.
+- Validation gates:
+  - `swift build`
+  - `swift test --filter AgendumMacStoreTests`
+  - `swift test --enable-code-coverage`
+  - `swift run AgendumMac` smoke launch
+  - `git diff --check`
 
 ## A5 Work Packet
 - Objective: rename modules from `AgendumMacCore` to `AgendumBackend` and from `AgendumMacWorkflow` to `AgendumFeature`.
@@ -118,6 +156,6 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Start any fresh session from `feature/mac-prototype` at `d516b86` or later, then read this file and `docs/features.json`.
-2. Pick the next leaf under #24, #25, or #26 before creating a short-lived `codex/*` branch.
+1. Wait for PR #45 GitHub Actions to pass.
+2. Merge PR #45 into `feature/mac-prototype` after green checks, then close issue #44 if it remains open.
 3. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.

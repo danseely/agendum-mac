@@ -71,10 +71,18 @@
     {
       "id": "c-native-store",
       "title": "Add native GRDB-backed data store",
-      "status": "not_started",
+      "status": "in_progress",
       "priority": "must",
-      "evidence": "",
-      "notes": "Tracked by epic #26; C1-C5 leaves remain future work."
+      "evidence": "C1 is in progress on branch codex/c1-grdb-store-schema; leaf issue #44 and PR #45 are filed. Validation passed: swift build; swift test --filter AgendumMacStoreTests (9 Swift Testing tests after fifth-review fixes); swift test --enable-code-coverage (129 XCTest tests plus 16 Swift Testing tests after fifth-review fixes); swift run AgendumMac launch smoke; jq; git diff --check.",
+      "notes": "Tracked by epic #26. C1 store schema foundation is published as PR #45 targeting feature/mac-prototype; user authorized merge once green. C2-C5 remain future work."
+    },
+    {
+      "id": "c1-store-schema",
+      "title": "Add AgendumMacStore target on GRDB with TaskRecord schema",
+      "status": "in_progress",
+      "priority": "must",
+      "evidence": "Issue #44 and PR #45 filed. Local branch codex/c1-grdb-store-schema adds Package.swift GRDB dependency resolved to 7.10.0, Package.resolved, Sources/AgendumMacStore/Schema.swift, and Tests/AgendumMacStoreTests/TaskRecordTests.swift. Validation passed: swift build; swift test --filter AgendumMacStoreTests; swift test --enable-code-coverage; swift run AgendumMac launch smoke; jq; git diff --check. Adversarial review fixes added legacy gh_node_id column migration coverage, stronger schema/index tests, non-optional timestamp construction, a persistence guard against writing nil required timestamps, nullable seen reads, and repeatable active-status cleanup.",
+      "notes": "No runtime dashboard wiring. PR #45 is ready to merge after green checks. Include Package.resolved when committing/publishing. C2 must use DatabaseSchema.prepare(_:) and cover nullable seen / nullable legacy timestamps in record-to-domain mapping tests."
     },
     {
       "id": "b-python-zero",
