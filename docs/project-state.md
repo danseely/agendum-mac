@@ -29,12 +29,12 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 ## Current State
 - Branch: `codex/c1-grdb-store-schema`.
 - Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `a6b679c`.
-- Open PRs: draft parent PR #2 only.
+- Open PRs: draft parent PR #2 and C1 PR #45.
 - Open epics: #24, #25, #26.
 - Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), and the visual list/dashboard realignment (#42) are merged into `feature/mac-prototype`.
 - In progress: C1 native store schema foundation on local branch `codex/c1-grdb-store-schema`; leaf issue #44 is filed.
 - Blocked: no implementation-level blocker.
-- Next checkpoint: commit, push, and open a PR targeting `feature/mac-prototype`; user explicitly authorized merge once the PR is green.
+- Next checkpoint: wait for PR #45 checks and merge when green; user explicitly authorized merge once the PR is green.
 
 ## Decisions
 - 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
@@ -54,7 +54,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - 2026-05-07: Decision: A3 menu commands route through a focused scene value instead of app-global state. Reason: menu actions must target the active window and avoid a "last changed window wins" shared mirror. Impact: command availability and task actions read the focused scene's model and selected-task binding. Plan change: yes for A3 architecture.
 - 2026-05-07: Decision: keep `@SceneStorage` bridges in `AgendumMac` and expose only plain restoration helpers in `AgendumFeature`. Reason: workflow model tests should stay SwiftUI-free while first refresh still uses restored filters. Impact: `BackendStatusModel.restoreSceneState(filters:selectedTaskID:)` seeds plain model state before `refresh()`. Plan change: no.
 - 2026-05-08: Decision: realign the Mac dashboard around the terminal app's sectioned triage list. Reason: the previous sidebar/detail-pane design drifted from the desired single-list workflow. Impact: `All` is the default source, issues and manual tasks are separate sections, task actions move to a focused sheet, and status/section colors mirror `../agendum/src/agendum/widgets.py`. Plan change: yes for visual/layout direction.
-- 2026-05-08: Decision: publish C1 after adversarial review loop and merge when green. Reason: user explicitly requested that all follow-up findings be captured, the handoff docs updated, and the C1 PR merged after checks pass. Impact: C1 leaf issue #44 is filed and the branch is being published to a PR targeting `feature/mac-prototype`. Plan change: no.
+- 2026-05-08: Decision: publish C1 after adversarial review loop and merge when green. Reason: user explicitly requested that all follow-up findings be captured, the handoff docs updated, and the C1 PR merged after checks pass. Impact: C1 leaf issue #44 and PR #45 are filed; PR #45 targets `feature/mac-prototype`. Plan change: no.
 
 ## Drift
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
@@ -97,7 +97,8 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Parent: native data store epic #26.
 - Leaf issue: #44, filed from `docs/research/proposed-issues.md` section "C1 - Add `AgendumMacStore` target on GRDB".
 - Branch: `codex/c1-grdb-store-schema`, based on `feature/mac-prototype` at `a6b679c`.
-- Status: implementation complete locally; PR publication in progress.
+- PR: #45.
+- Status: implementation complete; PR #45 is open and waiting on checks.
 - Implementation scope:
   - Add SwiftPM product/target `AgendumMacStore`.
   - Add GRDB.swift dependency, currently resolved to `7.10.0` in `Package.resolved`; include `Package.resolved` when committing/publishing this slice.
@@ -155,6 +156,6 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Main risk: stale old module references in tests, fixture paths, CI, or planning docs. Avoid unrelated type renames.
 
 ## Handoff / Next Actions
-1. Commit and push C1 branch `codex/c1-grdb-store-schema`, including `Package.resolved`.
-2. Open the C1 PR targeting `feature/mac-prototype` with `relates to #44`, then wait for GitHub Actions to pass.
+1. Wait for PR #45 GitHub Actions to pass.
+2. Merge PR #45 into `feature/mac-prototype` after green checks, then close issue #44 if it remains open.
 3. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
