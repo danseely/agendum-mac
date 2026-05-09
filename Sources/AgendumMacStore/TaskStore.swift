@@ -4,6 +4,11 @@ import AgendumFeature
 
 public actor TaskStore: TaskStoreProviding {
     private let database: DatabaseQueue
+    private let timestampFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
 
     /// Opens or creates the task database at `path`, running all schema migrations.
     public init(path: URL) throws {
@@ -56,7 +61,7 @@ public actor TaskStore: TaskStoreProviding {
 
     public func markSeen(id: TaskItem.ID) async throws {
         let taskID = id
-        let now = ISO8601DateFormatter().string(from: Date())
+        let now = timestampFormatter.string(from: Date())
         try await database.write { db in
             try db.execute(
                 sql: "UPDATE tasks SET seen = 1, last_seen_at = ?, updated_at = ? WHERE id = ?",

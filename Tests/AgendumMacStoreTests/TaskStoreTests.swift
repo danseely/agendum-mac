@@ -117,6 +117,37 @@ struct TaskStoreTests {
     }
 
     @Test
+    func tasksRespectsLimit() async throws {
+        let store = try TaskStore()
+        for i in 1...5 {
+            try await insertTask(store, id: Int64(i), title: "Task \(i)", source: "manual")
+        }
+
+        let items = try await store.tasks(matching: TaskListFilters(limit: 3))
+
+        #expect(items.count == 3)
+    }
+
+    @Test
+    func observeEmitsNewTaskInsertedAfterSubscription() async throws {
+        let store = try TaskStore()
+
+        let stream = store.observe(matching: .default)
+        var iterator = stream.makeAsyncIterator()
+
+        // First emission: empty
+        let initial = await iterator.next()
+        #expect(initial?.isEmpty == true)
+
+        // Insert after subscribing
+        try await insertTask(store, id: 1, title: "Late arrival", source: "manual")
+
+        let updated = await iterator.next()
+        #expect(updated?.count == 1)
+        #expect(updated?.first?.title == "Late arrival")
+    }
+
+    @Test
     func observeYieldsCurrentTasksOnSubscription() async throws {
         let store = try TaskStore()
         try await insertTask(store, id: 1, title: "Watch me", source: "manual")
@@ -178,7 +209,7 @@ private func insertRawTask(
     title: String,
     source: String,
     status: String = "backlog",
-    seen: Int? = 1,
+    seen: Int? = 0,
     lastChangedAt: String? = "2026-05-09T00:00:00+00:00",
     createdAt: String? = "2026-05-09T00:00:00+00:00",
     updatedAt: String? = "2026-05-09T00:00:00+00:00"

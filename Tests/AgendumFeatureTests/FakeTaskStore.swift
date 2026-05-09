@@ -12,6 +12,8 @@ actor FakeTaskStore: TaskStoreProviding {
         storedTasks
     }
 
+    // TODO: C3 — emit storedTasks as initial value and re-emit on setTasks(_:) so
+    // workflow model tests can exercise live observation.
     nonisolated func observe(matching filters: TaskListFilters) -> AsyncStream<[TaskItem]> {
         AsyncStream { continuation in
             continuation.finish()
