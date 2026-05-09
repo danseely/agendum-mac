@@ -27,6 +27,7 @@ let package = Package(
         .target(
             name: "AgendumMacStore",
             dependencies: [
+                "AgendumFeature",
                 .product(name: "GRDB", package: "GRDB.swift")
             ]
         ),
@@ -50,6 +51,7 @@ let package = Package(
             name: "AgendumMacStoreTests",
             dependencies: [
                 "AgendumMacStore",
+                "AgendumFeature",
                 .product(name: "GRDB", package: "GRDB.swift")
             ]
         )
