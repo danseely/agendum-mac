@@ -10,6 +10,7 @@ let package = Package(
     products: [
         .library(name: "AgendumBackend", targets: ["AgendumBackend"]),
         .library(name: "AgendumFeature", targets: ["AgendumFeature"]),
+        .library(name: "AgendumGitHub", targets: ["AgendumGitHub"]),
         .library(name: "AgendumMacStore", targets: ["AgendumMacStore"]),
         .executable(name: "AgendumMac", targets: ["AgendumMac"])
     ],
@@ -23,6 +24,9 @@ let package = Package(
         .target(
             name: "AgendumFeature",
             dependencies: ["AgendumBackend"]
+        ),
+        .target(
+            name: "AgendumGitHub"
         ),
         .target(
             name: "AgendumMacStore",
@@ -46,6 +50,13 @@ let package = Package(
         .testTarget(
             name: "AgendumFeatureTests",
             dependencies: ["AgendumFeature"]
+        ),
+        .testTarget(
+            name: "AgendumGitHubTests",
+            dependencies: ["AgendumGitHub"],
+            resources: [
+                .process("Fixtures")
+            ]
         ),
         .testTarget(
             name: "AgendumMacStoreTests",
