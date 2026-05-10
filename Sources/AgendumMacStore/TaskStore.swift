@@ -200,15 +200,15 @@ public actor TaskStore: TaskStoreProviding {
             throw TaskStoreError.invalidInput("query must not be empty")
         }
         let cap = max(1, min(limit, 200))
-        // Match Python `list_tasks` candidate-set construction: same active-task
-        // filtering + the same source/status/project/includeSeen filters, but
-        // unbounded so search isn't capped before the haystack pass.
-        let (sql, args) = filterSQL(matching: TaskListFilters(
-            source: source, status: status, project: project,
-            includeSeen: true, limit: 200
-        ))
+        // Match Python `search_tasks`: candidate set is `get_active_tasks` (no
+        // LIMIT) filtered by source/status/project/includeSeen, then the
+        // haystack-AND match short-circuits at `cap`. Build the SQL by reusing
+        // filterSQL's WHERE+ORDER BY but skipping its LIMIT clause.
+        let (whereSQL, args) = searchCandidateSQL(
+            source: source, status: status, project: project
+        )
         let records = try await database.read { db in
-            try TaskRecord.fetchAll(db, sql: sql, arguments: args)
+            try TaskRecord.fetchAll(db, sql: whereSQL, arguments: args)
         }
         var matches: [TaskItem] = []
         matches.reserveCapacity(cap)
@@ -223,6 +223,43 @@ public actor TaskStore: TaskStoreProviding {
         return matches
     }
 
+    /// Build the candidate-set SQL for `searchTasks`: same WHERE clauses as
+    /// `filterSQL` (terminal-status exclusion + source/status/project filters,
+    /// `includeSeen=true`) and the same ORDER BY, but no LIMIT — Python's
+    /// `search_tasks` iterates `get_active_tasks` unbounded and short-circuits
+    /// in the haystack loop.
+    private nonisolated func searchCandidateSQL(
+        source: String?,
+        status: String?,
+        project: String?
+    ) -> (String, StatementArguments) {
+        var conditions: [String] = []
+        var args: [DatabaseValueConvertible?] = []
+        if status == nil {
+            let placeholders = terminalStatuses.map { _ in "?" }.joined(separator: ", ")
+            conditions.append("status NOT IN (\(placeholders))")
+            args.append(contentsOf: terminalStatuses.map { $0 as DatabaseValueConvertible? })
+        }
+        if let source {
+            conditions.append("source = ?")
+            args.append(source)
+        }
+        if let status {
+            conditions.append("status = ?")
+            args.append(status)
+        }
+        if let project {
+            conditions.append("project = ?")
+            args.append(project)
+        }
+        var sql = "SELECT * FROM \(DatabaseSchema.tasksTable)"
+        if !conditions.isEmpty {
+            sql += " WHERE " + conditions.joined(separator: " AND ")
+        }
+        sql += " ORDER BY seen ASC, updated_at DESC, id DESC"
+        return (sql, StatementArguments(args))
+    }
+
     /// Mirrors Python `task_api._task_haystack`: case-folded, whitespace-joined.
     /// Includes the raw record fields (so `gh_repo`, `tags`, `gh_url`, etc. are
     /// searchable). Tags are JSON-decoded when possible; otherwise included raw.
@@ -234,9 +271,17 @@ public actor TaskStore: TaskStoreProviding {
         if let ghAuthor = record.ghAuthor { parts.append(ghAuthor) }
         if let ghAuthorName = record.ghAuthorName { parts.append(ghAuthorName) }
         if let tags = record.tags, !tags.isEmpty {
+            // Match Python `task_api._normalize_tags`: JSON-decode then treat:
+            //   - array → flatten members as strings
+            //   - non-array JSON value → singleton list of stringified value
+            //   - non-JSON string → singleton [tags]
             if let data = tags.data(using: .utf8),
-               let arr = try? JSONSerialization.jsonObject(with: data) as? [Any] {
-                parts.append(contentsOf: arr.map { String(describing: $0) })
+               let value = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) {
+                if let arr = value as? [Any] {
+                    parts.append(contentsOf: arr.map { String(describing: $0) })
+                } else {
+                    parts.append(String(describing: value))
+                }
             } else {
                 parts.append(tags)
             }

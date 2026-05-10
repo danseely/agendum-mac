@@ -319,6 +319,13 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertEqual(presented.code, "client.unknown")
     }
 
+    func testPresentedErrorMapsStoreNotReadyToFriendlyMessage() {
+        let presented = PresentedError.from(BackendStatusModelError.storeNotReady)
+        XCTAssertEqual(presented.message, "Workspace database is not ready yet.")
+        XCTAssertEqual(presented.recovery, "Refresh the dashboard, then try again.")
+        XCTAssertEqual(presented.code, "store.notReady")
+    }
+
     func testPresentedErrorMapsInvalidResponseToProtocolMismatch() {
         let presented = PresentedError.from(BackendClientError.invalidResponse("malformed JSON"))
         XCTAssertEqual(presented.code, "client.protocolMismatch")

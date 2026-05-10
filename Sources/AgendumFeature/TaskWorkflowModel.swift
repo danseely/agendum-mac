@@ -272,6 +272,12 @@ public enum TaskDashboardCommand: Hashable, Sendable {
         _ action: TaskDetailAction,
         on model: BackendStatusModel
     ) -> Bool {
+        // Block per-task actions while a workspace switch / refresh / force-sync
+        // is in flight. Otherwise a click during `await client.selectWorkspace`
+        // would write to the OUTGOING workspace's database via the still-bound
+        // store. Blanket isLoading check is the simplest fix; finer-grained
+        // gating can come later if needed.
+        guard !model.isLoading else { return false }
         guard
             let id = model.selectedTaskID,
             let task = model.tasks.first(where: { $0.id == id })

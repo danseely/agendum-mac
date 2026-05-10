@@ -306,6 +306,57 @@ struct TaskStoreTests {
     }
 
     @Test
+    func taskStoreSetsRestrictivePermissionsOnDirAndFile() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("agendum-perm-test-\(UUID().uuidString)")
+        let dbURL = tmp.appendingPathComponent("inner").appendingPathComponent("agendum.db")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        _ = try TaskStore(path: dbURL)
+
+        let fm = FileManager.default
+        let dirAttrs = try fm.attributesOfItem(atPath: dbURL.deletingLastPathComponent().path)
+        let dbAttrs = try fm.attributesOfItem(atPath: dbURL.path)
+        #expect((dirAttrs[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+        #expect((dbAttrs[.posixPermissions] as? NSNumber)?.intValue == 0o600)
+    }
+
+    @Test
+    func searchTasksReachesPastFilterSqlLimitCap() async throws {
+        // filterSQL caps LIMIT at 200; search must NOT inherit that cap. Insert
+        // 250 manual rows with the search token only on the LAST row (newest by
+        // insertion order, so seen=0/updated_at sort puts it near the top, but
+        // we still want to confirm the candidate set is unbounded by setting a
+        // search token that doesn't appear in the first 200 candidates).
+        let store = try TaskStore()
+        for i in 1...250 {
+            let title = (i == 1) ? "uniquesearchtoken needle" : "Other task \(i)"
+            try await insertTask(store, id: Int64(i), title: title, source: "manual", seen: 1)
+        }
+
+        let results = try await store.searchTasks(query: "uniquesearchtoken", source: nil, status: nil, project: nil, limit: 10)
+
+        // Without unbounded candidate set, id=1 might fall outside the 200-row
+        // prefix (since seen is uniform and updated_at is uniform too, ORDER BY
+        // id DESC tiebreaker pushes id=1 to row 250). Search must still find it.
+        #expect(results.count == 1)
+        #expect(results[0].id == 1)
+    }
+
+    @Test
+    func createManualTaskShowsUpInTasksMatchingDefault() async throws {
+        // End-to-end: round-trip the row through `tasks(matching: .default)` to
+        // catch a real-store omission that the FakeBackend bridge couldn't.
+        let store = try TaskStore()
+
+        let created = try await store.createManualTask(title: "Plan trip", project: "personal", tags: nil)
+
+        let visible = try await store.tasks(matching: .default)
+        #expect(visible.contains(where: { $0.id == created.id }))
+        #expect(visible.first(where: { $0.id == created.id })?.title == "Plan trip")
+    }
+
+    @Test
     func tasksOrdersUnseenBeforeSeenThenByUpdatedAt() async throws {
         let store = try TaskStore()
         // Insert seen task with older updated_at
