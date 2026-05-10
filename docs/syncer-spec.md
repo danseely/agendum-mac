@@ -138,14 +138,14 @@ The engine is a single async function: `runSync(dbPath, config) → SyncResult`.
 - If response empty or `repository.isArchived` → skip (do NOT add to `fetchedRepos`).
 - Otherwise add `"owner/name"` to `fetchedRepos: Set<String>` and produce up to 5 batches of incoming items per repo:
   - **Authored PRs (open)** — each PR ➝ one `incoming_task` with the derived status (see §3.E.1).
-  - **Authored PRs (merged, last 20)** — each ➝ `{title:"", status:"merged", source:"pr_authored", …}`.
-  - **Authored PRs (closed, last 20)** — each ➝ `{title:"", status:"closed", source:"pr_authored", …}`.
+  - **Authored PRs (merged, last 20)** — each ➝ `{title:"", status:"merged", source:"pr_authored", …}`. **Same `author.login.lowercase == ghUser.lowercase` filter as §3.E.1 applies.**
+  - **Authored PRs (closed, last 20)** — each ➝ `{title:"", status:"closed", source:"pr_authored", …}`. **Same author filter applies.**
   - **Open issues assigned to user** — each ➝ derived status (see §3.E.2).
   - **Closed issues assigned to user (last 20)** — each ➝ `{title:"", status:"closed", source:"issue", …}`.
 
 **E. Authored-PR enrichment (`syncer.py:153-200`)**
 1. Filter the GraphQL `authoredPRs` result by `author.login.lowercase == ghUser.lowercase` (defensive; the org-wide search may surface PRs where the author is technically someone else due to GraphQL filter quirks).
-2. Compute `qualifyingReviews`: from `pr.reviews.nodes`, keep those where `author.login != ghUser` AND `submittedAt != nil` AND `id != nil` AND `state ∉ {APPROVED, CHANGES_REQUESTED, PENDING}` (i.e., COMMENTED reviews from others).
+2. Compute `qualifyingReviews`: from `pr.reviews.nodes`, keep those where `author.login != ghUser` AND `submittedAt != nil` AND `id != nil` AND `state ∉ {APPROVED, CHANGES_REQUESTED, PENDING}` (i.e., COMMENTED reviews from others). **Note**: Python uses `state not in (…)` which evaluates true for null `state`. GitHub always returns a state in practice, but a strict Swift port should not require `state` to be non-null — match Python's permissive behavior.
 3. `latestCommentReview` = max(`qualifyingReviews`, by `submittedAt`).
 4. `latestCommitTime` = `pr.commits.nodes[0].commit.committedDate` (single most recent commit).
 5. Call `deriveAuthoredPRStatus(...)` — already in Swift via B2.
@@ -169,7 +169,7 @@ The engine is a single async function: `runSync(dbPath, config) → SyncResult`.
      - `lastReviewTime` = max `submittedAt` of `userReviews`.
      - `lastCommitTime` = `pr.commits.nodes[0].commit.committedDate`.
      - `newCommitsSince = lastCommitTime > lastReviewTime`.
-     - `reRequestedAfterReview` = any `timelineItems` `ReviewRequestedEvent` where `requestedReviewer.login.lowercase == ghUser.lowercase` AND `createdAt > lastReviewTime`.
+     - `reRequestedAfterReview` = iterate `pr.timelineItems.nodes` and check, for each node, `((node.requestedReviewer ?? {}).login ?? "").lowercase == ghUser.lowercase` AND `(node.createdAt ?? "") > lastReviewTime`. The `REVIEW_QUERY` already filters `timelineItems` by `itemTypes: [REVIEW_REQUESTED_EVENT]` so non-matching node types should not appear, but the Python code uses defensive nullish access; the Swift port should do the same.
    - Status = `deriveReviewPRStatus(userHasReviewed, newCommitsSince, reRequestedAfterReview)` — already in Swift.
    - Append incoming task with `source: "pr_review"`, `gh_author = pr.author.login`, `gh_author_name = parseAuthorFirstName(pr.author.name) ?? gh_author`, `tags: ["review"]` (JSON-encoded).
 
@@ -181,11 +181,12 @@ The engine is a single async function: `runSync(dbPath, config) → SyncResult`.
 - `now = ISO8601(datetime.utcnow().withMicroseconds())` — single `now` shared across all writes in this sync cycle.
 - For each `to_create` item:
   - If `item.status ∈ TERMINAL_STATUSES`: try `findTaskByGhURL`; if found, `updateTask(id, status: terminalStatus)` and `changes += 1`. Otherwise skip (do not create a row in a terminal state).
-  - Else if a row exists at that `gh_url` (race: row was created since `getActiveTasks` ran): `updateTask` with all incoming fields plus `seen=0, last_changed_at=now`. `changes += 1`.
+  - Else if a row exists at that `gh_url` (race: row was created since `getActiveTasks` ran): build `updateFields` from the **fixed allow-list** `{title, source, status, project, gh_repo, gh_number, gh_author, gh_author_name, tags}`, keeping only keys whose incoming value is **not nil** (`item.get(k) is not None`). Then add `seen=0, last_changed_at=now` and call `updateTask(id, **updateFields)`. `changes += 1`. **Note:** `gh_url` is NOT in the allow-list (the row is identified by it; cannot mutate). Sparse incoming dicts (e.g., bare merged/closed payloads) only touch present keys.
   - Else: `addTask(...)`. `changes += 1`.
   - Attention: if `source == "pr_review"` AND `status ∈ {"review requested", "re-review requested"}`, set `attention = true`.
 - For each `to_update` item:
-  - `updateTask(id, **changesDict, seen: 0, last_changed_at: now)`. `changes += 1`.
+  - Python pops `id` from the dict (`task_id = item.pop("id")`) and then calls `updateTask(task_id, **item, seen=0, last_changed_at=now)`. The dict is mutated in place — parity tests that observe the post-apply shape of the `to_update` dict will see `id` removed and `seen`/`last_changed_at` added. Swift port can keep `id` immutable in the equivalent struct; behavior of the resulting SQL UPDATE is what matters.
+  - `changes += 1`.
   - Attention: if `"status" in changesDict` AND `status ∈ {"changes requested", "approved", "review received", "re-review requested"}`, set `attention = true`.
 - For each `to_close` item:
   - Choose terminal: `merged` if `source == "pr_authored"`, `done` if `source == "pr_review"`, else `closed`.
@@ -194,10 +195,14 @@ The engine is a single async function: `runSync(dbPath, config) → SyncResult`.
 **J. Notification overlay (`syncer.py:397-416`)**
 1. `notifications = await fetchNotifications(ghUser)` — REST `GET /notifications?all=false` (unread only).
 2. For each notification with `reason ∈ {"mention", "comment", "review_requested"}`:
-   - Pull `subject.url`. If `/pulls/` → rewrite to `github.com/.../pull/...`. If `/issues/` → rewrite to `github.com/.../issues/...`.
+   - Pull `subject.url`. The rewriting is **asymmetric**:
+     - If `subject.url` contains `/pulls/`: rewrite `api.github.com/repos` → `github.com` AND `/pulls/` → `/pull/` (singular).
+     - If `subject.url` contains `/issues/`: rewrite ONLY `api.github.com/repos` → `github.com`. Do NOT touch the `/issues/` path segment (the API and web URLs already agree on `/issues/`).
+     - Otherwise: skip the notification.
    - `findTaskByGhURL(rewrittenURL)`. If found AND `task.seen == 1`:
      - `updateTask(id, seen: 0, last_changed_at: now)`.
      - `changes += 1`. `attention = true`.
+   - If `task.seen == 0` already, no-op (don't double-touch `last_changed_at`).
 
 **K. Return** `SyncResult(changes, attention, error: nil)`.
 
@@ -226,19 +231,21 @@ Build `existingByURL: [String: Task]` keyed by `gh_url` (skip rows without a `gh
 ### For each incoming item
 - `incomingURLs.insert(item.gh_url)`.
 - If `gh_url` in `existingByURL`:
-  - Compare `status`, `title`, `gh_author`, `gh_author_name`, `tags`, `project`. Only include keys that are present (`in item`) — so a sparse incoming dict (e.g., the bare merged/closed payload) only touches the columns it carries.
+  - Compare `status` and `title` **unconditionally** (Python checks them with `if old.get(...) != item.get(...)` — no `if key in item` gate). If they differ → write them.
+  - Compare `gh_author`, `gh_author_name`, `tags`, `project` **only if the key is present** in the incoming dict (Python uses `if key in item and old.get(key) != item.get(key)`). Sparse incoming dicts (e.g., bare merged/closed payloads carrying only `title`/`status`/`source`/`gh_url`/`gh_number`/`project`/`gh_repo`) leave the un-present keys alone.
   - If anything differs → `toUpdate.append({id: existing.id, ...changedFields})`.
+  - **Important behavior**: bare merged/closed payloads carry `title=""`. On the open→merged transition (a previously-stored authored PR with a real title becomes merged), the diff WILL include `title=""` and the apply layer overwrites the stored title with `""`. This is intentional in Python: the row is going terminal and won't be shown in the active list. A Swift port that "preserves" titles on terminal transitions would diverge.
 - Else → `toCreate.append(item)`.
 
 ### For each existing item
-Compute close eligibility:
+Compute close eligibility (Python `syncer.py:83-97` checks these in this order; all guards are AND-combined so order doesn't affect outcome, but matching the source order keeps the parity test obvious):
 1. If row has no `gh_url` → skip (manual or malformed).
 2. If `gh_url` is in `incomingURLs` → not closing.
 3. If `source == "manual"` → never close from sync.
-4. **Review fetch incomplete guard**: if `!reviewFetchOK && source == "pr_review"` → skip.
+4. **Review fetch incomplete guard**: if `!reviewFetchOK && source == "pr_review"` → skip. *(If review discovery returned empty for any org, the result set may be incomplete; do not close review rows on incomplete evidence.)*
 5. **Partial fetch guard**: if `fetchedRepos != nil && source != "pr_review" && task.gh_repo ∉ fetchedRepos` → skip.
    - Rationale: the row's repo wasn't fetched this cycle, so we don't have evidence the upstream item went away. Could be a transient API failure.
-   - `pr_review` is exempt because GitHub may have removed the user from `--review-requested` (the row's repo is then absent from fetchedRepos by design).
+   - **`pr_review` is exempt from THIS guard** (gated by step 4 instead): GitHub may have removed the user from `--review-requested`, so the row's repo is absent from `fetchedRepos` by design. As long as `reviewFetchOK == true`, a `pr_review` row whose repo is missing from `fetchedRepos` is still eligible to close.
 6. Else → `toClose.append(task)`.
 
 ---
@@ -316,7 +323,7 @@ A second consecutive `runSync` call with no GitHub-side change MUST satisfy:
 - No row's `seen` value has flipped.
 - No row has been added or closed.
 
-(`updated_at` may be touched if the engine ever calls `update_task` defensively, but it should not — the diff layer guards every write behind a "did anything actually change?" check.)
+(`updated_at` is set on every `UPDATE tasks ...` because `db.update_task` always appends `updated_at = NOW` (`db.py:117-118`). On a true no-op sync, however, the engine does NOT call `update_task` at all: `diff_tasks` returns empty `to_create` / `to_update` / `to_close` lists, the apply loops in `syncer.py:341-395` execute zero iterations, and notification overlay only writes if a matching row had `seen == 1` AND a relevant unread notification exists. Therefore on a true idempotent run, `updated_at` is preserved. If `updated_at` mutates on a no-op sync, the diff layer or notification overlay has a bug.)
 
 This is the strongest correctness test the parity oracle gives us. S3 must include an idempotency test.
 
@@ -340,6 +347,8 @@ Recorded JSON fixtures of `(existing, incoming, fetchedRepos, reviewFetchOK) →
 8. Manual task → never closed.
 9. Update with sparse incoming dict (only `status` present) → only `status` enters toUpdate; `title`/`tags`/etc. untouched.
 10. Update where `tags` JSON differs → toUpdate includes `tags`.
+11. Existing authored PR with `title="My real title"`; incoming bare merged payload `{title:"", status:"merged", source:"pr_authored", gh_url, gh_number, project, gh_repo}` → toUpdate includes BOTH `title=""` AND `status="merged"` (status and title are unconditionally compared and written; the empty title is intentional).
+12. Existing authored PR with `title="My real title"`, `gh_author="me"`; incoming sparse update with only `status="approved"` → toUpdate includes only `status`; `title` and `gh_author` are NOT overwritten (sparse-gated keys).
 
 ### Apply layer
 End-to-end SQLite round trips against the schema:
@@ -353,6 +362,7 @@ End-to-end SQLite round trips against the schema:
 8. Notification overlay: REST notification with rewriteable URL → previously-seen task flipped to unseen, attention bit set.
 9. Notification overlay: notification URL not in DB → no-op.
 10. Notification overlay: matched task already unseen → no-op (no double-count).
+11. Notification overlay URL rewriting: `subject.url = "https://api.github.com/repos/owner/name/pulls/42"` → `"https://github.com/owner/name/pull/42"`. `subject.url = "https://api.github.com/repos/owner/name/issues/42"` → `"https://github.com/owner/name/issues/42"` (path unchanged). Asymmetric — pull paths get singularized, issue paths do not.
 
 ### End-to-end (with mocked GitHub)
 Build a Python parity oracle harness: feed both Python `run_sync` and Swift `runSync` the same canned GraphQL/REST/notification payloads, diff the resulting DB row sets. Drift = test failure. This is the highest-confidence test we can write short of pointing at real GitHub.
