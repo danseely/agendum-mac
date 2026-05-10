@@ -74,23 +74,71 @@
       "status": "passed",
       "priority": "must",
       "evidence": "Issue #48 closed; PR #49 merged into feature/mac-prototype on 2026-05-09 as squash commit b33e8d6 after four adversarial review passes. Final validation: swift build; swift test --enable-code-coverage (129 XCTest + 36 Swift Testing tests, 18 of which are TaskStoreTests); Python unittest 68 tests; swift run smoke; git diff --check; GitHub Actions Test passed (1m33s). Review fixes across four passes: Task leak in observe fixed via onTermination cancellation; markSeen sets seen + last_seen_at + updated_at to match Python update_task; sort order changed to seen ASC, updated_at DESC, id DESC to match Python get_active_tasks; limit clamped to 1..200; terminal statuses (merged/closed/done) excluded by default; timestamps emitted in Python-compatible yyyy-MM-dd'T'HH:mm:ss.SSSSSS+00:00 format so Swift- and Python-written rows sort lexicographically together.",
-      "notes": "C3 prerequisites: (1) decide observation strategy for Python-process writes (helper IPC vs file-system watcher vs polling) since ValueObservation does not see external commits; (2) switch init(path:) from DatabaseQueue to DatabasePool with WAL config; (3) expand FakeTaskStore.observe to emit live values for C3 workflow tests."
+      "notes": "Foundation for the speed-run port. S1 will route BackendStatusModel directly through TaskStore for reads/mutations/manual create."
     },
     {
       "id": "c3-store-reads",
-      "title": "Wire dashboard reads through TaskStoreProviding",
-      "status": "blocked",
+      "title": "Wire dashboard reads through TaskStoreProviding (old plan)",
+      "status": "dropped",
       "priority": "must",
-      "evidence": "Not yet filed. Source: docs/research/proposed-issues.md section C3.",
-      "notes": "Blocked on user decision for the Python-process observation strategy (helper IPC vs file-system watcher vs polling) and the DatabaseQueue → DatabasePool + WAL switch. File from proposed-issues.md once unblocked."
+      "evidence": "Superseded by 2026-05-09 speed-run plan revision. C3 was the bridge slice that assumed Python sync would keep writing to SQLite while Swift took over reads — that requires a Python-process observation strategy (IPC vs file-system watcher vs polling) which is non-trivial plumbing. The speed-run plan tears Python out wholesale, so the bridge is never built. Equivalent app-side wiring is folded into S1.",
+      "notes": "Tracked replacement: speed-run-port S1."
     },
     {
       "id": "c-native-store",
       "title": "Add native GRDB-backed data store",
       "status": "in_progress",
       "priority": "must",
-      "evidence": "C1 (PR #45, c9cebde) and C2 (PR #49, b33e8d6) merged into feature/mac-prototype. C3 dashboard read wiring is the next leaf, blocked on observation-strategy decision. C4 mutations and C5 Application Support relocation remain future work.",
-      "notes": "Tracked by epic #26."
+      "evidence": "C1 (PR #45, c9cebde) and C2 (PR #49, b33e8d6) merged into feature/mac-prototype. C3/C4 (dashboard reads + mutations) folded into speed-run S1. C5 (Application Support relocation) deferred to post-MVP per the 2026-05-09 plan revision.",
+      "notes": "Tracked by epic #26 (body to be updated to reflect speed-run sequence)."
+    },
+    {
+      "id": "speed-run-port",
+      "title": "Speed-run port: tear Python out, ship MVP viewer",
+      "status": "in_progress",
+      "priority": "must",
+      "evidence": "Captured in 2026-05-09 plan revision. Sequence: S0 (write docs/syncer-spec.md), S1 (BackendStatusModel direct → TaskStore), S2 (port gh.py + gh_review.py to Swift via URLSession), S3 (port syncer.py per S0 spec), S4 (delete Backend/ + helper bridge). Source of truth: ../agendum/src/agendum/ (original CLI), NOT Backend/agendum_engine/ (vendored fork that doubled with mac-specific complexity).",
+      "notes": "Deferred to post-MVP: B4 (native OAuth, keep gh CLI dep through MVP), C5 (DB relocation), A6 (polish), multi-workspace machinery."
+    },
+    {
+      "id": "speed-run-s0-syncer-spec",
+      "title": "S0: Write docs/syncer-spec.md from ../agendum/ source",
+      "status": "not_started",
+      "priority": "must",
+      "evidence": "Not yet filed.",
+      "notes": "Doc-only PR. Read ../agendum/src/agendum/syncer.py (419 LOC) + dependents (gh.py 605, gh_review.py 147, db.py 151, task_api.py 175, config.py 213). Capture: data model, sync lifecycle, attention rules, close suppression, MVP cuts, parity-test fixtures."
+    },
+    {
+      "id": "speed-run-s1-app-store",
+      "title": "S1: BackendStatusModel direct → TaskStore (subsumes old C3+C4+B3-app)",
+      "status": "not_started",
+      "priority": "must",
+      "evidence": "Not yet filed.",
+      "notes": "Port task_api.py + remaining db.py writes into TaskStore (Swift). Wire BackendStatusModel directly. Single implicit workspace (drop multi-workspace abstraction)."
+    },
+    {
+      "id": "speed-run-s2-github-transport",
+      "title": "S2: Port gh.py + gh_review.py to Swift URLSession",
+      "status": "not_started",
+      "priority": "must",
+      "evidence": "Not yet filed.",
+      "notes": "REST + GraphQL via URLSession. Auth via gh auth status token reuse for MVP."
+    },
+    {
+      "id": "speed-run-s3-syncer-port",
+      "title": "S3: Port syncer.py to Swift per S0 spec",
+      "status": "not_started",
+      "priority": "must",
+      "evidence": "Not yet filed.",
+      "notes": "Highest-risk slice. Tests: spec invariants (primary) + Python parity oracle (secondary). Depends on S0 + S2."
+    },
+    {
+      "id": "speed-run-s4-tombstone",
+      "title": "S4: Delete Backend/, AgendumBackendClient, helper bridge",
+      "status": "not_started",
+      "priority": "must",
+      "evidence": "Not yet filed.",
+      "notes": "Tombstone PR. Retire docs/backend-contract.md to historical-reference."
     },
     {
       "id": "c1-store-schema",
@@ -105,8 +153,8 @@
       "title": "Remove Python helper runtime and replace backend engine with Swift services",
       "status": "in_progress",
       "priority": "must",
-      "evidence": "B1 and B2 are passed; B3-B6 remain open future work under epic #25.",
-      "notes": "Current runtime still uses helper contract during migration."
+      "evidence": "B1 (vendor) and B2 (status-derivation port + parity fixtures) merged. Remaining work folded into the 2026-05-09 speed-run plan: S1 subsumes app-side helper command paths and most of B3; S2 subsumes GitHub transport (preparatory for old B5); S3 subsumes the syncer port (most of old B5); S4 subsumes B6 (delete the bridge). B4 (native OAuth) deferred to post-MVP.",
+      "notes": "Tracked by epic #25 (body to be updated to reflect speed-run sequence)."
     }
   ]
 }
