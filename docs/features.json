@@ -1,8 +1,8 @@
 {
   "version": 1,
   "project": "agendum-mac",
-  "updated_at": "2026-05-09",
-  "active_goal": "Standalone Swift macOS app with native backend engine and GRDB-backed data store",
+  "updated_at": "2026-05-10",
+  "active_goal": "Standalone Swift macOS app with native backend engine and GRDB-backed data store; speed-run port of the original ../agendum CLI per the 2026-05-09 plan revision",
   "features": [
     {
       "id": "a1-observable",
@@ -103,26 +103,26 @@
     {
       "id": "speed-run-s0-syncer-spec",
       "title": "S0: Write docs/syncer-spec.md from ../agendum/ source",
-      "status": "not_started",
+      "status": "passed",
       "priority": "must",
-      "evidence": "Not yet filed.",
-      "notes": "Doc-only PR. Read ../agendum/src/agendum/syncer.py (419 LOC) + dependents (gh.py 605, gh_review.py 147, db.py 151, task_api.py 175, config.py 213). Capture: data model, sync lifecycle, attention rules, close suppression, MVP cuts, parity-test fixtures."
+      "evidence": "PR #53 squash-merged into feature/mac-prototype as 8d6b329 on 2026-05-09. 416 LOC + 22 LOC review fixes. Adversarial review surfaced 4 critical findings (C1 race-update field set, C2 idempotency wording, C3 to_update mutation note, M6 asymmetric URL rewriting in notification overlay) plus 5 major findings (M1-M5: author filter callout, qualifying_reviews state semantics, defensive timeline access, close-eligibility ordering, status/title unconditional comparison). All fixed in-spec; new parity-test fixture cases added in §9.",
+      "notes": "Behavior contract for the syncer port. Source of truth is ../agendum/src/agendum/, NOT Backend/agendum_engine/."
     },
     {
       "id": "speed-run-s1-app-store",
       "title": "S1: BackendStatusModel direct → TaskStore (subsumes old C3+C4+B3-app)",
-      "status": "not_started",
+      "status": "passed",
       "priority": "must",
-      "evidence": "Not yet filed.",
-      "notes": "Port task_api.py + remaining db.py writes into TaskStore (Swift). Wire BackendStatusModel directly. Single implicit workspace (drop multi-workspace abstraction)."
+      "evidence": "Issue #54 closed; PR #55 squash-merged into feature/mac-prototype as ffad547 on 2026-05-10 after a two-pass adversarial review. Final validation: swift build clean; swift test --enable-code-coverage (130 XCTest + 53 Swift Testing); Python unittest 68 tests; swift run smoke; git diff --check; GitHub Actions Test passed (2m4s). Changes: TaskStore.init(path:) → DatabasePool with WAL config; new TaskStore methods updateTaskStatus/removeTask/createManualTask/searchTasks; TaskStoreProviding gains the four new methods; BackendStatusModel gets a TaskStoreFactory and lazy requireStore(); helper still owns auth/sync/workspace/diagnostics. Round-1 fixes: parent dir creation + chmod 0o600 (matches Python init_db); searchTasks haystack at TaskRecord level (gh_repo/tags/gh_url/gh_author_name now searchable); friendly storeNotReady error mapping. Round-2 fixes: searchTasks candidate set unbounded (was capped at 200, would silently miss matches in large workspaces); perTaskAvailable now gated on isLoading (closes the workspace-switch race); tags JSON-fallback matches Python _normalize_tags for non-array values.",
+      "notes": "Helper still owns auth/sync/workspace/diagnostics until S3. Deferred residuals: C1 (MainActor blocking on first lazy store init — needs cold-start benchmark), M1/M3/M4/M6."
     },
     {
       "id": "speed-run-s2-github-transport",
       "title": "S2: Port gh.py + gh_review.py to Swift URLSession",
       "status": "not_started",
       "priority": "must",
-      "evidence": "Not yet filed.",
-      "notes": "REST + GraphQL via URLSession. Auth via gh auth status token reuse for MVP."
+      "evidence": "Not yet filed. Source spec: docs/syncer-spec.md §5.",
+      "notes": "REST + GraphQL via URLSession. Auth via gh auth token reuse for MVP. Two queries to port: REPO_QUERY (per-repo authored PRs + assigned issues + merged/closed batches) and REVIEW_QUERY (per-PR review detail). Plus REST endpoints: /user (username), /notifications?all=false (overlay). Plus search endpoints (org-scoped author/assignee/review-requested) used by discover_repos / discover_review_prs. Pure transport + parsing layer; no consumer until S3."
     },
     {
       "id": "speed-run-s3-syncer-port",
