@@ -33,7 +33,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "AgendumMac",
-            dependencies: ["AgendumBackend", "AgendumFeature"],
+            dependencies: ["AgendumBackend", "AgendumFeature", "AgendumMacStore"],
             exclude: ["Info.plist.template"]
         ),
         .testTarget(

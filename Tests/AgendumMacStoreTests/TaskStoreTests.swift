@@ -169,6 +169,98 @@ struct TaskStoreTests {
     }
 
     @Test
+    func updateTaskStatusFlipsStatusAndBumpsUpdatedAt() async throws {
+        let store = try TaskStore()
+        try await insertTask(store, id: 1, title: "T", source: "manual", status: "backlog")
+        let originalUpdatedAt = try await store.rawRecord(id: 1)?.updatedAt
+
+        try await store.updateTaskStatus(id: 1, status: "in progress")
+
+        let item = try await store.task(id: 1)
+        #expect(item?.status == "in progress")
+        let record = try await store.rawRecord(id: 1)
+        #expect(record?.updatedAt != originalUpdatedAt)
+        #expect(record?.updatedAt?.range(of: #"\.\d{6}\+00:00$"#, options: .regularExpression) != nil)
+    }
+
+    @Test
+    func updateTaskStatusWithNonExistentIDSucceedsSilently() async throws {
+        let store = try TaskStore()
+        try await store.updateTaskStatus(id: 999, status: "done")
+    }
+
+    @Test
+    func removeTaskDeletesRow() async throws {
+        let store = try TaskStore()
+        try await insertTask(store, id: 1, title: "T", source: "manual")
+        try await insertTask(store, id: 2, title: "Other", source: "manual")
+
+        try await store.removeTask(id: 1)
+
+        #expect(try await store.task(id: 1) == nil)
+        let remaining = try await store.tasks(matching: .default)
+        #expect(remaining.map(\.id) == [2])
+    }
+
+    @Test
+    func removeTaskWithNonExistentIDSucceedsSilently() async throws {
+        let store = try TaskStore()
+        try await store.removeTask(id: 999)
+    }
+
+    @Test
+    func createManualTaskInsertsBacklogManualRow() async throws {
+        let store = try TaskStore()
+
+        let created = try await store.createManualTask(title: "Buy milk", project: "Errands", tags: ["home", "shopping"])
+
+        #expect(created.title == "Buy milk")
+        #expect(created.source == .manual)
+        #expect(created.backendSource == "manual")
+        #expect(created.status == "backlog")
+        #expect(created.project == "Errands")
+        // Manual tasks default to seen=1 per schema (user-created, not a notification).
+        // Matches Python `add_task` behavior.
+        #expect(!created.isUnseen)
+        let stored = try await store.rawRecord(id: Int64(created.id))
+        #expect(stored?.tags == #"["home","shopping"]"#)
+    }
+
+    @Test
+    func createManualTaskTrimsTitleAndRejectsEmpty() async throws {
+        let store = try TaskStore()
+
+        let trimmed = try await store.createManualTask(title: "  Padded  ", project: nil, tags: nil)
+        #expect(trimmed.title == "Padded")
+
+        await #expect(throws: TaskStoreError.invalidInput("title must not be empty")) {
+            try await store.createManualTask(title: "   ", project: nil, tags: nil)
+        }
+    }
+
+    @Test
+    func searchTasksReturnsTokenAndMatches() async throws {
+        let store = try TaskStore()
+        try await insertTask(store, id: 1, title: "Review release dashboard PR", source: "pr_review", status: "review requested")
+        try await insertTask(store, id: 2, title: "Buy milk", source: "manual")
+        try await insertTask(store, id: 3, title: "Audit dashboard widget tests", source: "issue", status: "open")
+
+        let results = try await store.searchTasks(query: "dashboard review", source: nil, status: nil, project: nil, limit: 10)
+
+        // Token-AND: must contain both "dashboard" and "review"
+        #expect(results.count == 1)
+        #expect(results[0].id == 1)
+    }
+
+    @Test
+    func searchTasksRequiresNonEmptyQuery() async throws {
+        let store = try TaskStore()
+        await #expect(throws: TaskStoreError.invalidInput("query must not be empty")) {
+            try await store.searchTasks(query: "   ", source: nil, status: nil, project: nil, limit: 10)
+        }
+    }
+
+    @Test
     func tasksOrdersUnseenBeforeSeenThenByUpdatedAt() async throws {
         let store = try TaskStore()
         // Insert seen task with older updated_at
