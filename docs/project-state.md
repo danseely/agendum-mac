@@ -1,7 +1,7 @@
 # Project State
 
 ## Goal
-Ship `agendum-mac` as a personal-use Mac app that mirrors the original `../agendum/` CLI's functionality (a viewer for "my GitHub stuff" — PRs authored, reviews requested, issues, and manual tasks) with native architecture: Swift end-to-end, app-owned SQLite data store via GRDB, no Python at runtime. Optimize for speed of port over defensive incrementalism — there are no users yet.
+Ship `agendum-mac` as a personal-use Mac app that does what the original `../agendum/` CLI does (a viewer for "my GitHub stuff" — PRs authored, reviews requested, issues, and manual tasks) but built as **a great industry-standards-following macOS app**, not a 1:1 port of a vibe-coded CLI. Swift end-to-end, app-owned SQLite via GRDB, no Python at runtime, Apple-canonical SwiftUI/Observation/structured-concurrency patterns. Possibly OSS down the road — code should read that way (no hardcoded user state, no helper-protocol residue, focused modules). Optimize for speed of port over defensive incrementalism through MVP — there are no users yet.
 
 ## Constraints / Non-goals
 - Keep public `main` README-only until the prototype is ready to become default-branch content.
@@ -28,14 +28,14 @@ Ship `agendum-mac` as a personal-use Mac app that mirrors the original `../agend
 - Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
 
 ## Current State
-- Branch: `codex/s1-post-merge-handoff` for this handoff refresh.
-- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `ffad547` after S1 merge.
+- Branch: `codex/speed-run-plan-revision-2` for this scope-refinement PR.
+- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `218527e` after the S1 post-merge handoff.
 - Open PRs: draft parent PR #2 only.
 - Open epics: #24, #25, #26.
 - Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), visual list/dashboard realignment (#42), C1 native store schema foundation (#44), C2 `TaskStore` + `TaskStoreProviding` seam (#48), speed-run plan revision (#52), S0 syncer spec (#53), and S1 BackendStatusModel direct → TaskStore (#54) are merged into `feature/mac-prototype`.
-- In progress: speed-run port. S0–S1 done. S2 is the next leaf.
+- In progress: this scope-refinement (drops `/notifications` overlay, keeps everything else faithful to Python; merges S4 into S3 with module reshape; adds S5 onboarding; bakes "industry-standards Mac app, possibly OSS" framing into the goal).
 - Blocked: no implementation-level blocker.
-- Next checkpoint: file/start S2 (port `gh.py` + `gh_review.py` to Swift via URLSession).
+- Next checkpoint: land this revision PR, then file/start S2.
 
 ## Decisions
 - 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
@@ -66,6 +66,11 @@ Ship `agendum-mac` as a personal-use Mac app that mirrors the original `../agend
 - 2026-05-10: Decision: `BackendStatusModel` accepts a `TaskStoreFactory: @Sendable (URL) throws -> any TaskStoreProviding` rather than a pre-made `TaskStoreProviding` instance. Reason: the workspace's `dbPath` is async (helper round-trip in `currentWorkspace()`), so the store can't exist at app-launch time; factory pattern lets the model construct/recreate the store as workspace selection changes (and lets tests inject a fake without that ceremony). Impact: `requireStore()` lazily initializes from `workspace?.dbPath ?? ~/.agendum/agendum.db`; `updateStoreIfNeeded(workspace:)` reconciles on workspace change. Plan change: no.
 - 2026-05-10: Decision: keep the helper bridge alive in S1 for auth, sync, workspace, and diagnostics — only task CRUD routes through `TaskStore`. Reason: S2 (GitHub transport) and S3 (syncer port) supply the Swift-native replacements for those helper paths; ripping them out in S1 would balloon the slice. Impact: helper still owns `currentWorkspace`, `listWorkspaces`, `selectWorkspace`, `authStatus`, `authDiagnose`, `syncStatus`, `forceSync` until S3/S4. Plan change: no.
 - 2026-05-10: Decision: publish S1 after a two-pass adversarial review loop and merge when green. Reason: user explicitly requested the loop. Impact: S1 leaf issue #54 was completed by PR #55, merged into `feature/mac-prototype` as `ffad547`. Plan change: no.
+- 2026-05-10: Decision: north-star reframing — build a great industry-standards-following macOS app, not a 1:1 port of the vibe-coded CLI. Possibly OSS. Reason: user instruction: "anything is fine to improve / refactor / rearchitect as we go, I'm not married to any part of the python service arch at all." Impact: opportunistic refactoring is in-scope through MVP — particularly module reshape during S3+S4 merged (kill `AgendumBackend` once helper bridge dies; create `AgendumGitHub` + `AgendumSync`; rename `BackendStatusModel`→`DashboardModel`; drop `AgendumTask` intermediate type; replace helper-shaped errors with focused per-layer errors). Code should read like a Swift-native Mac app, not a Python-helper transcription. Plan change: yes (architectural license for in-flight cleanup).
+- 2026-05-10: Decision: S3 keeps Python's syncer fault-tolerance (concurrent fetch via Semaphore(8)-equivalent, per-repo close protection, `pr_review` exemption from fetched_repos guard, syncer-driven `isUnseen` flag on create/update). Reason: user uses the app primarily with a 150+-repo work org — sequential fetch would be punishing and per-repo close protection guards real API hiccup pain. Drops only the `/notifications` REST overlay (the contribution it makes to unseen state was opt-in nuance the user doesn't rely on). Impact: S3 stays a faithful syncer port modulo the one explicitly-cut overlay. Plan change: refinement of the speed-run plan, no broader change.
+- 2026-05-10: Decision: keep multi-workspace UI through MVP. Reason: user actively switches workspaces a bit; ripping the picker would be strictly worse than today. The S1 workspace-switch race was already fixed inline by gating per-task availability on `isLoading`. Impact: S3 carries workspace-aware sync orchestration (each workspace's config.toml drives its own orgs/repos/exclude_repos for that sync); the multi-workspace data layer + UI stay intact. Plan change: no (revises an earlier MVP-cut speculation).
+- 2026-05-10: Decision: merge S4 (tombstone) into S3 (sync engine) as a single cutover slice, with module reshape opportunistically baked in. Reason: once Swift owns sync, the helper bridge is dead — splitting cutover from sync wiring is unnecessary ceremony. The architectural cleanup (kill `AgendumBackend`, reshape modules) is most natural in the same PR that makes those types orphans. Impact: ~2 substantial PRs to MVP (S2, then S3+S4 merged), instead of 3. Filesystem deletion of `Backend/agendum_engine/` (the vendored Python source) deferred to post-MVP polish — keeping it doesn't hurt and gives the parity oracle a home through the port. Plan change: yes (sequence consolidation).
+- 2026-05-10: Decision: add S5 onboarding & first-run polish slice after S3+S4. Scope: write default `~/.agendum/config.toml` if missing; orgs/repos as form fields in Settings instead of "edit this TOML file"; surface "run `gh auth login`" hint with copyable command if `gh auth status` is unauthenticated. Reason: user said "yes let's get onboarding ported in, and feel free to improve it if possible." Impact: S5 lands after the Python-removal MVP gate — it's the polish that makes MVP feel finished. Plan change: yes (new slice).
 
 ## Drift
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
@@ -81,6 +86,7 @@ Ship `agendum-mac` as a personal-use Mac app that mirrors the original `../agend
 - 2026-05-09 C2 drift check: no unapproved drift. C2 was the named next C-epic leaf after C1; landed as PR #49. C3 is now the next leaf but has a documented architectural prerequisite (Python-process write observation) that must be resolved before implementation, not after.
 - 2026-05-09 speed-run plan revision: approved deviation (large). User instruction: "I want to rip Python out!… this entire project should be a speed-run port of the original cli app. why are we being so slow and careful?" Resolution: dual-runtime sequencing under epics #25 and #26 collapses into the 5-slice S0–S4 sequence; the prior C3 "Python observation" prerequisite is dropped because Python sync is removed before Swift would have needed to observe its writes. Constraints retired: "Preserve v0 helper protocol", "No `gh` CLI dep after B4". MVP cuts deferred to post-MVP: B4 (native OAuth), C5 (DB relocation), A6 (polish), multi-workspace machinery. Source-of-truth shift: port from `../agendum/src/agendum/` (original CLI), NOT `Backend/agendum_engine/` (vendored fork that doubled with mac-specific cruft that is out of scope).
 - 2026-05-10 S1 drift check: no unapproved drift. S1 ships task CRUD through `TaskStore` (subsumed old C3+C4+B3-app); helper keeps auth/sync/workspace/diagnostics for S2/S3 to replace. The MVP cut "drop multi-workspace machinery" is captured in spirit (single implicit workspace pattern in `requireStore()`'s default-path fallback) but the helper-driven workspace UI is still wired — formal cut deferred to a later cleanup slice. C4 (workspace-switch race) was caught in the round-2 adversarial review and fixed inline by gating per-task availability on `isLoading`; no behavior gap from the deferral remains.
+- 2026-05-10 plan revision-2 (this PR): approved deviation. User feedback on the proposed scope refinement (keep concurrent fetch, keep per-repo close protection, drop only `/notifications` overlay, keep multi-workspace UI) plus the broader "industry-standards Mac app, possibly OSS" framing, plus the "merge S4 into S3 with module reshape" sequencing. The earlier MVP cut "drop multi-workspace machinery" is hereby rescinded — multi-workspace is back in scope for MVP. The notification overlay drop replaces it as the lone Python-syncer-behavior MVP cut. No new constraints retired; no new constraints added.
 
 ## Validation
 - Last full checkpoint validation: A4 / PR #36 on 2026-05-06: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle existence/executable checks; `plutil -lint`; `swift run AgendumMac` launch smoke; `git diff --check`; platform-reference grep for `AgendumMacWorkflow`.
@@ -210,19 +216,20 @@ Replaces the prior C3-as-bridge-slice plan and the helper-protocol-preserving B-
 |---|---|---|---|---|
 | **S0** | Write `docs/syncer-spec.md` | 419 + deps | Read `../agendum/src/agendum/syncer.py` and dependents (`gh.py`, `gh_review.py`, `db.py`, `task_api.py`, `config.py`); write spec capturing data model, sync lifecycle, attention rules, close suppression, MVP cuts, parity-test fixtures. Doc-only PR. | ✅ merged (PR #53, `8d6b329`) |
 | **S1** | App-side: route through `TaskStore` | ~500 | Port `task_api.py` + remaining `db.py` writes into `TaskStore` (Swift). Wire `BackendStatusModel` directly to it for task CRUD. Helper still owns auth/sync/workspace/diagnostics. | ✅ merged (PR #55, `ffad547`) |
-| **S2** | GitHub transport: native Swift | ~750 | Port `gh.py` + `gh_review.py` to Swift via URLSession (REST + GraphQL). Pure transport + parsing; auth via `gh auth status` token reuse for now. | next |
-| **S3** | Sync engine: native Swift per S0 spec | 419 | Port `syncer.py` to Swift per `docs/syncer-spec.md`. Wire to `BackendStatusModel.refresh()`. Tests: spec invariants (primary) + Python parity oracle (secondary). | not started |
-| **S4** | Tombstone: delete the bridge | delete-only | Delete `Backend/` entirely, delete `AgendumBackendClient` stdio path + helper bridge files, retire `docs/backend-contract.md` to historical-reference. | not started |
+| **S2** | GitHub transport: native Swift | ~700–900 Swift | Port `gh.py` (transport halves; status derivation already in B2) to Swift via URLSession. `gh auth token` cached at launch. GraphQL POST + REST GET. The two GraphQL queries (`REPO_QUERY`, `REVIEW_QUERY`) as Swift string constants. Codable response types. Search endpoints for `discover_repos` / `discover_review_prs` (per-org). Concurrent-fetch helper (Semaphore(8)-equivalent; `TaskGroup` + custom async semaphore) since user runs against a 150+-repo work org. Tests against canned response fixtures. **Skip** `/notifications` REST endpoint (per 2026-05-10 MVP cut). | next |
+| **S3+S4** | Swift sync engine + cutover + module reshape | ~600–900 Swift | Faithful port of `syncer.py` per `docs/syncer-spec.md` MINUS the `/notifications` overlay (cut for MVP). Keeps: concurrent fetch, per-repo close protection, `pr_review` exemption from fetched_repos guard, syncer-driven `isUnseen` flag on create/update, attention classification (B2). Workspace-config plumbing so multi-workspace stays (each workspace's `config.toml` drives its own sync). Wire into `BackendStatusModel.forceSync()` / `refresh()`. Replace remaining helper calls with inline Swift (`gh auth status` subprocess for auth label, internal Swift state for sync status). Delete `AgendumBackendClient` actor + `Backend/agendum_backend_helper.py` + `Backend/agendum_backend/helper.py` (the bridge files). **Module reshape**: kill `AgendumBackend` module; create `AgendumGitHub` (S2 transport + B2 status derivation move here) and `AgendumSync` (S3 engine); rename `BackendStatusModel` → `DashboardModel`; drop `AgendumTask` intermediate type (sync engine produces `TaskItem` directly); replace `BackendClientError` with focused per-layer errors. **Don't** delete `Backend/agendum_engine/` from the filesystem (defer to post-MVP polish; keeps the Python parity oracle alive). | not started |
+| **S5** | Onboarding & first-run polish | ~200 Swift | Materialize default `~/.agendum/config.toml` if missing (matches Python helper's templating). Settings UI: orgs/repos as form fields (text-list editor), not "edit this TOML file." If `gh auth status` returns unauthenticated, surface a banner with "Run `gh auth login` in Terminal" + a copy-to-clipboard button. First-run sheet: brief "add your org or repos in Settings, then click Sync" guidance. | not started |
 
-**Total**: 1 spec + 4 implementation slices (~5 PRs). S0 and S1 done.
+**Total**: 1 spec + 4 implementation slices to MVP (S0–S3+S4). S5 = post-MVP-gate polish. **MVP gate**: S3+S4 lands → no Python in the running `AgendumMac` process.
 
 **Deferred to post-MVP** (file separately later):
 - B4: native OAuth Device Flow + Keychain (keep `gh` CLI auth dep through MVP).
 - C5: relocate DB to `~/Library/Application Support/Agendum/` (current path stays).
 - A6: localization, accessibility audit, MetricKit polish.
-- Multi-workspace machinery (single implicit workspace through MVP).
+- Filesystem deletion of `Backend/agendum_engine/` (the vendored Python source). Stays in the repo as parity oracle through S3; cosmetic to delete after.
 - C1 deferral from S1 review: `requireStore()` blocks MainActor on first lazy store init. Cost likely <50ms in practice but unverified; queue a real cold-start measurement before final acceptance.
 - M1/M3/M4/M6 deferrals from S1 review: `refresh()` partial state on store-init failure, `DatabasePool` fd leak on workspace switch, FakeBackend bridge launders some test fidelity, `isLoading` race between overlapping actions (pre-existing).
+- OSS-readiness polish: LICENSE file, public README, contributor guide, code-style audit. Probably post-S5.
 
 ## S1 Residuals for S2
 - `gh auth status` / `gh auth token` is the auth boundary through MVP; S2 needs to read the token and pass it as `Authorization: Bearer <token>` on `URLSession` calls to `https://api.github.com/...`. Native OAuth (B4) deferred.
@@ -230,8 +237,9 @@ Replaces the prior C3-as-bridge-slice plan and the helper-protocol-preserving B-
 - Parity oracle plan: snapshot `../agendum/src/agendum/` into `Tests/Fixtures/python-oracle/` during S3 (not S2) so S2 stays focused on transport.
 
 ## Handoff / Next Actions
-1. Land this post-merge handoff refresh PR.
-2. File S2 leaf issue from `docs/syncer-spec.md` §5 (GitHub data layer) — port `gh.py` REST/GraphQL transport + `gh_review.py` to Swift via URLSession. Reuse `gh auth token` as the bearer.
+1. Land this scope-refinement PR.
+2. File S2 leaf issue with the revised scope (URLSession GraphQL/REST, concurrent-fetch helper for the 150+-repo case, no `/notifications` endpoint).
 3. Implement S2; adversarial review loop; merge.
-4. Then S3 (syncer port per `docs/syncer-spec.md`).
-5. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
+4. Then S3+S4 merged: faithful syncer port minus `/notifications` overlay, plus module reshape (kill `AgendumBackend`, create `AgendumGitHub` + `AgendumSync`, rename `BackendStatusModel` → `DashboardModel`, drop `AgendumTask`). Helper bridge files (`AgendumBackendClient`, `Backend/agendum_backend_helper.py`, `Backend/agendum_backend/helper.py`) deleted in this PR. **MVP gate.**
+5. Then S5: onboarding & first-run polish. Default config materialization, Settings form fields, auth-missing hint.
+6. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
