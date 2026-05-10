@@ -1,20 +1,21 @@
 # Project State
 
 ## Goal
-Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, with its own backend engine and SQLite data store. End state: no Python at runtime, no sibling-checkout dependency, native GitHub auth, GRDB-backed persistence, and Apple-canonical app architecture.
+Ship `agendum-mac` as a personal-use Mac app that mirrors the original `../agendum/` CLI's functionality (a viewer for "my GitHub stuff" — PRs authored, reviews requested, issues, and manual tasks) with native architecture: Swift end-to-end, app-owned SQLite data store via GRDB, no Python at runtime. Optimize for speed of port over defensive incrementalism — there are no users yet.
 
 ## Constraints / Non-goals
 - Keep public `main` README-only until the prototype is ready to become default-branch content.
 - Use `feature/mac-prototype` as the integration branch.
 - Do not push directly to `feature/mac-prototype`; use short-lived `codex/*` branches and PRs targeting `feature/mac-prototype`.
 - Do not merge PRs unless explicitly asked.
-- Preserve the v0 helper protocol in `docs/backend-contract.md` as the test asset through the Python-to-Swift migration.
 - Schema migrations must go through `DatabaseMigrator` once the GRDB store lands.
 - SwiftPM remains the primary build system; avoid hand-authoring Xcode project internals.
 - No iCloud / multi-device sync at this scope.
-- No `gh` CLI dependency in the shipping app after issue B4 lands.
 - No third-party persistence framework beyond GRDB.
 - Do not adopt TCA, Clean Architecture, VIPER, or a generic DI container at current scope.
+- **Source of truth for the port is `../agendum/src/agendum/` (the original CLI), NOT `Backend/agendum_engine/` (the vendored fork has roughly doubled in size and accumulated mac-specific complexity that is out of scope).**
+- MVP cuts (file as post-MVP work later, do not block on these): native OAuth Device Flow + Keychain (keep `gh` CLI auth dep for now); DB relocation to `~/Library/Application Support/Agendum/`; localization, accessibility audit, MetricKit; multi-workspace machinery (single implicit workspace).
+- Retired constraints: "Preserve v0 helper protocol through migration" (the helper bridge is being torn out, not preserved); "No `gh` CLI dependency in the shipping app" (kept through MVP).
 
 ## Links
 - Parent PR: #2 `feature/mac-prototype` -> `main` (draft).
@@ -27,14 +28,14 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - Legacy split planning files: `docs/plan.md`, `docs/status.md`, `docs/decisions.md`, `docs/handoff.md` (historical/reference only; current operational state lives here).
 
 ## Current State
-- Branch: `codex/c2-handoff-branch-fix` for this small post-handoff cleanup.
-- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `65ffe21` after the C2 handoff-refresh merge (PR #50).
+- Branch: `codex/speed-run-plan-revision` for this plan-revision PR.
+- Integration branch: `feature/mac-prototype` is aligned with `origin/feature/mac-prototype` at `bf5c580`.
 - Open PRs: draft parent PR #2 only.
 - Open epics: #24, #25, #26.
 - Done: A1 (#27), A2 (#29), B1 (#31), B2 (#33), A4 (#35), A5 (#37), A3 (#40), visual list/dashboard realignment (#42), C1 native store schema foundation (#44), and C2 `TaskStore` + `TaskStoreProviding` seam (#48) are merged into `feature/mac-prototype`.
-- In progress: native data store epic #26 remains active; C3 dashboard read wiring is the next leaf, but the WAL / external-process observation question must be resolved first.
-- Blocked: no implementation-level blocker. C3 has an architectural prerequisite captured under "C3 prerequisites" below.
-- Next checkpoint: file/start C3 once observation strategy is decided; current handoff branch is docs-only.
+- In progress: speed-run plan revision (this PR). Replaces C3-as-bridge-slice and the dual-runtime sequencing under epics #25 and #26 with a 5-slice port (S0–S4) that tears out Python wholesale rather than coexisting with it. See "Speed-Run Sequence" below.
+- Blocked: nothing. The prior C3 "Python observation" prerequisite no longer applies because Python sync goes away before any Swift code needs to observe its writes.
+- Next checkpoint: land this revision, then S0 (`docs/syncer-spec.md`).
 
 ## Decisions
 - 2026-04-28: Decision: create separate local `agendum-mac` project. Reason: avoid churning the existing terminal CLI repo. Impact: GUI planning and app scaffold live here. Plan change: yes.
@@ -59,6 +60,8 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - 2026-05-09: Decision: C2 timestamps use Python-compatible format `yyyy-MM-dd'T'HH:mm:ss.SSSSSS'+00:00'` via `DateFormatter`, not `ISO8601DateFormatter`. Reason: `ISO8601DateFormatter` emits `Z` suffix and second-precision; mixing those rows with Python-written `+00:00` microsecond rows in `ORDER BY updated_at DESC` mis-sorts because `+` (0x2B) lexicographically precedes `Z` (0x5A). Impact: Swift- and Python-written timestamps now sort correctly together. Plan change: no.
 - 2026-05-09: Decision: C2 `tasks(matching:)` hard-excludes terminal statuses (`merged`, `closed`, `done`) by default unless an explicit `status` filter is supplied. Reason: matches Python `get_active_tasks`; without it the dashboard would surface closed PRs once C3 wires up. Impact: store mirrors Python's active-list contract; archive views can pass `status: "merged"` etc. to opt in. Plan change: no.
 - 2026-05-09: Decision: publish C2 after a four-pass adversarial review loop and merge when green. Reason: user explicitly requested the loop. Impact: C2 leaf issue #48 was completed by PR #49, merged into `feature/mac-prototype` as `b33e8d6`. Plan change: no.
+- 2026-05-09: Decision: speed-run port — tear out Python wholesale instead of running it alongside Swift through a helper-protocol bridge. Reason: there are no users; the careful dual-runtime sequencing (C3 observation strategy, C-epic/B-epic interleaving, helper-protocol preservation) was added cost with no corresponding user-disruption avoidance. The user's stated MVP is "what the `../agendum/` CLI does, no more": personal-use viewer for their GitHub stuff. Impact: drops the "Preserve v0 helper protocol" and "No `gh` CLI dep after B4" constraints; defers B4 (native auth), C5 (DB relocation), and A6 (polish) to post-MVP; collapses C3+C4+B3+B4+B5+B6 into the 5-slice S0–S4 sequence below; source of truth for the port is `../agendum/src/agendum/` (419-LOC original syncer), NOT `Backend/agendum_engine/` (1056-LOC vendored fork that doubled in size with mac-specific complexity that is out of scope). Plan change: yes (large).
+- 2026-05-09: Decision: spec the syncer before porting (S0). Reason: the syncer is the highest-risk slice (~419 LOC of orchestration with no formal contract); writing `docs/syncer-spec.md` first changes S3 (syncer port) from interpretation to translation, surfaces simplification opportunities, and yields invariants that become Swift unit tests independently of the Python parity oracle. Cost: 2–4 hours; benefit: dramatically de-risks S3. Impact: S0 is the first speed-run slice and lands as a doc-only PR. Plan change: no (refinement of the speed-run plan).
 
 ## Drift
 - Approved deviation: GUI work moved from `../agendum` into this standalone project.
@@ -72,6 +75,7 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
 - 2026-05-08 visual/layout drift check: approved correction. The product direction now prioritizes the terminal app's dense sectioned triage list over the earlier Mac detail-pane layout, while retaining native sidebar, toolbar, sheets, menus, and state restoration.
 - 2026-05-08 C1 drift check: no unapproved drift. C1 is the next critical-path leaf because B3 explicitly depends on C1/C2 and A6 is Phase 8 polish. Leaf issue #44 was filed after explicit user approval to publish.
 - 2026-05-09 C2 drift check: no unapproved drift. C2 was the named next C-epic leaf after C1; landed as PR #49. C3 is now the next leaf but has a documented architectural prerequisite (Python-process write observation) that must be resolved before implementation, not after.
+- 2026-05-09 speed-run plan revision: approved deviation (large). User instruction: "I want to rip Python out!… this entire project should be a speed-run port of the original cli app. why are we being so slow and careful?" Resolution: dual-runtime sequencing under epics #25 and #26 collapses into the 5-slice S0–S4 sequence; the prior C3 "Python observation" prerequisite is dropped because Python sync is removed before Swift would have needed to observe its writes. Constraints retired: "Preserve v0 helper protocol", "No `gh` CLI dep after B4". MVP cuts deferred to post-MVP: B4 (native OAuth), C5 (DB relocation), A6 (polish), multi-workspace machinery. Source-of-truth shift: port from `../agendum/src/agendum/` (original CLI), NOT `Backend/agendum_engine/` (vendored fork that doubled with mac-specific cruft that is out of scope).
 
 ## Validation
 - Last full checkpoint validation: A4 / PR #36 on 2026-05-06: `swift build`; `swift test --enable-code-coverage` (118 XCTest tests plus 7 Swift Testing cases); `/opt/homebrew/bin/python3 -m unittest discover -s Tests` (68 tests); `/opt/homebrew/bin/python3 Scripts/python_coverage.py` (499/540 lines, 92.4%); `Scripts/build_app_bundle.sh`; bundle existence/executable checks; `plutil -lint`; `swift run AgendumMac` launch smoke; `git diff --check`; platform-reference grep for `AgendumMacWorkflow`.
@@ -187,16 +191,27 @@ Ship `agendum-mac` as a fully standalone native macOS app: Swift end-to-end, wit
   - `FakeTaskStore` actor + 2 smoke tests in `AgendumFeatureTests/FakeTaskStore.swift` (C3 TODO note: expand `observe` to emit live values).
   - Internal test helpers `insert(_:)`, `insertRaw(...)`, `rawRecord(id:)` on `TaskStore` (accessible via `@testable import`).
 
-## C3 Prerequisites (resolve before filing C3)
-- **Observation of Python-process writes**: `ValueObservation` only sees commits made through the same GRDB connection. Python writes through a separate `sqlite3` process; those commits are invisible to GRDB's `sqlite3_commit_hook`. Decide on one of:
-  1. File-system watcher (`DispatchSource.makeFileSystemObjectSource` / kqueue) on the WAL/journal that calls `database.notifyChanges(in: .fullDatabase)` after Python syncs.
-  2. IPC from Python (e.g., a tiny stdio "sync-complete" event from the existing helper) into Swift to trigger `notifyChanges`.
-  3. Periodic polling fallback (cheap but wastes wakeups).
-  Recommendation: start with option 2 (the helper already has stdio open, and sync events are already a concept) and add option 1 as a defense-in-depth signal.
-- **WAL configuration**: `TaskStore.init(path:)` currently uses `DatabaseQueue` with default `Configuration`. Switch to `DatabasePool` with `Configuration.journalMode = .wal` so Swift opens the same journal mode as Python. `DatabasePool` does not support in-memory; keep `init(inMemory:)` on `DatabaseQueue` for tests.
-- **`FakeTaskStore.observe` for workflow tests**: needs to emit at least the current stored tasks on subscription and re-emit on `setTasks(_:)` so C3 workflow tests can exercise live observation through the seam.
+## Speed-Run Sequence
+Replaces the prior C3-as-bridge-slice plan and the helper-protocol-preserving B-epic interleaving. Source of truth for the port is `../agendum/src/agendum/` (original CLI, ~419-LOC syncer), NOT `Backend/agendum_engine/` (vendored fork that doubled with mac-specific complexity).
+
+| # | Slice | Source LOC | What it does | Replaces (in old plan) |
+|---|---|---|---|---|
+| **S0** | Write `docs/syncer-spec.md` | 419 + deps | Read `../agendum/src/agendum/syncer.py` and dependents (`gh.py`, `gh_review.py`, `db.py`, `task_api.py`, `config.py`); write spec capturing data model, sync lifecycle, attention rules, close suppression, MVP cuts, parity-test fixtures. Doc-only PR. | new (de-risks S3) |
+| **S1** | App-side: route through `TaskStore` | ~500 | Port `task_api.py` + remaining `db.py` writes into `TaskStore` (Swift). Wire `BackendStatusModel` directly to it for reads, mutations, manual create. Single implicit workspace (drop multi-workspace). | C3 + C4 + most of B3 |
+| **S2** | GitHub transport: native Swift | ~750 | Port `gh.py` + `gh_review.py` to Swift via URLSession (REST + GraphQL). Pure transport + parsing; auth via `gh auth status` token reuse for now. | preparatory |
+| **S3** | Sync engine: native Swift per S0 spec | 419 | Port `syncer.py` to Swift per `docs/syncer-spec.md`. Wire to `BackendStatusModel.refresh()`. Tests: spec invariants (primary) + Python parity oracle (secondary). | most of B5 |
+| **S4** | Tombstone: delete the bridge | delete-only | Delete `Backend/` entirely, delete `AgendumBackendClient` stdio path + helper bridge files, retire `docs/backend-contract.md` to historical-reference. | B6 |
+
+**Total**: 1 spec + 4 implementation slices (~5 PRs).
+
+**Deferred to post-MVP** (file separately later):
+- B4: native OAuth Device Flow + Keychain (keep `gh` CLI auth dep through MVP).
+- C5: relocate DB to `~/Library/Application Support/Agendum/` (current path stays).
+- A6: localization, accessibility audit, MetricKit polish.
+- Multi-workspace machinery (single implicit workspace through MVP).
 
 ## Handoff / Next Actions
-1. Resolve the C3 prerequisites above (observation strategy + WAL config). User decision needed on option 1 (helper IPC) vs 2 (file-system watcher) vs 3 (polling) before filing C3.
-2. File C3 leaf issue from `docs/research/proposed-issues.md` once observation strategy is decided; PR back to `feature/mac-prototype`.
-3. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
+1. Land this plan-revision PR.
+2. Update epic bodies on GitHub (#25, #26) to reflect the speed-run sequence and the dropped constraints.
+3. Start S0: write `docs/syncer-spec.md` from a careful read of `../agendum/src/agendum/`.
+4. Keep PR #2 as the parent durable context; do not merge it until explicitly requested.
