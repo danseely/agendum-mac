@@ -1,4 +1,5 @@
 import AgendumFeature
+import AgendumMacStore
 import AppKit
 import Foundation
 @preconcurrency import UserNotifications
@@ -9,7 +10,8 @@ extension BackendStatusModel {
             openURL: defaultURLOpener,
             pasteboard: defaultPasteboard,
             notifier: defaultNotifier,
-            setBadge: defaultBadgeSetter
+            setBadge: defaultBadgeSetter,
+            storeFactory: { url in try TaskStore(path: url) }
         )
     }
 

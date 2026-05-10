@@ -6,8 +6,17 @@ import AgendumFeature
 /// Mirrors `Backend/agendum_engine/agendum/db.py` `TERMINAL_STATUSES`.
 private let terminalStatuses: [String] = ["merged", "closed", "done"]
 
+public enum TaskStoreError: Error, Equatable, Sendable {
+    case invalidInput(String)
+    case notFound(Int)
+}
+
 public actor TaskStore: TaskStoreProviding {
-    private let database: DatabaseQueue
+    /// Storage handle. `DatabasePool` for file-based DBs (opens in WAL mode by default,
+    /// matching Python's `PRAGMA journal_mode=WAL` so the helper and Swift can coexist
+    /// at the same SQLite file during the speed-run port). `DatabaseQueue` for in-memory
+    /// test DBs (DatabasePool does not support in-memory).
+    private let database: any DatabaseWriter
     /// Matches Python `datetime.now(timezone.utc).isoformat()` exactly so Swift-written
     /// `updated_at` / `last_seen_at` strings sort lexicographically against Python's
     /// (which produce `YYYY-MM-DDTHH:MM:SS.ffffff+00:00`). `ISO8601DateFormatter` would
@@ -21,15 +30,45 @@ public actor TaskStore: TaskStoreProviding {
     }()
 
     /// Opens or creates the task database at `path`, running all schema migrations.
+    /// Uses `DatabasePool` (WAL mode) so Python helper writes and Swift writes can
+    /// coexist on the same SQLite file during the speed-run port.
+    ///
+    /// Creates the parent directory (mode 0o700) and chmod-s the resulting db file
+    /// to 0o600, matching Python `init_db` (`db.py:43-51`). On a fresh install this
+    /// init may run before Python ever has, so Swift owns directory creation too.
     public init(path: URL) throws {
-        database = try DatabaseQueue(path: path.path)
-        try DatabaseSchema.prepare(database)
+        let parent = path.deletingLastPathComponent()
+        try FileManager.default.createDirectory(
+            at: parent,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        var config = Configuration()
+        config.busyMode = .timeout(5.0)
+        let pool = try DatabasePool(path: path.path, configuration: config)
+        try DatabaseSchema.prepare(pool)
+        // chmod 0o600 once the file exists. WAL/SHM siblings are created on first
+        // write; chmod them too if present. SQLite emits them with default umask,
+        // so this is best-effort and safe to skip if they don't exist yet.
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path.path) {
+            try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path)
+        }
+        for sibling in ["-wal", "-shm"] {
+            let sib = path.path + sibling
+            if fm.fileExists(atPath: sib) {
+                try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: sib)
+            }
+        }
+        database = pool
     }
 
-    /// In-memory database for tests.
+    /// In-memory database for tests. `DatabaseQueue` since `DatabasePool` does not
+    /// support in-memory backing.
     init(inMemory: Void = ()) throws {
-        database = try DatabaseQueue()
-        try DatabaseSchema.prepare(database)
+        let queue = try DatabaseQueue()
+        try DatabaseSchema.prepare(queue)
+        database = queue
     }
 
     public func tasks(matching filters: TaskListFilters) async throws -> [TaskItem] {
@@ -78,6 +117,176 @@ public actor TaskStore: TaskStoreProviding {
                 arguments: [now, now, taskID]
             )
         }
+    }
+
+    /// Updates a task's status and bumps `updated_at` (matches Python `update_task`).
+    /// Used for markReviewed / markInProgress / moveToBacklog / markDone paths.
+    /// Silent no-op if `id` is not found.
+    public func updateTaskStatus(id: TaskItem.ID, status: String) async throws {
+        let taskID = id
+        let now = timestampFormatter.string(from: Date())
+        try await database.write { db in
+            try db.execute(
+                sql: "UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?",
+                arguments: [status, now, taskID]
+            )
+        }
+    }
+
+    /// Removes a task. Silent no-op if `id` is not found. Mirrors `db.remove_task`.
+    public func removeTask(id: TaskItem.ID) async throws {
+        let taskID = id
+        try await database.write { db in
+            try db.execute(
+                sql: "DELETE FROM tasks WHERE id = ?",
+                arguments: [taskID]
+            )
+        }
+    }
+
+    /// Creates a manual task (`source = "manual"`, `status = "backlog"`). Mirrors
+    /// `task_api.create_manual_task` + `db.add_task`. `tags` is encoded as a JSON
+    /// array string to match Python's storage format.
+    @discardableResult
+    public func createManualTask(
+        title: String,
+        project: String? = nil,
+        tags: [String]? = nil
+    ) async throws -> TaskItem {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw TaskStoreError.invalidInput("title must not be empty")
+        }
+        let now = timestampFormatter.string(from: Date())
+        let tagsJSON: String?
+        if let tags, !tags.isEmpty {
+            let data = try JSONSerialization.data(withJSONObject: tags)
+            tagsJSON = String(data: data, encoding: .utf8)
+        } else {
+            tagsJSON = nil
+        }
+        let insertedID = try await database.write { db -> Int64 in
+            try db.execute(sql: """
+                INSERT INTO tasks
+                  (title, source, status, project, tags, last_changed_at, created_at, updated_at)
+                VALUES (?, 'manual', 'backlog', ?, ?, ?, ?, ?)
+                """, arguments: [trimmed, project, tagsJSON, now, now, now])
+            return db.lastInsertedRowID
+        }
+        guard let item = try await task(id: Int(insertedID)) else {
+            throw TaskStoreError.notFound(Int(insertedID))
+        }
+        return item
+    }
+
+    /// Token-AND search across `title`, `project`, `gh_repo`, `gh_url`, `gh_author`,
+    /// `gh_author_name`, and `tags`. Matches `task_api.search_tasks` (and
+    /// `task_api._task_haystack`) behavior: case-folded, whitespace-tokenized, all
+    /// tokens must match, returns at most `limit`. Search runs at the `TaskRecord`
+    /// level (not `TaskItem`) so it can reach fields the domain mapping discards
+    /// (`gh_repo`, `tags`, etc.).
+    public func searchTasks(
+        query: String,
+        source: String? = nil,
+        status: String? = nil,
+        project: String? = nil,
+        limit: Int = 20
+    ) async throws -> [TaskItem] {
+        let tokens = query
+            .split(whereSeparator: { $0.isWhitespace })
+            .map { String($0).lowercased() }
+            .filter { !$0.isEmpty }
+        guard !tokens.isEmpty else {
+            throw TaskStoreError.invalidInput("query must not be empty")
+        }
+        let cap = max(1, min(limit, 200))
+        // Match Python `search_tasks`: candidate set is `get_active_tasks` (no
+        // LIMIT) filtered by source/status/project/includeSeen, then the
+        // haystack-AND match short-circuits at `cap`. Build the SQL by reusing
+        // filterSQL's WHERE+ORDER BY but skipping its LIMIT clause.
+        let (whereSQL, args) = searchCandidateSQL(
+            source: source, status: status, project: project
+        )
+        let records = try await database.read { db in
+            try TaskRecord.fetchAll(db, sql: whereSQL, arguments: args)
+        }
+        var matches: [TaskItem] = []
+        matches.reserveCapacity(cap)
+        for record in records {
+            let haystack = taskHaystack(record)
+            if tokens.allSatisfy({ haystack.contains($0) }) {
+                guard let item = record.toTaskItem() else { continue }
+                matches.append(item)
+                if matches.count >= cap { break }
+            }
+        }
+        return matches
+    }
+
+    /// Build the candidate-set SQL for `searchTasks`: same WHERE clauses as
+    /// `filterSQL` (terminal-status exclusion + source/status/project filters,
+    /// `includeSeen=true`) and the same ORDER BY, but no LIMIT — Python's
+    /// `search_tasks` iterates `get_active_tasks` unbounded and short-circuits
+    /// in the haystack loop.
+    private nonisolated func searchCandidateSQL(
+        source: String?,
+        status: String?,
+        project: String?
+    ) -> (String, StatementArguments) {
+        var conditions: [String] = []
+        var args: [DatabaseValueConvertible?] = []
+        if status == nil {
+            let placeholders = terminalStatuses.map { _ in "?" }.joined(separator: ", ")
+            conditions.append("status NOT IN (\(placeholders))")
+            args.append(contentsOf: terminalStatuses.map { $0 as DatabaseValueConvertible? })
+        }
+        if let source {
+            conditions.append("source = ?")
+            args.append(source)
+        }
+        if let status {
+            conditions.append("status = ?")
+            args.append(status)
+        }
+        if let project {
+            conditions.append("project = ?")
+            args.append(project)
+        }
+        var sql = "SELECT * FROM \(DatabaseSchema.tasksTable)"
+        if !conditions.isEmpty {
+            sql += " WHERE " + conditions.joined(separator: " AND ")
+        }
+        sql += " ORDER BY seen ASC, updated_at DESC, id DESC"
+        return (sql, StatementArguments(args))
+    }
+
+    /// Mirrors Python `task_api._task_haystack`: case-folded, whitespace-joined.
+    /// Includes the raw record fields (so `gh_repo`, `tags`, `gh_url`, etc. are
+    /// searchable). Tags are JSON-decoded when possible; otherwise included raw.
+    private nonisolated func taskHaystack(_ record: TaskRecord) -> String {
+        var parts: [String] = [record.title]
+        if let project = record.project { parts.append(project) }
+        if let ghRepo = record.ghRepo { parts.append(ghRepo) }
+        if let ghURL = record.ghURL { parts.append(ghURL) }
+        if let ghAuthor = record.ghAuthor { parts.append(ghAuthor) }
+        if let ghAuthorName = record.ghAuthorName { parts.append(ghAuthorName) }
+        if let tags = record.tags, !tags.isEmpty {
+            // Match Python `task_api._normalize_tags`: JSON-decode then treat:
+            //   - array → flatten members as strings
+            //   - non-array JSON value → singleton list of stringified value
+            //   - non-JSON string → singleton [tags]
+            if let data = tags.data(using: .utf8),
+               let value = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) {
+                if let arr = value as? [Any] {
+                    parts.append(contentsOf: arr.map { String(describing: $0) })
+                } else {
+                    parts.append(String(describing: value))
+                }
+            } else {
+                parts.append(tags)
+            }
+        }
+        return parts.joined(separator: " ").lowercased()
     }
 
     // MARK: - Internal test helpers

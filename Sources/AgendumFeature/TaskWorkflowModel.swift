@@ -272,6 +272,12 @@ public enum TaskDashboardCommand: Hashable, Sendable {
         _ action: TaskDetailAction,
         on model: BackendStatusModel
     ) -> Bool {
+        // Block per-task actions while a workspace switch / refresh / force-sync
+        // is in flight. Otherwise a click during `await client.selectWorkspace`
+        // would write to the OUTGOING workspace's database via the still-bound
+        // store. Blanket isLoading check is the simplest fix; finer-grained
+        // gating can come later if needed.
+        guard !model.isLoading else { return false }
         guard
             let id = model.selectedTaskID,
             let task = model.tasks.first(where: { $0.id == id })
@@ -390,8 +396,28 @@ public struct PresentedError: Equatable, Sendable {
                 )
             }
         }
+        if let modelError = error as? BackendStatusModelError {
+            switch modelError {
+            case .storeNotReady:
+                return PresentedError(
+                    message: "Workspace database is not ready yet.",
+                    recovery: "Refresh the dashboard, then try again.",
+                    code: "store.notReady"
+                )
+            }
+        }
         return PresentedError(message: String(describing: error), recovery: nil, code: "client.unknown")
     }
+}
+
+/// Factory invoked by `BackendStatusModel` to create a `TaskStoreProviding` for a
+/// given on-disk database URL. Production passes `{ try TaskStore(path: $0) }`;
+/// tests pass `{ _ in fakeStore }`.
+public typealias TaskStoreFactory = @Sendable (URL) throws -> any TaskStoreProviding
+
+public enum BackendStatusModelError: Error, Equatable, Sendable {
+    /// A task action ran before `refresh()` populated the workspace and store.
+    case storeNotReady
 }
 
 @Observable
@@ -422,6 +448,12 @@ public final class BackendStatusModel {
     public var errorMessage: String? { error?.message }
 
     private let client: any AgendumBackendServicing
+    /// Factory invoked when the workspace's `dbPath` first becomes known (in `refresh()`)
+    /// or changes (in `selectWorkspace(...)`). Tests inject a closure returning a
+    /// `FakeTaskStore`; production injects `{ try TaskStore(path: $0) }`.
+    private let storeFactory: TaskStoreFactory
+    private var store: (any TaskStoreProviding)?
+    private var currentStorePath: String?
     private let syncPollIntervalNanoseconds: UInt64
     private let maxSyncPollAttempts: Int
     private let sleep: @Sendable (UInt64) async throws -> Void
@@ -437,10 +469,12 @@ public final class BackendStatusModel {
         openURL: @escaping URLOpening,
         pasteboard: @escaping Pasteboarding,
         notifier: @escaping Notifying,
-        setBadge: @escaping BadgeSetting
+        setBadge: @escaping BadgeSetting,
+        storeFactory: @escaping TaskStoreFactory
     ) {
         self.init(
             client: AgendumBackendClient(),
+            storeFactory: storeFactory,
             openURL: openURL,
             pasteboard: pasteboard,
             notifier: notifier,
@@ -450,6 +484,7 @@ public final class BackendStatusModel {
 
     init(
         client: any AgendumBackendServicing,
+        storeFactory: @escaping TaskStoreFactory,
         syncPollIntervalNanoseconds: UInt64 = 500_000_000,
         maxSyncPollAttempts: Int = 120,
         sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) },
@@ -462,6 +497,7 @@ public final class BackendStatusModel {
         filters: TaskListFilters = .default
     ) {
         self.client = client
+        self.storeFactory = storeFactory
         self.syncPollIntervalNanoseconds = syncPollIntervalNanoseconds
         self.maxSyncPollAttempts = maxSyncPollAttempts
         self.sleep = sleep
@@ -479,6 +515,34 @@ public final class BackendStatusModel {
         iso.formatOptions = [.withInternetDateTime]
         self.iso8601Formatter = iso
     }
+
+    /// Reconciles the active store against the current workspace's `dbPath`.
+    /// Creates a new `TaskStoreProviding` instance only when the path actually changes.
+    private func updateStoreIfNeeded(workspace: Workspace?) throws {
+        guard let workspace else { return }
+        if currentStorePath == workspace.dbPath { return }
+        let url = URL(fileURLWithPath: workspace.dbPath)
+        store = try storeFactory(url)
+        currentStorePath = workspace.dbPath
+    }
+
+    /// Returns the current `TaskStoreProviding` instance, lazily initializing it from
+    /// the active workspace's `dbPath` (or a default path when no workspace has been
+    /// fetched yet — this happens in tests that exercise task actions without first
+    /// calling `refresh()`).
+    private func requireStore() throws -> any TaskStoreProviding {
+        if let store { return store }
+        let path = workspace?.dbPath ?? Self.defaultStorePath
+        let url = URL(fileURLWithPath: path)
+        let new = try storeFactory(url)
+        store = new
+        currentStorePath = path
+        return new
+    }
+
+    private static let defaultStorePath: String = {
+        NSHomeDirectory() + "/.agendum/agendum.db"
+    }()
 
     public var workspaceLabel: String {
         workspace?.displayName ?? "Loading workspace"
@@ -549,6 +613,7 @@ public final class BackendStatusModel {
             workspaces = try await client.listWorkspaces()
             auth = try await client.authStatus()
             sync = try await client.syncStatus()
+            try updateStoreIfNeeded(workspace: workspace)
             tasks = try await loadTaskItems()
             self.error = nil
             taskActionErrors = [:]
@@ -585,6 +650,7 @@ public final class BackendStatusModel {
             workspaces = try await client.listWorkspaces()
             filters = .default
             tasks = []
+            try updateStoreIfNeeded(workspace: workspace)
             tasks = try await loadTaskItems()
             self.error = nil
             taskActionErrors = [:]
@@ -668,38 +734,38 @@ public final class BackendStatusModel {
     }
 
     public func markSeen(id: TaskItem.ID) async {
-        await performTaskAction(name: "markSeen", taskID: id) {
-            _ = try await client.markTaskSeen(id: id)
+        await performTaskAction(name: "markSeen", taskID: id) { [self] in
+            try await requireStore().markSeen(id: id)
         }
     }
 
     public func markReviewed(id: TaskItem.ID) async {
-        await performTaskAction(name: "markReviewed", taskID: id) {
-            _ = try await client.markTaskReviewed(id: id)
+        await performTaskAction(name: "markReviewed", taskID: id) { [self] in
+            try await requireStore().updateTaskStatus(id: id, status: "reviewed")
         }
     }
 
     public func markInProgress(id: TaskItem.ID) async {
-        await performTaskAction(name: "markInProgress", taskID: id) {
-            _ = try await client.markTaskInProgress(id: id)
+        await performTaskAction(name: "markInProgress", taskID: id) { [self] in
+            try await requireStore().updateTaskStatus(id: id, status: "in progress")
         }
     }
 
     public func moveToBacklog(id: TaskItem.ID) async {
-        await performTaskAction(name: "moveToBacklog", taskID: id) {
-            _ = try await client.moveTaskToBacklog(id: id)
+        await performTaskAction(name: "moveToBacklog", taskID: id) { [self] in
+            try await requireStore().updateTaskStatus(id: id, status: "backlog")
         }
     }
 
     public func markDone(id: TaskItem.ID) async {
-        await performTaskAction(name: "markDone", taskID: id) {
-            _ = try await client.markTaskDone(id: id)
+        await performTaskAction(name: "markDone", taskID: id) { [self] in
+            try await requireStore().updateTaskStatus(id: id, status: "done")
         }
     }
 
     public func removeTask(id: TaskItem.ID) async {
-        await performTaskAction(name: "removeTask", taskID: id) {
-            _ = try await client.removeTask(id: id)
+        await performTaskAction(name: "removeTask", taskID: id) { [self] in
+            try await requireStore().removeTask(id: id)
         }
     }
 
@@ -768,7 +834,7 @@ public final class BackendStatusModel {
         defer { isLoading = false }
 
         do {
-            _ = try await client.createManualTask(title: title, project: project, tags: tags)
+            _ = try await requireStore().createManualTask(title: title, project: project, tags: tags)
             tasks = try await loadTaskItems()
             self.error = nil
             logger.notice("BackendStatusModel.createManualTask ok")
@@ -808,12 +874,6 @@ public final class BackendStatusModel {
     }
 
     private func loadTaskItems() async throws -> [TaskItem] {
-        try await client.listTasks(
-            source: filters.source,
-            status: filters.status,
-            project: filters.project,
-            includeSeen: filters.includeSeen,
-            limit: filters.limit
-        ).map(TaskItem.init)
+        try await requireStore().tasks(matching: filters)
     }
 }

@@ -1,5 +1,6 @@
 @testable import AgendumMacStore
 import AgendumFeature
+import Foundation
 import GRDB
 import Testing
 
@@ -166,6 +167,193 @@ struct TaskStoreTests {
         let store = try TaskStore()
         // Protocol contract: silent no-op when id is not found
         try await store.markSeen(id: 999)
+    }
+
+    @Test
+    func updateTaskStatusFlipsStatusAndBumpsUpdatedAt() async throws {
+        let store = try TaskStore()
+        try await insertTask(store, id: 1, title: "T", source: "manual", status: "backlog")
+        let originalUpdatedAt = try await store.rawRecord(id: 1)?.updatedAt
+
+        try await store.updateTaskStatus(id: 1, status: "in progress")
+
+        let item = try await store.task(id: 1)
+        #expect(item?.status == "in progress")
+        let record = try await store.rawRecord(id: 1)
+        #expect(record?.updatedAt != originalUpdatedAt)
+        #expect(record?.updatedAt?.range(of: #"\.\d{6}\+00:00$"#, options: .regularExpression) != nil)
+    }
+
+    @Test
+    func updateTaskStatusWithNonExistentIDSucceedsSilently() async throws {
+        let store = try TaskStore()
+        try await store.updateTaskStatus(id: 999, status: "done")
+    }
+
+    @Test
+    func removeTaskDeletesRow() async throws {
+        let store = try TaskStore()
+        try await insertTask(store, id: 1, title: "T", source: "manual")
+        try await insertTask(store, id: 2, title: "Other", source: "manual")
+
+        try await store.removeTask(id: 1)
+
+        #expect(try await store.task(id: 1) == nil)
+        let remaining = try await store.tasks(matching: .default)
+        #expect(remaining.map(\.id) == [2])
+    }
+
+    @Test
+    func removeTaskWithNonExistentIDSucceedsSilently() async throws {
+        let store = try TaskStore()
+        try await store.removeTask(id: 999)
+    }
+
+    @Test
+    func createManualTaskInsertsBacklogManualRow() async throws {
+        let store = try TaskStore()
+
+        let created = try await store.createManualTask(title: "Buy milk", project: "Errands", tags: ["home", "shopping"])
+
+        #expect(created.title == "Buy milk")
+        #expect(created.source == .manual)
+        #expect(created.backendSource == "manual")
+        #expect(created.status == "backlog")
+        #expect(created.project == "Errands")
+        // Manual tasks default to seen=1 per schema (user-created, not a notification).
+        // Matches Python `add_task` behavior.
+        #expect(!created.isUnseen)
+        let stored = try await store.rawRecord(id: Int64(created.id))
+        #expect(stored?.tags == #"["home","shopping"]"#)
+    }
+
+    @Test
+    func createManualTaskTrimsTitleAndRejectsEmpty() async throws {
+        let store = try TaskStore()
+
+        let trimmed = try await store.createManualTask(title: "  Padded  ", project: nil, tags: nil)
+        #expect(trimmed.title == "Padded")
+
+        await #expect(throws: TaskStoreError.invalidInput("title must not be empty")) {
+            try await store.createManualTask(title: "   ", project: nil, tags: nil)
+        }
+    }
+
+    @Test
+    func searchTasksReturnsTokenAndMatches() async throws {
+        let store = try TaskStore()
+        try await insertTask(store, id: 1, title: "Review release dashboard PR", source: "pr_review", status: "review requested")
+        try await insertTask(store, id: 2, title: "Buy milk", source: "manual")
+        try await insertTask(store, id: 3, title: "Audit dashboard widget tests", source: "issue", status: "open")
+
+        let results = try await store.searchTasks(query: "dashboard review", source: nil, status: nil, project: nil, limit: 10)
+
+        // Token-AND: must contain both "dashboard" and "review"
+        #expect(results.count == 1)
+        #expect(results[0].id == 1)
+    }
+
+    @Test
+    func searchTasksRequiresNonEmptyQuery() async throws {
+        let store = try TaskStore()
+        await #expect(throws: TaskStoreError.invalidInput("query must not be empty")) {
+            try await store.searchTasks(query: "   ", source: nil, status: nil, project: nil, limit: 10)
+        }
+    }
+
+    @Test
+    func searchTasksMatchesGhRepoTagsAndAuthorFromRecord() async throws {
+        // Verifies parity with Python `_task_haystack`: search reaches fields that
+        // `TaskItem` doesn't carry (`gh_repo`, `tags`, `gh_url`, `gh_author_name`).
+        let store = try TaskStore()
+        try await store.insert(TaskRecord(
+            id: 1, title: "PR title",
+            source: "pr_authored", status: "open",
+            project: "agendum-mac", ghRepo: "danseely/agendum-mac",
+            ghURL: "https://github.com/danseely/agendum-mac/pull/42",
+            ghAuthor: "danseely", ghAuthorName: "Dan",
+            tags: #"["bug","release"]"#, seen: 1,
+            lastChangedAt: "2026-05-09T00:00:00.000000+00:00",
+            createdAt: "2026-05-09T00:00:00.000000+00:00",
+            updatedAt: "2026-05-09T00:00:00.000000+00:00"
+        ))
+
+        // Match by gh_repo full owner/name
+        let byRepo = try await store.searchTasks(query: "danseely/agendum-mac", source: nil, status: nil, project: nil, limit: 10)
+        #expect(byRepo.count == 1)
+        // Match by tag
+        let byTag = try await store.searchTasks(query: "release", source: nil, status: nil, project: nil, limit: 10)
+        #expect(byTag.count == 1)
+        // Match by gh_author_name (display name, not login)
+        let byName = try await store.searchTasks(query: "Dan", source: nil, status: nil, project: nil, limit: 10)
+        #expect(byName.count == 1)
+    }
+
+    @Test
+    func taskStoreCreatesParentDirectory() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("agendum-store-test-\(UUID().uuidString)")
+        let dbURL = tmp.appendingPathComponent("nested").appendingPathComponent("agendum.db")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        // Parent dir does not exist yet — TaskStore should create it.
+        #expect(!FileManager.default.fileExists(atPath: dbURL.deletingLastPathComponent().path))
+
+        _ = try TaskStore(path: dbURL)
+
+        #expect(FileManager.default.fileExists(atPath: dbURL.path))
+        #expect(FileManager.default.fileExists(atPath: dbURL.deletingLastPathComponent().path))
+    }
+
+    @Test
+    func taskStoreSetsRestrictivePermissionsOnDirAndFile() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("agendum-perm-test-\(UUID().uuidString)")
+        let dbURL = tmp.appendingPathComponent("inner").appendingPathComponent("agendum.db")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        _ = try TaskStore(path: dbURL)
+
+        let fm = FileManager.default
+        let dirAttrs = try fm.attributesOfItem(atPath: dbURL.deletingLastPathComponent().path)
+        let dbAttrs = try fm.attributesOfItem(atPath: dbURL.path)
+        #expect((dirAttrs[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+        #expect((dbAttrs[.posixPermissions] as? NSNumber)?.intValue == 0o600)
+    }
+
+    @Test
+    func searchTasksReachesPastFilterSqlLimitCap() async throws {
+        // filterSQL caps LIMIT at 200; search must NOT inherit that cap. Insert
+        // 250 manual rows with the search token only on the LAST row (newest by
+        // insertion order, so seen=0/updated_at sort puts it near the top, but
+        // we still want to confirm the candidate set is unbounded by setting a
+        // search token that doesn't appear in the first 200 candidates).
+        let store = try TaskStore()
+        for i in 1...250 {
+            let title = (i == 1) ? "uniquesearchtoken needle" : "Other task \(i)"
+            try await insertTask(store, id: Int64(i), title: title, source: "manual", seen: 1)
+        }
+
+        let results = try await store.searchTasks(query: "uniquesearchtoken", source: nil, status: nil, project: nil, limit: 10)
+
+        // Without unbounded candidate set, id=1 might fall outside the 200-row
+        // prefix (since seen is uniform and updated_at is uniform too, ORDER BY
+        // id DESC tiebreaker pushes id=1 to row 250). Search must still find it.
+        #expect(results.count == 1)
+        #expect(results[0].id == 1)
+    }
+
+    @Test
+    func createManualTaskShowsUpInTasksMatchingDefault() async throws {
+        // End-to-end: round-trip the row through `tasks(matching: .default)` to
+        // catch a real-store omission that the FakeBackend bridge couldn't.
+        let store = try TaskStore()
+
+        let created = try await store.createManualTask(title: "Plan trip", project: "personal", tags: nil)
+
+        let visible = try await store.tasks(matching: .default)
+        #expect(visible.contains(where: { $0.id == created.id }))
+        #expect(visible.first(where: { $0.id == created.id })?.title == "Plan trip")
     }
 
     @Test
