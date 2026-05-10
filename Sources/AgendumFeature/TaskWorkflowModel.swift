@@ -390,6 +390,16 @@ public struct PresentedError: Equatable, Sendable {
                 )
             }
         }
+        if let modelError = error as? BackendStatusModelError {
+            switch modelError {
+            case .storeNotReady:
+                return PresentedError(
+                    message: "Workspace database is not ready yet.",
+                    recovery: "Refresh the dashboard, then try again.",
+                    code: "store.notReady"
+                )
+            }
+        }
         return PresentedError(message: String(describing: error), recovery: nil, code: "client.unknown")
     }
 }

@@ -1,5 +1,6 @@
 @testable import AgendumMacStore
 import AgendumFeature
+import Foundation
 import GRDB
 import Testing
 
@@ -258,6 +259,50 @@ struct TaskStoreTests {
         await #expect(throws: TaskStoreError.invalidInput("query must not be empty")) {
             try await store.searchTasks(query: "   ", source: nil, status: nil, project: nil, limit: 10)
         }
+    }
+
+    @Test
+    func searchTasksMatchesGhRepoTagsAndAuthorFromRecord() async throws {
+        // Verifies parity with Python `_task_haystack`: search reaches fields that
+        // `TaskItem` doesn't carry (`gh_repo`, `tags`, `gh_url`, `gh_author_name`).
+        let store = try TaskStore()
+        try await store.insert(TaskRecord(
+            id: 1, title: "PR title",
+            source: "pr_authored", status: "open",
+            project: "agendum-mac", ghRepo: "danseely/agendum-mac",
+            ghURL: "https://github.com/danseely/agendum-mac/pull/42",
+            ghAuthor: "danseely", ghAuthorName: "Dan",
+            tags: #"["bug","release"]"#, seen: 1,
+            lastChangedAt: "2026-05-09T00:00:00.000000+00:00",
+            createdAt: "2026-05-09T00:00:00.000000+00:00",
+            updatedAt: "2026-05-09T00:00:00.000000+00:00"
+        ))
+
+        // Match by gh_repo full owner/name
+        let byRepo = try await store.searchTasks(query: "danseely/agendum-mac", source: nil, status: nil, project: nil, limit: 10)
+        #expect(byRepo.count == 1)
+        // Match by tag
+        let byTag = try await store.searchTasks(query: "release", source: nil, status: nil, project: nil, limit: 10)
+        #expect(byTag.count == 1)
+        // Match by gh_author_name (display name, not login)
+        let byName = try await store.searchTasks(query: "Dan", source: nil, status: nil, project: nil, limit: 10)
+        #expect(byName.count == 1)
+    }
+
+    @Test
+    func taskStoreCreatesParentDirectory() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("agendum-store-test-\(UUID().uuidString)")
+        let dbURL = tmp.appendingPathComponent("nested").appendingPathComponent("agendum.db")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        // Parent dir does not exist yet — TaskStore should create it.
+        #expect(!FileManager.default.fileExists(atPath: dbURL.deletingLastPathComponent().path))
+
+        _ = try TaskStore(path: dbURL)
+
+        #expect(FileManager.default.fileExists(atPath: dbURL.path))
+        #expect(FileManager.default.fileExists(atPath: dbURL.deletingLastPathComponent().path))
     }
 
     @Test

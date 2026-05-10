@@ -32,11 +32,34 @@ public actor TaskStore: TaskStoreProviding {
     /// Opens or creates the task database at `path`, running all schema migrations.
     /// Uses `DatabasePool` (WAL mode) so Python helper writes and Swift writes can
     /// coexist on the same SQLite file during the speed-run port.
+    ///
+    /// Creates the parent directory (mode 0o700) and chmod-s the resulting db file
+    /// to 0o600, matching Python `init_db` (`db.py:43-51`). On a fresh install this
+    /// init may run before Python ever has, so Swift owns directory creation too.
     public init(path: URL) throws {
+        let parent = path.deletingLastPathComponent()
+        try FileManager.default.createDirectory(
+            at: parent,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
         var config = Configuration()
         config.busyMode = .timeout(5.0)
         let pool = try DatabasePool(path: path.path, configuration: config)
         try DatabaseSchema.prepare(pool)
+        // chmod 0o600 once the file exists. WAL/SHM siblings are created on first
+        // write; chmod them too if present. SQLite emits them with default umask,
+        // so this is best-effort and safe to skip if they don't exist yet.
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path.path) {
+            try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path)
+        }
+        for sibling in ["-wal", "-shm"] {
+            let sib = path.path + sibling
+            if fm.fileExists(atPath: sib) {
+                try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: sib)
+            }
+        }
         database = pool
     }
 
@@ -157,8 +180,11 @@ public actor TaskStore: TaskStoreProviding {
     }
 
     /// Token-AND search across `title`, `project`, `gh_repo`, `gh_url`, `gh_author`,
-    /// `gh_author_name`, and `tags`. Matches `task_api.search_tasks` behavior:
-    /// case-folded, whitespace-tokenized, all tokens must match, returns at most `limit`.
+    /// `gh_author_name`, and `tags`. Matches `task_api.search_tasks` (and
+    /// `task_api._task_haystack`) behavior: case-folded, whitespace-tokenized, all
+    /// tokens must match, returns at most `limit`. Search runs at the `TaskRecord`
+    /// level (not `TaskItem`) so it can reach fields the domain mapping discards
+    /// (`gh_repo`, `tags`, etc.).
     public func searchTasks(
         query: String,
         source: String? = nil,
@@ -174,18 +200,22 @@ public actor TaskStore: TaskStoreProviding {
             throw TaskStoreError.invalidInput("query must not be empty")
         }
         let cap = max(1, min(limit, 200))
-        // Reuse filterSQL for the candidate set (with includeSeen=true to match Python),
-        // then token-filter in Swift to mirror task_api._task_haystack semantics.
-        let baseFilters = TaskListFilters(
+        // Match Python `list_tasks` candidate-set construction: same active-task
+        // filtering + the same source/status/project/includeSeen filters, but
+        // unbounded so search isn't capped before the haystack pass.
+        let (sql, args) = filterSQL(matching: TaskListFilters(
             source: source, status: status, project: project,
             includeSeen: true, limit: 200
-        )
-        let candidates = try await tasks(matching: baseFilters)
+        ))
+        let records = try await database.read { db in
+            try TaskRecord.fetchAll(db, sql: sql, arguments: args)
+        }
         var matches: [TaskItem] = []
         matches.reserveCapacity(cap)
-        for item in candidates {
-            let haystack = taskHaystack(item).lowercased()
+        for record in records {
+            let haystack = taskHaystack(record)
             if tokens.allSatisfy({ haystack.contains($0) }) {
+                guard let item = record.toTaskItem() else { continue }
                 matches.append(item)
                 if matches.count >= cap { break }
             }
@@ -193,11 +223,25 @@ public actor TaskStore: TaskStoreProviding {
         return matches
     }
 
-    private nonisolated func taskHaystack(_ item: TaskItem) -> String {
-        var parts: [String] = [item.title, item.project, item.backendSource]
-        if let author = item.author { parts.append(author) }
-        if let url = item.url { parts.append(url.absoluteString) }
-        return parts.joined(separator: " ")
+    /// Mirrors Python `task_api._task_haystack`: case-folded, whitespace-joined.
+    /// Includes the raw record fields (so `gh_repo`, `tags`, `gh_url`, etc. are
+    /// searchable). Tags are JSON-decoded when possible; otherwise included raw.
+    private nonisolated func taskHaystack(_ record: TaskRecord) -> String {
+        var parts: [String] = [record.title]
+        if let project = record.project { parts.append(project) }
+        if let ghRepo = record.ghRepo { parts.append(ghRepo) }
+        if let ghURL = record.ghURL { parts.append(ghURL) }
+        if let ghAuthor = record.ghAuthor { parts.append(ghAuthor) }
+        if let ghAuthorName = record.ghAuthorName { parts.append(ghAuthorName) }
+        if let tags = record.tags, !tags.isEmpty {
+            if let data = tags.data(using: .utf8),
+               let arr = try? JSONSerialization.jsonObject(with: data) as? [Any] {
+                parts.append(contentsOf: arr.map { String(describing: $0) })
+            } else {
+                parts.append(tags)
+            }
+        }
+        return parts.joined(separator: " ").lowercased()
     }
 
     // MARK: - Internal test helpers
