@@ -19,16 +19,19 @@ public enum GitHubAuthError: Error, Equatable, Sendable, CustomStringConvertible
     case ghCLINotFound
     case ghCLIFailed(stderr: String, exitCode: Int32)
     case emptyToken
+    case ghCLITimedOut
 
     public var description: String {
         switch self {
         case .ghCLINotFound:
-            return "GitHub CLI (`gh`) not found. Install it from https://cli.github.com/ or sign in via Settings."
+            return "GitHub CLI (`gh`) not found. Install it from https://cli.github.com/ or sign in via Settings. (Looked in /opt/homebrew/bin, /usr/local/bin, /usr/bin, /opt/local/bin.)"
         case .ghCLIFailed(let stderr, let exitCode):
             let trimmed = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             return "`gh auth token` exited \(exitCode)\(trimmed.isEmpty ? "" : ": \(trimmed)")."
         case .emptyToken:
             return "`gh auth token` returned an empty token. Run `gh auth login` to sign in."
+        case .ghCLITimedOut:
+            return "`gh auth token` did not respond within the deadline. Try `gh auth status` from the terminal to debug."
         }
     }
 }
@@ -55,6 +58,8 @@ public actor GhCLITokenProvider: GitHubTokenProviding {
             throw GitHubAuthError.ghCLINotFound
         } catch CocoaError.fileNoSuchFile {
             throw GitHubAuthError.ghCLINotFound
+        } catch is GhRunnerTimeout {
+            throw GitHubAuthError.ghCLITimedOut
         }
         if result.exitCode != 0 {
             throw GitHubAuthError.ghCLIFailed(stderr: result.stderr, exitCode: result.exitCode)
@@ -74,28 +79,80 @@ public actor GhCLITokenProvider: GitHubTokenProviding {
     /// Runs `gh auth token` via Foundation's `Process`. Searches a short list of
     /// canonical install paths for the `gh` binary; throws `ghCLINotFound` if
     /// none are present rather than relying on a fragile PATH lookup.
+    /// Bounded by a 10s deadline so a stuck `gh` (interactive prompt, keychain
+    /// hang) doesn't stall sync indefinitely.
     public static let defaultRunner: Runner = {
+        guard let ghURL = locateGhBinary() else {
+            throw POSIXError(.ENOENT)
+        }
+        return try await runProcessWithDeadline(executableURL: ghURL, arguments: ["auth", "token"], deadline: .seconds(10))
+    }
+
+    /// Visible to tests via `@testable import` so a tighter deadline can be exercised.
+    static func runProcessWithDeadline(
+        executableURL: URL,
+        arguments: [String],
+        deadline: Duration
+    ) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
+        // Process/Pipe are non-Sendable classes. We confine all access to one
+        // detached task and use a sibling deadline task to terminate-on-timeout.
         try await Task.detached(priority: .userInitiated) {
-            guard let ghURL = locateGhBinary() else {
-                throw POSIXError(.ENOENT)
-            }
             let process = Process()
             let stdoutPipe = Pipe()
             let stderrPipe = Pipe()
             process.standardOutput = stdoutPipe
             process.standardError = stderrPipe
-            process.executableURL = ghURL
-            process.arguments = ["auth", "token"]
+            process.executableURL = executableURL
+            process.arguments = arguments
             do {
                 try process.run()
             } catch let error as NSError where error.domain == NSPOSIXErrorDomain && error.code == ENOENT {
                 throw POSIXError(.ENOENT)
             }
+
+            // Deadline task: SIGTERM the child if the deadline expires.
+            let watchdog = TimeoutWatchdog(process: process)
+            let deadlineTask = Task {
+                try? await Task.sleep(for: deadline)
+                watchdog.fireIfStillRunning()
+            }
+            defer { deadlineTask.cancel() }
+
             process.waitUntilExit()
+            let didTimeOut = watchdog.didFire
             let stdout = String(data: stdoutPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             let stderr = String(data: stderrPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            if didTimeOut {
+                throw GhRunnerTimeout()
+            }
             return (stdout, stderr, process.terminationStatus)
         }.value
+    }
+
+    struct GhRunnerTimeout: Error, Sendable {}
+
+    /// Reference-typed flag wrapping a child `Process`, accessible from the
+    /// deadline `Task` (different isolation than the spawning detached task).
+    /// We use a class so the boolean mutation + the `terminate()` call are
+    /// visible to the spawning task when it inspects `didFire`.
+    final class TimeoutWatchdog: @unchecked Sendable {
+        private let lock = NSLock()
+        private let process: Process
+        private var _didFire: Bool = false
+
+        init(process: Process) { self.process = process }
+
+        func fireIfStillRunning() {
+            lock.lock(); defer { lock.unlock() }
+            guard process.isRunning else { return }
+            _didFire = true
+            process.terminate()
+        }
+
+        var didFire: Bool {
+            lock.lock(); defer { lock.unlock() }
+            return _didFire
+        }
     }
 
     private static func locateGhBinary() -> URL? {

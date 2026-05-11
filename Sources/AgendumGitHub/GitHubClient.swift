@@ -85,10 +85,16 @@ public actor GitHubClient {
     /// Fetches the per-repo bundle (authored PRs + assigned issues + recent
     /// terminal PRs/issues) for `owner/name` filtered by `user`.
     /// Mirrors Python `gh.fetch_repo_data`.
-    public func fetchRepoData(owner: String, name: String, user: String) async throws -> GHRepoQueryData {
+    /// Returns `(data, partialErrors)` so callers can surface partial-success
+    /// warnings if any.
+    public func fetchRepoData(owner: String, name: String, user: String) async throws -> (data: GHRepoQueryData, partialErrors: [GHGraphQLError]) {
         try await graphQL(
             query: GraphQLQueries.repo,
-            variables: ["owner": owner, "name": name, "user": user],
+            variables: [
+                "owner": .string(owner),
+                "name": .string(name),
+                "user": .string(user),
+            ],
             as: GHRepoQueryData.self
         )
     }
@@ -97,10 +103,14 @@ public actor GitHubClient {
 
     /// Fetches per-PR review detail for the review-requested path.
     /// Mirrors Python `gh.fetch_review_detail`.
-    public func fetchReviewDetail(owner: String, name: String, number: Int) async throws -> GHReviewQueryData {
+    public func fetchReviewDetail(owner: String, name: String, number: Int) async throws -> (data: GHReviewQueryData, partialErrors: [GHGraphQLError]) {
         try await graphQL(
             query: GraphQLQueries.review,
-            variables: ["owner": owner, "name": name, "number": number],
+            variables: [
+                "owner": .string(owner),
+                "name": .string(name),
+                "number": .int(number),
+            ],
             as: GHReviewQueryData.self
         )
     }
@@ -135,19 +145,22 @@ public actor GitHubClient {
 
     /// `discover_review_prs(orgs, user)`: across each org, find PRs where the
     /// user's review is requested. Returns `(prs, ok)` where `ok == false` if
-    /// any org's search returned 0 items (treated as "may be incomplete";
-    /// downstream sync uses this to suppress `pr_review` row closures).
-    /// Mirrors Python `gh.discover_review_prs`.
+    /// any org's search **failed** (transport / HTTP error caught), matching
+    /// Python's `gh.discover_review_prs` semantics. Empty results from a
+    /// successful search keep `ok == true` — an org with no pending reviews
+    /// is normal and must not suppress `pr_review` row closure downstream.
     public func discoverReviewPRs(orgs: [String], user: String) async throws -> (prs: [GHSearchItem], ok: Bool) {
         var collected: [GHSearchItem] = []
         var ok = true
         for org in orgs {
             let q = "is:pr is:open review-requested:\(user) org:\(org)"
-            let items = try await searchIssues(q: q, limit: 200)
-            if items.isEmpty {
+            do {
+                let items = try await searchIssues(q: q, limit: 200)
+                collected.append(contentsOf: items)
+            } catch let err as GitHubClientError {
+                logger.warning("discoverReviewPRs failed for org \(org, privacy: .public): \(String(describing: err), privacy: .public)")
                 ok = false
             }
-            collected.append(contentsOf: items)
         }
         return (collected, ok)
     }
@@ -155,16 +168,19 @@ public actor GitHubClient {
     // MARK: - Internal: HTTP helpers
 
     /// Runs a GraphQL POST against `/graphql` and decodes either:
-    ///   - successful `{ data: T }` → returns `T`
+    ///   - successful `{ data: T }` → returns `(T, partialErrors)`
     ///   - `{ errors: […] }` → throws `.graphQLErrors`
     ///   - `{ data: null, errors: […] }` → throws `.graphQLErrors`
     ///   - missing `data` and no errors → throws `.missingData`
+    ///
+    /// On partial success (`data` present + non-empty `errors`), returns both
+    /// so callers can decide whether to surface the warnings.
     private func graphQL<T: Decodable & Sendable>(
         query: String,
-        variables: [String: any Sendable],
+        variables: [String: GraphQLVariable],
         as type: T.Type
-    ) async throws -> T {
-        let body = GraphQLRequestBody(query: query, variables: AnyEncodable(variables))
+    ) async throws -> (data: T, partialErrors: [GHGraphQLError]) {
+        let body = GraphQLRequestBody(query: query, variables: variables)
         let data: Data = try await postJSON("/graphql", body: body)
         let envelope: GHGraphQLResponse<T>
         do {
@@ -176,11 +192,13 @@ public actor GitHubClient {
             throw GitHubClientError.graphQLErrors(errors)
         }
         if let data = envelope.data {
-            // Partial-success: log non-fatal errors but return the data we got.
-            if let errors = envelope.errors, !errors.isEmpty {
-                logger.warning("GraphQL partial success with \(errors.count, privacy: .public) error(s); proceeding with data")
+            let partial = envelope.errors ?? []
+            if !partial.isEmpty {
+                logger.warning(
+                    "GraphQL partial success with \(partial.count, privacy: .public) error(s): \(partial.map(\.description).joined(separator: "; "), privacy: .public)"
+                )
             }
-            return data
+            return (data, partial)
         }
         throw GitHubClientError.missingData
     }
@@ -299,7 +317,12 @@ public actor GitHubClient {
                     continue
                 }
                 throw GitHubClientError.unauthorized
-            case 403:
+            case 403, 429:
+                // Primary rate limit: `x-ratelimit-remaining: 0` + `x-ratelimit-reset` epoch.
+                // Secondary / abuse rate limit + 429: `Retry-After` header (seconds).
+                if let retry = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init) {
+                    throw GitHubClientError.rateLimited(resetAt: Date(timeIntervalSinceNow: retry))
+                }
                 if http.value(forHTTPHeaderField: "x-ratelimit-remaining") == "0" {
                     let reset = http.value(forHTTPHeaderField: "x-ratelimit-reset")
                         .flatMap { TimeInterval($0) }
@@ -319,86 +342,32 @@ public actor GitHubClient {
 
 private struct GraphQLRequestBody: Encodable {
     let query: String
-    let variables: AnyEncodable
+    let variables: [String: GraphQLVariable]
 }
 
-// MARK: - JSON encoding helper
+/// Typed GraphQL variable. Strict, no bridging-quirks (e.g. `Bool` decoded as
+/// `Int` after `NSNumber` round-trip). The two queries the client ships today
+/// only need `String` and `Int`; the other cases are present for forward
+/// compatibility without resorting to `Any` encoding.
+public enum GraphQLVariable: Encodable, Sendable, Equatable {
+    case string(String)
+    case int(Int)
+    case bool(Bool)
+    case double(Double)
+    case null
+    indirect case array([GraphQLVariable])
+    indirect case object([String: GraphQLVariable])
 
-/// Encodes a `[String: Any-Sendable]` payload for GraphQL `variables`.
-/// Foundation's `JSONEncoder` can't encode `Any`; this wrapper bridges via
-/// `JSONSerialization` so callers can pass heterogeneous values (`String`,
-/// `Int`, etc.) without per-call boilerplate.
-struct AnyEncodable: Encodable {
-    let value: [String: any Sendable]
-
-    init(_ value: [String: any Sendable]) {
-        self.value = value
-    }
-
-    func encode(to encoder: Encoder) throws {
-        let data = try JSONSerialization.data(withJSONObject: value)
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw EncodingError.invalidValue(value, EncodingError.Context(
-                codingPath: encoder.codingPath,
-                debugDescription: "GraphQL variables payload was not a JSON object"
-            ))
-        }
-        var container = encoder.container(keyedBy: DynamicKey.self)
-        for (key, anyValue) in object {
-            let codingKey = DynamicKey(stringValue: key)!
-            try encode(value: anyValue, forKey: codingKey, into: &container)
-        }
-    }
-
-    private func encode(
-        value: Any,
-        forKey key: DynamicKey,
-        into container: inout KeyedEncodingContainer<DynamicKey>
-    ) throws {
-        switch value {
-        case let s as String: try container.encode(s, forKey: key)
-        case let i as Int: try container.encode(i, forKey: key)
-        case let d as Double: try container.encode(d, forKey: key)
-        case let b as Bool: try container.encode(b, forKey: key)
-        case is NSNull: try container.encodeNil(forKey: key)
-        default:
-            // Fall back to JSONSerialization round-trip for nested containers.
-            let data = try JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed])
-            let raw = String(decoding: data, as: UTF8.self)
-            // Wrap raw JSON so it lands as-is in the encoded output.
-            try container.encode(RawJSON(raw: raw), forKey: key)
-        }
-    }
-}
-
-private struct DynamicKey: CodingKey {
-    var stringValue: String
-    var intValue: Int? { nil }
-    init?(stringValue: String) { self.stringValue = stringValue }
-    init?(intValue: Int) { nil }
-}
-
-private struct RawJSON: Encodable {
-    let raw: String
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        // Decode the raw JSON into the nearest Codable shape so it round-trips.
-        let data = Data(raw.utf8)
-        if let obj = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed]) {
-            switch obj {
-            case let s as String: try container.encode(s)
-            case let n as NSNumber:
-                // Distinguish bool from numeric so we don't accidentally turn true → 1.
-                if CFGetTypeID(n) == CFBooleanGetTypeID() { try container.encode(n.boolValue) }
-                else if CFNumberIsFloatType(n) { try container.encode(n.doubleValue) }
-                else { try container.encode(n.int64Value) }
-            case is NSNull: try container.encodeNil()
-            default:
-                throw EncodingError.invalidValue(obj, EncodingError.Context(
-                    codingPath: encoder.codingPath,
-                    debugDescription: "Unsupported nested JSON value"
-                ))
-            }
+        switch self {
+        case .string(let s): try container.encode(s)
+        case .int(let i): try container.encode(i)
+        case .bool(let b): try container.encode(b)
+        case .double(let d): try container.encode(d)
+        case .null: try container.encodeNil()
+        case .array(let arr): try container.encode(arr)
+        case .object(let obj): try container.encode(obj)
         }
     }
 }

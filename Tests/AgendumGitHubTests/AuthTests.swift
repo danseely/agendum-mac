@@ -69,6 +69,35 @@ struct AuthTests {
             // expected
         }
     }
+
+    @Test
+    func timeoutThrowsGhCLITimedOut() async throws {
+        let provider = GhCLITokenProvider { throw GhCLITokenProvider.GhRunnerTimeout() }
+        do {
+            _ = try await provider.token()
+            Issue.record("expected throw")
+        } catch GitHubAuthError.ghCLITimedOut {
+            // expected
+        }
+    }
+
+    @Test
+    func runProcessWithDeadlineActuallyTimesOut() async throws {
+        // Use `/bin/sleep 5` with a 200ms deadline — the watchdog should
+        // terminate the process and surface GhRunnerTimeout.
+        let start = ContinuousClock.now
+        do {
+            _ = try await GhCLITokenProvider.runProcessWithDeadline(
+                executableURL: URL(fileURLWithPath: "/bin/sleep"),
+                arguments: ["5"],
+                deadline: .milliseconds(200)
+            )
+            Issue.record("expected GhRunnerTimeout")
+        } catch is GhCLITokenProvider.GhRunnerTimeout {
+            let elapsed = ContinuousClock.now - start
+            #expect(elapsed < .seconds(2), "expected ~200ms to terminate, took \(elapsed)")
+        }
+    }
 }
 
 actor CallCounter {

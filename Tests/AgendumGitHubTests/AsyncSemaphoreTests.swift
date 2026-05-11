@@ -15,7 +15,7 @@ struct AsyncSemaphoreTests {
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<10 {
                 group.addTask {
-                    await semaphore.withPermit {
+                    try? await semaphore.withPermit {
                         await counter.enter()
                         try? await Task.sleep(nanoseconds: 5_000_000) // 5ms
                         await counter.leave()
@@ -32,18 +32,18 @@ struct AsyncSemaphoreTests {
     @Test
     func releaseFiresWaitersInFIFOOrder() async throws {
         let semaphore = AsyncSemaphore(value: 1)
-        await semaphore.acquire() // hold the only permit
+        try await semaphore.acquire() // hold the only permit
 
         let order = OrderRecorder()
         async let first: Void = {
-            await semaphore.acquire()
+            try? await semaphore.acquire()
             await order.record("A")
             await semaphore.release()
         }()
         // Yield to ensure A is queued before B.
         try await Task.sleep(nanoseconds: 2_000_000)
         async let second: Void = {
-            await semaphore.acquire()
+            try? await semaphore.acquire()
             await order.record("B")
             await semaphore.release()
         }()
@@ -69,8 +69,49 @@ struct AsyncSemaphoreTests {
             // expected
         }
         // The permit should be released and immediately re-acquirable.
-        await semaphore.acquire()
+        try await semaphore.acquire()
         await semaphore.release()
+    }
+
+    @Test
+    func cancelledWaiterReleasesSlotForLiveWaiter() async throws {
+        // Capacity 1: hold it; queue two waiters; cancel the first; release the
+        // original. The second waiter must wake. Without proper cancellation
+        // handling, release() would resume the cancelled (dead) continuation
+        // and the second waiter would hang forever — permit leak.
+        let semaphore = AsyncSemaphore(value: 1)
+        try await semaphore.acquire()
+
+        let order = OrderRecorder()
+        let firstTask = Task {
+            do {
+                try await semaphore.acquire()
+                await order.record("FIRST-ACQUIRED")
+                await semaphore.release()
+            } catch is CancellationError {
+                await order.record("FIRST-CANCELLED")
+            }
+        }
+        try await Task.sleep(nanoseconds: 5_000_000)
+        let secondTask = Task {
+            try? await semaphore.acquire()
+            await order.record("SECOND-ACQUIRED")
+            await semaphore.release()
+        }
+        try await Task.sleep(nanoseconds: 5_000_000)
+
+        // Cancel the first waiter; release the original permit.
+        firstTask.cancel()
+        try await Task.sleep(nanoseconds: 5_000_000)
+        await semaphore.release()
+
+        _ = try? await firstTask.value
+        _ = await secondTask.value
+
+        let values = await order.values
+        #expect(values.contains("FIRST-CANCELLED"))
+        #expect(values.contains("SECOND-ACQUIRED"))
+        #expect(!values.contains("FIRST-ACQUIRED"))
     }
 }
 

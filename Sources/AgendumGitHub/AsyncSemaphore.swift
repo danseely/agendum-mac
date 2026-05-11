@@ -7,12 +7,19 @@ import Foundation
 /// Use the `withPermit { … }` convenience to guarantee balanced acquire/release
 /// even on early-exit or thrown errors.
 ///
-/// Implementation: pure actor; no continuations leak across actor boundaries
-/// once `release()` has woken the next waiter.
+/// **Cancellation**: if a task is cancelled while suspended in `acquire()`, the
+/// waiter is removed from the queue and `acquire()` throws `CancellationError`.
+/// `release()` skips cancelled waiters so a future `release` reliably wakes a
+/// live waiter — no permit leakage.
 public actor AsyncSemaphore {
+    private struct Waiter {
+        let id: UUID
+        let continuation: CheckedContinuation<Void, any Error>
+    }
+
     private let capacity: Int
     private var available: Int
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var waiters: [Waiter] = []
 
     public init(value: Int) {
         precondition(value > 0, "AsyncSemaphore value must be > 0")
@@ -21,21 +28,28 @@ public actor AsyncSemaphore {
     }
 
     /// Acquires one permit, suspending until one is available.
-    public func acquire() async {
+    /// Throws `CancellationError` if the awaiting task is cancelled mid-suspension.
+    public func acquire() async throws {
+        try Task.checkCancellation()
         if available > 0 {
             available -= 1
             return
         }
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            waiters.append(continuation)
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+                waiters.append(Waiter(id: id, continuation: continuation))
+            }
+        } onCancel: {
+            Task { await self.cancelWaiter(id: id) }
         }
     }
 
     /// Releases one permit, waking the longest-waiting `acquire()` if any.
     public func release() {
-        if !waiters.isEmpty {
-            let next = waiters.removeFirst()
-            next.resume()
+        if let next = waiters.first {
+            waiters.removeFirst()
+            next.continuation.resume()
             return
         }
         if available < capacity {
@@ -44,8 +58,9 @@ public actor AsyncSemaphore {
     }
 
     /// Convenience: acquire, run the body, release. Releases even if `body` throws.
-    public func withPermit<T: Sendable>(_ body: @Sendable () async throws -> T) async rethrows -> T {
-        await acquire()
+    /// Propagates `CancellationError` from `acquire()` without invoking `body`.
+    public func withPermit<T: Sendable>(_ body: @Sendable () async throws -> T) async throws -> T {
+        try await acquire()
         do {
             let result = try await body()
             release()
@@ -54,5 +69,13 @@ public actor AsyncSemaphore {
             release()
             throw error
         }
+    }
+
+    // MARK: - Private
+
+    private func cancelWaiter(id: UUID) {
+        guard let idx = waiters.firstIndex(where: { $0.id == id }) else { return }
+        let waiter = waiters.remove(at: idx)
+        waiter.continuation.resume(throwing: CancellationError())
     }
 }

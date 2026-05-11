@@ -104,6 +104,47 @@ struct GitHubClientTests {
     }
 
     @Test
+    func rateLimitedFromRetryAfterHeaderSurfacesResetAt() async throws {
+        // Secondary / abuse rate-limit (often returns 403 + Retry-After) and 429.
+        StubURLProtocol.setHandler { _ in
+            (403, ["Retry-After": "30"], Data())
+        }
+        defer { StubURLProtocol.setHandler(nil) }
+
+        let client = GitHubClient(
+            session: StubURLProtocol.makeSession(),
+            tokenProvider: FakeTokenProvider(initial: "t")
+        )
+        do {
+            _ = try await client.currentUserLogin()
+            Issue.record("expected rateLimited")
+        } catch GitHubClientError.rateLimited(let resetAt) {
+            let resolved = try #require(resetAt)
+            #expect(resolved.timeIntervalSinceNow > 25 && resolved.timeIntervalSinceNow <= 30)
+        }
+    }
+
+    @Test
+    func tooManyRequestsSurfacesAsRateLimited() async throws {
+        StubURLProtocol.setHandler { _ in
+            (429, ["Retry-After": "60"], Data())
+        }
+        defer { StubURLProtocol.setHandler(nil) }
+
+        let client = GitHubClient(
+            session: StubURLProtocol.makeSession(),
+            tokenProvider: FakeTokenProvider(initial: "t")
+        )
+        do {
+            _ = try await client.currentUserLogin()
+            Issue.record("expected rateLimited")
+        } catch GitHubClientError.rateLimited(let resetAt) {
+            let resolved = try #require(resetAt)
+            #expect(resolved.timeIntervalSinceNow > 50 && resolved.timeIntervalSinceNow <= 60)
+        }
+    }
+
+    @Test
     func rateLimitedSurfacesResetAt() async throws {
         StubURLProtocol.setHandler { _ in
             (
@@ -143,8 +184,9 @@ struct GitHubClientTests {
             session: StubURLProtocol.makeSession(),
             tokenProvider: FakeTokenProvider(initial: "t")
         )
-        let data = try await client.fetchRepoData(owner: "acme", name: "widget", user: "danseely")
+        let (data, partialErrors) = try await client.fetchRepoData(owner: "acme", name: "widget", user: "danseely")
         let repo = try #require(data.repository)
+        #expect(partialErrors.isEmpty)
 
         #expect(repo.isArchived == false)
         #expect(repo.openIssues?.nodes.count == 1)
@@ -206,6 +248,104 @@ struct GitHubClientTests {
     }
 
     @Test
+    func nullNodesDecodesAsEmptyArray() async throws {
+        // GitHub returns `"nodes": null` on some connections (and on partial-permission
+        // responses). Our decoders should treat null as empty rather than throwing.
+        let body = Data(#"""
+        {
+          "data": {
+            "repository": {
+              "isArchived": false,
+              "openIssues": {"nodes": null},
+              "closedIssues": {"nodes": null},
+              "authoredPRs": {"nodes": null},
+              "mergedPRs": {"nodes": null},
+              "closedPRs": {"nodes": null}
+            }
+          }
+        }
+        """#.utf8)
+        StubURLProtocol.setHandler { _ in (200, ["Content-Type": "application/json"], body) }
+        defer { StubURLProtocol.setHandler(nil) }
+
+        let client = GitHubClient(
+            session: StubURLProtocol.makeSession(),
+            tokenProvider: FakeTokenProvider(initial: "t")
+        )
+        let (data, _) = try await client.fetchRepoData(owner: "acme", name: "widget", user: "danseely")
+        let repo = try #require(data.repository)
+        #expect(repo.openIssues?.nodes.isEmpty == true)
+        #expect(repo.authoredPRs?.nodes.isEmpty == true)
+        #expect(repo.mergedPRs?.nodes.isEmpty == true)
+    }
+
+    @Test
+    func partialSuccessReturnsBothDataAndErrors() async throws {
+        let body = Data(#"""
+        {
+          "data": {
+            "repository": {
+              "isArchived": false,
+              "openIssues": {"nodes": []},
+              "closedIssues": {"nodes": []},
+              "authoredPRs": {"nodes": []},
+              "mergedPRs": {"nodes": []},
+              "closedPRs": {"nodes": []}
+            }
+          },
+          "errors": [
+            {"message": "Some field had a partial failure", "type": "FORBIDDEN", "path": ["repository", "branchProtectionRules"]}
+          ]
+        }
+        """#.utf8)
+        StubURLProtocol.setHandler { _ in (200, ["Content-Type": "application/json"], body) }
+        defer { StubURLProtocol.setHandler(nil) }
+
+        let client = GitHubClient(
+            session: StubURLProtocol.makeSession(),
+            tokenProvider: FakeTokenProvider(initial: "t")
+        )
+        let (data, partialErrors) = try await client.fetchRepoData(owner: "acme", name: "widget", user: "danseely")
+        #expect(data.repository != nil)
+        #expect(partialErrors.count == 1)
+        #expect(partialErrors[0].type == "FORBIDDEN")
+    }
+
+    @Test
+    func unauthorizedRetryReplaysPostBodyForGraphQL() async throws {
+        let happyBody = try fixtureData("repoQueryHappyPath")
+        let calls = RecordedRequests()
+        StubURLProtocol.setHandler { req in
+            calls.append(req)
+            if calls.count == 1 {
+                return (401, [:], Data("expired".utf8))
+            }
+            return (200, ["Content-Type": "application/json"], happyBody)
+        }
+        defer { StubURLProtocol.setHandler(nil) }
+
+        let client = GitHubClient(
+            session: StubURLProtocol.makeSession(),
+            tokenProvider: FakeTokenProvider(initial: "t")
+        )
+        let (data, _) = try await client.fetchRepoData(owner: "acme", name: "widget", user: "danseely")
+        #expect(data.repository != nil)
+        #expect(calls.count == 2)
+        // Both attempts must carry the GraphQL body (otherwise the retry
+        // sends an empty POST and the server returns an error).
+        for req in calls.all {
+            let body: Data
+            if let direct = req.httpBody { body = direct }
+            else if let stream = req.httpBodyStream { body = try Data(readingFrom: stream) }
+            else { Issue.record("expected request body on attempt"); return }
+            #expect(!body.isEmpty)
+            let parsed = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+            let variables = try #require(parsed["variables"] as? [String: Any])
+            #expect((variables["owner"] as? String) == "acme")
+        }
+    }
+
+    @Test
     func graphQLErrorsArrayThrowsGraphQLErrors() async throws {
         let body = try fixtureData("graphQLErrors")
         StubURLProtocol.setHandler { _ in (200, ["Content-Type": "application/json"], body) }
@@ -238,8 +378,9 @@ struct GitHubClientTests {
             session: StubURLProtocol.makeSession(),
             tokenProvider: FakeTokenProvider(initial: "t")
         )
-        let data = try await client.fetchReviewDetail(owner: "acme", name: "widget", number: 1234)
+        let (data, partialErrors) = try await client.fetchReviewDetail(owner: "acme", name: "widget", number: 1234)
         let pr = try #require(data.repository?.pullRequest)
+        #expect(partialErrors.isEmpty)
         #expect(pr.number == 1234)
         #expect(pr.author?.login == "octocat")
         #expect(pr.author?.name == "Octo Cat")
@@ -273,14 +414,14 @@ struct GitHubClientTests {
     }
 
     @Test
-    func discoverReviewPRsFlagsIncompleteWhenAnyOrgReturnsEmpty() async throws {
+    func discoverReviewPRsKeepsOkOnSuccessfulButEmptyResults() async throws {
+        // Python parity: ok=true when the search succeeds, even if items=[].
+        // (An org with no pending reviews is normal and must not suppress
+        // pr_review row closures downstream.)
         let body = try fixtureData("searchPRsHappyPath")
         let emptyBody = Data(#"{"total_count":0,"incomplete_results":false,"items":[]}"#.utf8)
-        let recorded = RecordedRequests()
         StubURLProtocol.setHandler { req in
-            recorded.append(req)
             let url = req.url?.absoluteString ?? ""
-            // The second org's search returns empty → ok=false
             if url.contains("org:other") {
                 return (200, ["Content-Type": "application/json"], emptyBody)
             }
@@ -294,6 +435,28 @@ struct GitHubClientTests {
         )
         let result = try await client.discoverReviewPRs(orgs: ["acme", "other"], user: "danseely")
         #expect(result.prs.count == 2)
+        #expect(result.ok == true)
+    }
+
+    @Test
+    func discoverReviewPRsFlagsIncompleteOnTransportFailure() async throws {
+        // The second org's search returns a 503 → caught → ok=false.
+        let body = try fixtureData("searchPRsHappyPath")
+        StubURLProtocol.setHandler { req in
+            let url = req.url?.absoluteString ?? ""
+            if url.contains("org:flaky") {
+                return (503, [:], Data("upstream broken".utf8))
+            }
+            return (200, ["Content-Type": "application/json"], body)
+        }
+        defer { StubURLProtocol.setHandler(nil) }
+
+        let client = GitHubClient(
+            session: StubURLProtocol.makeSession(),
+            tokenProvider: FakeTokenProvider(initial: "t")
+        )
+        let result = try await client.discoverReviewPRs(orgs: ["acme", "flaky"], user: "danseely")
+        #expect(result.prs.count == 2) // From acme; flaky failed
         #expect(result.ok == false)
     }
 

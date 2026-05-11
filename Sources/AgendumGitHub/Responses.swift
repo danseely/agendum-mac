@@ -78,8 +78,23 @@ public struct GHRepoQueryRepository: Decodable, Sendable {
 }
 
 /// Wraps GraphQL's `{ nodes: [T] }` collection shape.
+///
+/// GitHub sometimes returns `"nodes": null` on connection fields when there's
+/// nothing to return (and also on partial-permission responses). Treat null
+/// and missing as equivalent to an empty array so one stale repo doesn't take
+/// out the whole sync.
 public struct GHNodes<Node: Decodable & Sendable>: Decodable, Sendable {
     public let nodes: [Node]
+
+    private enum CodingKeys: String, CodingKey { case nodes }
+
+    public init(nodes: [Node]) { self.nodes = nodes }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // decodeIfPresent treats both missing key and explicit null as nil → []
+        self.nodes = try container.decodeIfPresent([Node].self, forKey: .nodes) ?? []
+    }
 }
 
 public struct GHRepoIssue: Decodable, Sendable {
@@ -135,6 +150,15 @@ public struct GHReviewRequests: Decodable, Sendable {
 
 public struct GHCommits: Decodable, Sendable {
     public let nodes: [GHCommitNode]
+
+    private enum CodingKeys: String, CodingKey { case nodes }
+
+    public init(nodes: [GHCommitNode]) { self.nodes = nodes }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.nodes = try container.decodeIfPresent([GHCommitNode].self, forKey: .nodes) ?? []
+    }
 }
 
 public struct GHCommitNode: Decodable, Sendable {
