@@ -127,10 +127,10 @@
     {
       "id": "speed-run-s3-s4-sync-and-cutover",
       "title": "S3+S4: Swift sync engine + cutover + module reshape (MVP gate)",
-      "status": "not_started",
+      "status": "in_progress",
       "priority": "must",
-      "evidence": "Not yet filed.",
-      "notes": "Faithful port of syncer.py per docs/syncer-spec.md MINUS the /notifications overlay (cut for MVP per 2026-05-10). Keeps: concurrent fetch via Semaphore(8)-equivalent, per-repo close protection (fetched_repos guard), pr_review exemption from that guard, syncer-driven isUnseen flag on create/update, attention classification (B2). Workspace-config plumbing so multi-workspace stays (each workspace's config.toml drives its own sync). Wire into BackendStatusModel.forceSync() / refresh(). Replace remaining helper calls with inline Swift (gh auth status subprocess for auth label, internal Swift state for sync status). Delete AgendumBackendClient + Backend/agendum_backend_helper.py + Backend/agendum_backend/helper.py. Module reshape: kill AgendumBackend module; create AgendumGitHub (S2 transport + B2 status derivation move here) and AgendumSync (S3 engine); rename BackendStatusModel → DashboardModel; drop AgendumTask intermediate (sync engine produces TaskItem directly); replace BackendClientError with focused per-layer errors. DO NOT delete Backend/agendum_engine/ from filesystem — keeps Python parity oracle alive. MVP gate: when this lands, AgendumMac process spawns no Python."
+      "evidence": "Branch codex/s3-s4-sync-and-cutover; 2 commits landed: ef4da01 (module setup + diff_tasks port + B2 module move) and 8542c3b (ResponseMapping). Remaining: ApplyDiff, RepoFetcher, ReviewFetcher, WorkspaceConfig, SyncEngine, cutover, module reshape.",
+      "notes": "Next commit: ApplyDiff.swift — TaskStore writes for to_create/to_update/to_close + attention-bit derivation per syncer-spec §3.I + §6."
     },
     {
       "id": "speed-run-s5-onboarding",

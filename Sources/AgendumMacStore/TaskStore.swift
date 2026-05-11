@@ -289,6 +289,104 @@ public actor TaskStore: TaskStoreProviding {
         return parts.joined(separator: " ").lowercased()
     }
 
+    // MARK: - Sync writes (consumed by AgendumSync.ApplyDiff)
+
+    /// Looks up a task's primary key by its `gh_url`. Returns `nil` if no row matches.
+    /// Mirrors Python `db.find_task_by_gh_url` (returns id only — sync only needs the id).
+    public func findTaskID(forGHURL ghURL: String) async throws -> Int? {
+        try await database.read { db in
+            let row = try Row.fetchOne(
+                db,
+                sql: "SELECT id FROM \(DatabaseSchema.tasksTable) WHERE gh_url = ? LIMIT 1",
+                arguments: [ghURL]
+            )
+            guard let row, let id = row["id"] as Int64? else { return nil }
+            return Int(id)
+        }
+    }
+
+    /// Inserts a brand-new sync-discovered task. Sets `seen=0` (newly synced rows are
+    /// unseen so the dashboard surfaces them) and stamps `last_changed_at`,
+    /// `created_at`, and `updated_at` to `now`. Mirrors Python `db.add_task`.
+    @discardableResult
+    public func insertSyncedTask(
+        title: String,
+        source: String,
+        status: String,
+        ghURL: String?,
+        ghRepo: String?,
+        ghNumber: Int?,
+        ghAuthor: String?,
+        ghAuthorName: String?,
+        project: String?,
+        tags: String?,
+        now: String
+    ) async throws -> Int {
+        let id = try await database.write { db -> Int64 in
+            try db.execute(sql: """
+                INSERT INTO tasks
+                  (title, source, status, project, gh_repo, gh_url, gh_number,
+                   gh_author, gh_author_name, tags, seen,
+                   last_changed_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+                """, arguments: [
+                    title, source, status, project, ghRepo, ghURL, ghNumber,
+                    ghAuthor, ghAuthorName, tags,
+                    now, now, now
+                ])
+            return db.lastInsertedRowID
+        }
+        return Int(id)
+    }
+
+    /// Sparse update for sync — writes only the columns the caller passes as non-nil.
+    /// Always bumps `updated_at` (matches Python `db.update_task`). When
+    /// `resetSeen == true`, also writes `seen = 0` and `last_changed_at = now`
+    /// (matches the syncer's create-race + to_update paths in `syncer.py:337-395`).
+    /// Silent no-op if `id` is not found.
+    public func applySyncUpdate(
+        id: Int,
+        title: String? = nil,
+        source: String? = nil,
+        status: String? = nil,
+        project: String? = nil,
+        ghRepo: String? = nil,
+        ghNumber: Int? = nil,
+        ghAuthor: String? = nil,
+        ghAuthorName: String? = nil,
+        tags: String? = nil,
+        resetSeen: Bool,
+        now: String
+    ) async throws {
+        var assignments: [String] = []
+        var args: [DatabaseValueConvertible?] = []
+        func add(_ column: String, _ value: DatabaseValueConvertible?) {
+            assignments.append("\(column) = ?")
+            args.append(value)
+        }
+        if let title { add("title", title) }
+        if let source { add("source", source) }
+        if let status { add("status", status) }
+        if let project { add("project", project) }
+        if let ghRepo { add("gh_repo", ghRepo) }
+        if let ghNumber { add("gh_number", ghNumber) }
+        if let ghAuthor { add("gh_author", ghAuthor) }
+        if let ghAuthorName { add("gh_author_name", ghAuthorName) }
+        if let tags { add("tags", tags) }
+        if resetSeen {
+            add("seen", 0)
+            add("last_changed_at", now)
+        }
+        // Always touch updated_at (Python `update_task` appends it on every call).
+        add("updated_at", now)
+        args.append(id)
+        let sql = "UPDATE \(DatabaseSchema.tasksTable) SET \(assignments.joined(separator: ", ")) WHERE id = ?"
+        let stmtArgs = StatementArguments(args)
+        try await database.write { db in
+            try db.execute(sql: sql, arguments: stmtArgs)
+        }
+    }
+
     // MARK: - Internal test helpers
 
     func insert(_ record: TaskRecord) async throws {
