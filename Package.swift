@@ -12,6 +12,7 @@ let package = Package(
         .library(name: "AgendumFeature", targets: ["AgendumFeature"]),
         .library(name: "AgendumGitHub", targets: ["AgendumGitHub"]),
         .library(name: "AgendumMacStore", targets: ["AgendumMacStore"]),
+        .library(name: "AgendumSync", targets: ["AgendumSync"]),
         .executable(name: "AgendumMac", targets: ["AgendumMac"])
     ],
     dependencies: [
@@ -35,6 +36,14 @@ let package = Package(
                 .product(name: "GRDB", package: "GRDB.swift")
             ]
         ),
+        .target(
+            name: "AgendumSync",
+            dependencies: [
+                "AgendumFeature",
+                "AgendumGitHub",
+                "AgendumMacStore"
+            ]
+        ),
         .executableTarget(
             name: "AgendumMac",
             dependencies: ["AgendumBackend", "AgendumFeature", "AgendumMacStore"],
@@ -42,10 +51,7 @@ let package = Package(
         ),
         .testTarget(
             name: "AgendumBackendTests",
-            dependencies: ["AgendumBackend"],
-            resources: [
-                .process("Fixtures")
-            ]
+            dependencies: ["AgendumBackend"]
         ),
         .testTarget(
             name: "AgendumFeatureTests",
@@ -64,6 +70,15 @@ let package = Package(
                 "AgendumMacStore",
                 "AgendumFeature",
                 .product(name: "GRDB", package: "GRDB.swift")
+            ]
+        ),
+        .testTarget(
+            name: "AgendumSyncTests",
+            dependencies: [
+                "AgendumSync",
+                "AgendumFeature",
+                "AgendumGitHub",
+                "AgendumMacStore"
             ]
         )
     ]

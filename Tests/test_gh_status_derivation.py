@@ -20,7 +20,7 @@ from agendum.gh import (  # noqa: E402
 )
 
 
-FIXTURE = REPO_ROOT / "Tests" / "AgendumBackendTests" / "Fixtures" / "GitHubStatusDerivationCases.json"
+FIXTURE = REPO_ROOT / "Tests" / "AgendumGitHubTests" / "Fixtures" / "GitHubStatusDerivationCases.json"
 
 
 class GitHubStatusDerivationTests(unittest.TestCase):
