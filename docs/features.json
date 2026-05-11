@@ -129,8 +129,8 @@
       "title": "S3+S4: Swift sync engine + cutover + module reshape (MVP gate)",
       "status": "in_progress",
       "priority": "must",
-      "evidence": "Branch codex/s3-s4-sync-and-cutover; 2 commits landed: ef4da01 (module setup + diff_tasks port + B2 module move) and 8542c3b (ResponseMapping). Remaining: ApplyDiff, RepoFetcher, ReviewFetcher, WorkspaceConfig, SyncEngine, cutover, module reshape.",
-      "notes": "Next commit: ApplyDiff.swift — TaskStore writes for to_create/to_update/to_close + attention-bit derivation per syncer-spec §3.I + §6."
+      "evidence": "Branch codex/s3-s4-sync-and-cutover; 4 commits landed: ef4da01 (module setup + diff_tasks port + B2 module move), 8542c3b (ResponseMapping +16 tests), 73aa675 (ApplyDiff +16 tests), 5764f83 (RepoFetcher +11 tests). Remaining: ReviewFetcher, WorkspaceConfig, SyncEngine, cutover (BackendStatusModel.forceSync → SyncEngine; native gh auth status; delete helper subprocess), module reshape (kill AgendumBackend, rename BackendStatusModel→DashboardModel, drop AgendumTask).",
+      "notes": "Next commit: ReviewFetcher.swift — per-PR review detail loop with reviewFetchOK plumbing, syncer-spec §3.G."
     },
     {
       "id": "speed-run-s5-onboarding",
