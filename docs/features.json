@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project": "agendum-mac",
-  "updated_at": "2026-05-10",
+  "updated_at": "2026-05-11",
   "active_goal": "Industry-standards-following Swift macOS app (possibly OSS) that does what the ../agendum CLI does — viewer for my GitHub stuff — with native architecture: app-owned GRDB SQLite, no Python at runtime, Apple-canonical SwiftUI/Observation/structured-concurrency. Speed-run port per the 2026-05-09 plan revision and 2026-05-10 scope refinement.",
   "features": [
     {
@@ -119,10 +119,10 @@
     {
       "id": "speed-run-s2-github-transport",
       "title": "S2: Native GitHub transport (URLSession + concurrent-fetch)",
-      "status": "not_started",
+      "status": "passed",
       "priority": "must",
-      "evidence": "Not yet filed. Source spec: docs/syncer-spec.md §5.",
-      "notes": "Port gh.py transport halves to Swift via URLSession (B2 already shipped status derivation). gh auth token cached at launch as the bearer. GraphQL POST + REST GET. The two queries (REPO_QUERY for per-repo authored PRs + assigned issues + merged/closed batches; REVIEW_QUERY for per-PR review detail). Codable response types. REST endpoints: /user (username). Search endpoints (org-scoped author/assignee/review-requested) used by discover_repos / discover_review_prs. Concurrent-fetch helper (Semaphore(8)-equivalent via TaskGroup + custom async semaphore) — user runs against a 150+-repo work org so sequential is not viable. SKIPPED per 2026-05-10 MVP cut: /notifications endpoint (the overlay it drove is dropped from S3). Pure transport + parsing layer; no consumer until S3+S4."
+      "evidence": "PR #57 squash-merged into feature/mac-prototype as 77feb8d on 2026-05-11 after two adversarial review cycles. New AgendumGitHub module: GitHubClient actor + GhCLITokenProvider + AsyncSemaphore + Codable response types + the two GraphQL queries copied verbatim from ../agendum/src/agendum/gh.py. Cycle-1 fixes (3 critical, 6 major): AsyncSemaphore cancellation leak (withTaskCancellationHandler + UUID-keyed waiters); GHNodes/GHCommits null→empty decode; AnyEncodable+RawJSON replaced with typed GraphQLVariable enum (Bool-dispatch + nested-value bugs eliminated); discoverReviewPRs `ok` semantics aligned with Python (empty results keep ok=true; only caught transport errors flip false); partial-success errors surfaced via (data, partialErrors) tuple; gh subprocess 10s deadline via runProcessWithDeadline + TimeoutWatchdog; 429 / 403+Retry-After surface as .rateLimited; 401 retry replays POST body. Cycle-2: zero critical/major findings → early exit. Final validation: swift build; swift test (130 XCTest + 81 Swift Testing, 28 in AgendumGitHubTests); Python unittest 68 tests; swift run smoke; git diff --check; GitHub Actions Test passed (3m2s).",
+      "notes": "Cycle-2 minors deferred to S3+S4 or later: R2-1 TimeoutWatchdog narrow race, R2-2 URLSession cache policy on GETs, R2-3 401 retry runs applyAuth twice on success-after-401, R2-4 POST redirect handling, R2-5/R2-6 coverage gaps for .bool encoding + .missingData branch, R2-7 429 without Retry-After/x-ratelimit-remaining, R2-8 X-GitHub-Api-Version header pin. See docs/project-state.md §'S2 Deferred Minors'."
     },
     {
       "id": "speed-run-s3-s4-sync-and-cutover",
