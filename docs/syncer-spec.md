@@ -192,7 +192,11 @@ The engine is a single async function: `runSync(dbPath, config) → SyncResult`.
   - Choose terminal: `merged` if `source == "pr_authored"`, `done` if `source == "pr_review"`, else `closed`.
   - `updateTask(id, status: terminal)`. `changes += 1`. (No `seen` reset on close; not user-actionable.)
 
-**J. Notification overlay (`syncer.py:397-416`)**
+**J. Notification overlay (`syncer.py:397-416`) — DROPPED FROM MVP per §10 MVP cuts (2026-05-10).**
+
+Spec retained below for completeness so a future post-MVP slice can re-add the overlay against the original contract. The Swift S3 port skips this phase entirely; phases A–I + K constitute the MVP sync cycle.
+
+**(historical contract follows)**
 1. `notifications = await fetchNotifications(ghUser)` — REST `GET /notifications?all=false` (unread only).
 2. For each notification with `reason ∈ {"mention", "comment", "review_requested"}`:
    - Pull `subject.url`. The rewriting is **asymmetric**:
@@ -375,14 +379,15 @@ Build a Python parity oracle harness: feed both Python `run_sync` and Swift `run
 
 | Cut | Source | Replaced with |
 |---|---|---|
-| Multi-workspace machinery | `config.py` | Single implicit workspace at the existing path |
+| ~~Multi-workspace machinery~~ — **rescinded 2026-05-10** | `config.py` | Multi-workspace stays. User actively switches workspaces; ripping the picker is strictly worse. S3 carries workspace-aware sync orchestration (each workspace's `config.toml` drives its own sync). |
 | Per-workspace `gh` config dir isolation | `gh.use_gh_config_dir`, `seed_gh_config_dir`, `recover_gh_auth`, `_TASK_GH_CONFIG_DIR` ContextVar | Use the user's default `gh` auth |
-| `auth_login` interactive flow | `gh.auth_login` | `gh auth login` is a user concern; the app can surface an error and a "run `gh auth login`" hint |
+| `auth_login` interactive flow | `gh.auth_login` | `gh auth login` is a user concern; S5 surfaces a "run `gh auth login`" hint with a copy-to-clipboard button |
 | `gh_review.py` (live PR review queries) | Used only by `mcp_server.py` | Out of MVP scope |
 | MCP server (`mcp_server.py`) | Used by external integrations | Out of MVP scope |
 | Sync interval / scheduling (`config.sync_interval`) | TUI-driven loop in `app.py` | Mac app uses pull-to-refresh + a simple Timer; engine itself is one-shot |
 | Display polish: `seen_delay` | `config.seen_delay` | UI concern; lift out of engine config |
 | Background daemon mode | `app.py` | Mac app is foreground-only |
+| **`/notifications` REST overlay** (added 2026-05-10) | `syncer.py:397-416` (`fetch_notifications` + the overlay loop in §3.J) | Drop entirely. The overlay's contribution to `isUnseen` (flipping `seen=1` → `seen=0` on `mention`/`comment`/`review_requested` notifications) is opt-in nuance the user doesn't rely on. Syncer-driven `isUnseen` (set by `to_create` and `to_update` paths on status changes) is **kept** — that's the central "what's new" affordance and remains in scope. |
 
 ### Spec-level open questions (decide during S3 implementation)
 
@@ -392,7 +397,7 @@ Build a Python parity oracle harness: feed both Python `run_sync` and Swift `run
 
 3. **Concurrent writer.** With Python gone, there is exactly one writer (the Swift `TaskStore` actor). Confirm `DatabaseQueue` (current C2 default) is sufficient and skip the previously-planned switch to `DatabasePool` + WAL config. **Recommendation**: stay on `DatabaseQueue` for MVP.
 
-4. **Notification deduplication.** The Python engine flips `seen=1 → 0` once per notification. If the same notification is fetched again later (same `id`, still unread), it would re-flip. Currently mitigated because the row would already have `seen=0` and the guard `task.get("seen") == 1` prevents the second flip — but `last_changed_at` could oscillate if the user marks seen between sync cycles. **Recommendation**: match Python exactly; if oscillation surfaces in practice, add a notification-id ledger.
+4. ~~**Notification deduplication.**~~ — **resolved 2026-05-10**: the entire `/notifications` overlay is dropped from MVP per §10 MVP cuts. This question is moot until/unless the overlay is restored post-MVP.
 
 5. **Search API rate limits.** Repo discovery runs 3 search queries per org. GitHub's search API is rate-limited at 30 req/min. With > 10 orgs you'd hit it. **Recommendation**: not an MVP concern (single user, single org typical); add throttling if it bites.
 

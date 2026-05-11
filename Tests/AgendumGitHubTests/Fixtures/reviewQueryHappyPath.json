@@ -1,0 +1,31 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "number": 1234,
+        "title": "Improve search",
+        "url": "https://github.com/acme/widget/pull/1234",
+        "state": "OPEN",
+        "createdAt": "2026-05-01T08:00:00Z",
+        "isDraft": false,
+        "headRefName": "improve-search",
+        "author": {"login": "octocat", "name": "Octo Cat"},
+        "commits": {
+          "nodes": [
+            {"commit": {"committedDate": "2026-05-09T07:00:00Z"}}
+          ]
+        },
+        "reviews": {
+          "nodes": [
+            {"author": {"login": "danseely"}, "submittedAt": "2026-05-08T17:00:00Z", "state": "COMMENTED"}
+          ]
+        },
+        "timelineItems": {
+          "nodes": [
+            {"createdAt": "2026-05-09T06:00:00Z", "requestedReviewer": {"login": "danseely"}}
+          ]
+        }
+      }
+    }
+  }
+}

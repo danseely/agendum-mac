@@ -2,7 +2,7 @@
   "version": 1,
   "project": "agendum-mac",
   "updated_at": "2026-05-10",
-  "active_goal": "Standalone Swift macOS app with native backend engine and GRDB-backed data store; speed-run port of the original ../agendum CLI per the 2026-05-09 plan revision",
+  "active_goal": "Industry-standards-following Swift macOS app (possibly OSS) that does what the ../agendum CLI does — viewer for my GitHub stuff — with native architecture: app-owned GRDB SQLite, no Python at runtime, Apple-canonical SwiftUI/Observation/structured-concurrency. Speed-run port per the 2026-05-09 plan revision and 2026-05-10 scope refinement.",
   "features": [
     {
       "id": "a1-observable",
@@ -94,11 +94,11 @@
     },
     {
       "id": "speed-run-port",
-      "title": "Speed-run port: tear Python out, ship MVP viewer",
+      "title": "Speed-run port: tear Python out, ship MVP viewer (industry-standards Mac app)",
       "status": "in_progress",
       "priority": "must",
-      "evidence": "Captured in 2026-05-09 plan revision. Sequence: S0 (write docs/syncer-spec.md), S1 (BackendStatusModel direct → TaskStore), S2 (port gh.py + gh_review.py to Swift via URLSession), S3 (port syncer.py per S0 spec), S4 (delete Backend/ + helper bridge). Source of truth: ../agendum/src/agendum/ (original CLI), NOT Backend/agendum_engine/ (vendored fork that doubled with mac-specific complexity).",
-      "notes": "Deferred to post-MVP: B4 (native OAuth, keep gh CLI dep through MVP), C5 (DB relocation), A6 (polish), multi-workspace machinery."
+      "evidence": "Captured in 2026-05-09 plan revision and 2026-05-10 scope refinement. Sequence: S0 (write docs/syncer-spec.md), S1 (BackendStatusModel direct → TaskStore), S2 (URLSession transport + concurrent-fetch helper), S3+S4 merged (faithful syncer port minus /notifications overlay + module reshape + helper bridge deletion = MVP gate), S5 (onboarding & first-run polish). Source of truth: ../agendum/src/agendum/ (original CLI), NOT Backend/agendum_engine/ (vendored fork that doubled with mac-specific complexity). North star: industry-standards-following Mac app, possibly OSS — opportunistic refactoring is in-scope through MVP.",
+      "notes": "Deferred to post-MVP: B4 (native OAuth, keep gh CLI dep through MVP), C5 (DB relocation), A6 (polish), filesystem deletion of Backend/agendum_engine/, OSS-readiness (LICENSE, README, contributor guide). Multi-workspace UI stays for MVP per 2026-05-10 (user actively switches workspaces)."
     },
     {
       "id": "speed-run-s0-syncer-spec",
@@ -118,27 +118,27 @@
     },
     {
       "id": "speed-run-s2-github-transport",
-      "title": "S2: Port gh.py + gh_review.py to Swift URLSession",
+      "title": "S2: Native GitHub transport (URLSession + concurrent-fetch)",
       "status": "not_started",
       "priority": "must",
       "evidence": "Not yet filed. Source spec: docs/syncer-spec.md §5.",
-      "notes": "REST + GraphQL via URLSession. Auth via gh auth token reuse for MVP. Two queries to port: REPO_QUERY (per-repo authored PRs + assigned issues + merged/closed batches) and REVIEW_QUERY (per-PR review detail). Plus REST endpoints: /user (username), /notifications?all=false (overlay). Plus search endpoints (org-scoped author/assignee/review-requested) used by discover_repos / discover_review_prs. Pure transport + parsing layer; no consumer until S3."
+      "notes": "Port gh.py transport halves to Swift via URLSession (B2 already shipped status derivation). gh auth token cached at launch as the bearer. GraphQL POST + REST GET. The two queries (REPO_QUERY for per-repo authored PRs + assigned issues + merged/closed batches; REVIEW_QUERY for per-PR review detail). Codable response types. REST endpoints: /user (username). Search endpoints (org-scoped author/assignee/review-requested) used by discover_repos / discover_review_prs. Concurrent-fetch helper (Semaphore(8)-equivalent via TaskGroup + custom async semaphore) — user runs against a 150+-repo work org so sequential is not viable. SKIPPED per 2026-05-10 MVP cut: /notifications endpoint (the overlay it drove is dropped from S3). Pure transport + parsing layer; no consumer until S3+S4."
     },
     {
-      "id": "speed-run-s3-syncer-port",
-      "title": "S3: Port syncer.py to Swift per S0 spec",
+      "id": "speed-run-s3-s4-sync-and-cutover",
+      "title": "S3+S4: Swift sync engine + cutover + module reshape (MVP gate)",
       "status": "not_started",
       "priority": "must",
       "evidence": "Not yet filed.",
-      "notes": "Highest-risk slice. Tests: spec invariants (primary) + Python parity oracle (secondary). Depends on S0 + S2."
+      "notes": "Faithful port of syncer.py per docs/syncer-spec.md MINUS the /notifications overlay (cut for MVP per 2026-05-10). Keeps: concurrent fetch via Semaphore(8)-equivalent, per-repo close protection (fetched_repos guard), pr_review exemption from that guard, syncer-driven isUnseen flag on create/update, attention classification (B2). Workspace-config plumbing so multi-workspace stays (each workspace's config.toml drives its own sync). Wire into BackendStatusModel.forceSync() / refresh(). Replace remaining helper calls with inline Swift (gh auth status subprocess for auth label, internal Swift state for sync status). Delete AgendumBackendClient + Backend/agendum_backend_helper.py + Backend/agendum_backend/helper.py. Module reshape: kill AgendumBackend module; create AgendumGitHub (S2 transport + B2 status derivation move here) and AgendumSync (S3 engine); rename BackendStatusModel → DashboardModel; drop AgendumTask intermediate (sync engine produces TaskItem directly); replace BackendClientError with focused per-layer errors. DO NOT delete Backend/agendum_engine/ from filesystem — keeps Python parity oracle alive. MVP gate: when this lands, AgendumMac process spawns no Python."
     },
     {
-      "id": "speed-run-s4-tombstone",
-      "title": "S4: Delete Backend/, AgendumBackendClient, helper bridge",
+      "id": "speed-run-s5-onboarding",
+      "title": "S5: Onboarding & first-run polish",
       "status": "not_started",
       "priority": "must",
       "evidence": "Not yet filed.",
-      "notes": "Tombstone PR. Retire docs/backend-contract.md to historical-reference."
+      "notes": "Materialize default ~/.agendum/config.toml if missing (matches Python helper template). Settings UI: orgs/repos as form fields (text-list editor) instead of 'edit this TOML file'. If gh auth status returns unauthenticated, surface a banner with 'Run gh auth login in Terminal' + copy-to-clipboard button. First-run sheet: brief 'add your org or repos in Settings, then click Sync' guidance. ~200 LOC."
     },
     {
       "id": "c1-store-schema",

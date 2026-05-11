@@ -1,0 +1,20 @@
+{
+  "total_count": 2,
+  "incomplete_results": false,
+  "items": [
+    {
+      "number": 99,
+      "title": "Fix nav drawer flicker",
+      "url": "https://github.com/acme/widget/pull/99",
+      "repository": {"nameWithOwner": "acme/widget", "name": "widget"},
+      "author": {"login": "danseely"}
+    },
+    {
+      "number": 101,
+      "title": "Refactor router",
+      "url": "https://github.com/acme/other/pull/101",
+      "repository": {"nameWithOwner": "acme/other", "name": "other"},
+      "author": {"login": "danseely"}
+    }
+  ]
+}
