@@ -142,6 +142,11 @@ public struct GHAuthor: Decodable, Sendable {
     public let login: String?
     /// Only present on `... on User { name }` fragments; nil for bots and orgs.
     public let name: String?
+
+    public init(login: String?, name: String?) {
+        self.login = login
+        self.name = name
+    }
 }
 
 public struct GHReviewRequests: Decodable, Sendable {
@@ -262,9 +267,28 @@ public struct GHSearchItem: Decodable, Sendable {
     public let url: String?
     public let repository: GHSearchRepository?
     public let author: GHAuthor?
+
+    public init(
+        number: Int? = nil,
+        title: String? = nil,
+        url: String? = nil,
+        repository: GHSearchRepository? = nil,
+        author: GHAuthor? = nil
+    ) {
+        self.number = number
+        self.title = title
+        self.url = url
+        self.repository = repository
+        self.author = author
+    }
 }
 
 public struct GHSearchRepository: Decodable, Sendable {
     public let nameWithOwner: String?
     public let name: String?
+
+    public init(nameWithOwner: String? = nil, name: String? = nil) {
+        self.nameWithOwner = nameWithOwner
+        self.name = name
+    }
 }
