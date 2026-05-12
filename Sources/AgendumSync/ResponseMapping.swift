@@ -209,12 +209,6 @@ public enum ResponseMapping {
         let labels = (pr.labels?.nodes ?? []).map(\.name)
         let tagsJSON = labels.isEmpty ? nil : encodeTags(labels)
 
-        var present: Set<IncomingTask.Field> = [
-            .title, .source, .status, .ghURL, .ghNumber,
-            .ghRepo, .project
-        ]
-        if tagsJSON != nil { present.insert(.tags) }
-
         return IncomingTask(
             title: pr.title,
             source: "pr_authored",
@@ -224,7 +218,7 @@ public enum ResponseMapping {
             ghRepo: repoFullName,
             project: shortName,
             tags: tagsJSON,
-            presentFields: present
+            presentFields: [.title, .source, .status, .ghURL, .ghNumber, .ghRepo, .project, .tags]
         )
     }
 
@@ -265,11 +259,6 @@ public enum ResponseMapping {
         let labels = (issue.labels?.nodes ?? []).map(\.name)
         let tagsJSON = labels.isEmpty ? nil : encodeTags(labels)
 
-        var present: Set<IncomingTask.Field> = [
-            .title, .source, .status, .ghURL, .ghNumber, .ghRepo, .project
-        ]
-        if tagsJSON != nil { present.insert(.tags) }
-
         return IncomingTask(
             title: issue.title,
             source: "issue",
@@ -279,7 +268,7 @@ public enum ResponseMapping {
             ghRepo: repoFullName,
             project: shortName,
             tags: tagsJSON,
-            presentFields: present
+            presentFields: [.title, .source, .status, .ghURL, .ghNumber, .ghRepo, .project, .tags]
         )
     }
 

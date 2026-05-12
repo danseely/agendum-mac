@@ -140,6 +140,36 @@ struct DiffTests {
         #expect(patch.title == nil)
     }
 
+    @Test
+    func sparsePresentNilFieldProducesExplicitNullUpdate() {
+        let existing = [makeExisting(
+            id: 1,
+            url: "https://example/1",
+            source: "pr_review",
+            status: "review requested",
+            title: "Review",
+            ghAuthor: "deleted-user",
+            ghAuthorName: "Deleted",
+            tags: #"["review","stale"]"#
+        )]
+        var inc = makeIncoming(url: "https://example/1", source: "pr_review", status: "review requested", title: "Review")
+        inc.ghAuthor = nil
+        inc.ghAuthorName = nil
+        inc.tags = nil
+        inc.presentFields = [.status, .title, .source, .ghURL, .ghAuthor, .ghAuthorName, .tags]
+
+        let diff = diffTasks(existing: existing, incoming: [inc], fetchedRepos: nil, reviewFetchOK: true)
+
+        let patch = try! #require(diff.toUpdate.first)
+        #expect(patch.ghAuthor == nil)
+        #expect(patch.ghAuthorName == nil)
+        #expect(patch.tags == nil)
+        #expect(patch.changedFields.contains(.ghAuthor))
+        #expect(patch.changedFields.contains(.ghAuthorName))
+        #expect(patch.changedFields.contains(.tags))
+        #expect(patch.changedColumns == ["gh_author", "gh_author_name", "tags"])
+    }
+
     // MARK: - §9 case 11: open→merged transition overwrites title with ""
 
     @Test

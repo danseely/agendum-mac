@@ -35,6 +35,7 @@ public protocol SyncTaskWriter: Sendable {
         ghAuthor: String?,
         ghAuthorName: String?,
         tags: String?,
+        changedColumns: Set<String>,
         resetSeen: Bool,
         now: String
     ) async throws
@@ -124,6 +125,7 @@ public func applyDiff(
                     ghAuthor: nil,
                     ghAuthorName: nil,
                     tags: nil,
+                    changedColumns: ["status"],
                     resetSeen: false,
                     now: now
                 )
@@ -150,6 +152,7 @@ public func applyDiff(
                 ghAuthor: item.ghAuthor,
                 ghAuthorName: item.ghAuthorName,
                 tags: item.tags,
+                changedColumns: createRaceChangedColumns(for: item),
                 resetSeen: true,
                 now: now
             )
@@ -192,6 +195,7 @@ public func applyDiff(
             ghAuthor: patch.ghAuthor,
             ghAuthorName: patch.ghAuthorName,
             tags: patch.tags,
+            changedColumns: patch.changedColumns,
             resetSeen: true,
             now: now
         )
@@ -220,6 +224,7 @@ public func applyDiff(
             ghAuthor: nil,
             ghAuthorName: nil,
             tags: nil,
+            changedColumns: ["status"],
             resetSeen: false,        // closed rows aren't user-actionable
             now: now
         )
@@ -237,6 +242,17 @@ private func terminalStatusForClose(source: String) -> String {
     case "pr_review": return "done"
     default: return "closed"
     }
+}
+
+private func createRaceChangedColumns(for item: IncomingTask) -> Set<String> {
+    var fields: Set<String> = ["title", "source", "status"]
+    if item.project != nil { fields.insert("project") }
+    if item.ghRepo != nil { fields.insert("gh_repo") }
+    if item.ghNumber != nil { fields.insert("gh_number") }
+    if item.ghAuthor != nil { fields.insert("gh_author") }
+    if item.ghAuthorName != nil { fields.insert("gh_author_name") }
+    if item.tags != nil { fields.insert("tags") }
+    return fields
 }
 
 // MARK: - Timestamp helper

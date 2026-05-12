@@ -339,8 +339,9 @@ public actor TaskStore: TaskStoreProviding {
         return Int(id)
     }
 
-    /// Sparse update for sync — writes only the columns the caller passes as non-nil.
-    /// Always bumps `updated_at` (matches Python `db.update_task`). When
+    /// Sparse update for sync — writes exactly the columns named by `changedColumns`.
+    /// Named columns can be set to NULL by passing nil. Always bumps `updated_at`
+    /// (matches Python `db.update_task`). When
     /// `resetSeen == true`, also writes `seen = 0` and `last_changed_at = now`
     /// (matches the syncer's create-race + to_update paths in `syncer.py:337-395`).
     /// Silent no-op if `id` is not found.
@@ -355,6 +356,7 @@ public actor TaskStore: TaskStoreProviding {
         ghAuthor: String? = nil,
         ghAuthorName: String? = nil,
         tags: String? = nil,
+        changedColumns: Set<String>,
         resetSeen: Bool,
         now: String
     ) async throws {
@@ -364,15 +366,15 @@ public actor TaskStore: TaskStoreProviding {
             assignments.append("\(column) = ?")
             args.append(value)
         }
-        if let title { add("title", title) }
-        if let source { add("source", source) }
-        if let status { add("status", status) }
-        if let project { add("project", project) }
-        if let ghRepo { add("gh_repo", ghRepo) }
-        if let ghNumber { add("gh_number", ghNumber) }
-        if let ghAuthor { add("gh_author", ghAuthor) }
-        if let ghAuthorName { add("gh_author_name", ghAuthorName) }
-        if let tags { add("tags", tags) }
+        if changedColumns.contains("title") { add("title", title) }
+        if changedColumns.contains("source") { add("source", source) }
+        if changedColumns.contains("status") { add("status", status) }
+        if changedColumns.contains("project") { add("project", project) }
+        if changedColumns.contains("gh_repo") { add("gh_repo", ghRepo) }
+        if changedColumns.contains("gh_number") { add("gh_number", ghNumber) }
+        if changedColumns.contains("gh_author") { add("gh_author", ghAuthor) }
+        if changedColumns.contains("gh_author_name") { add("gh_author_name", ghAuthorName) }
+        if changedColumns.contains("tags") { add("tags", tags) }
         if resetSeen {
             add("seen", 0)
             add("last_changed_at", now)

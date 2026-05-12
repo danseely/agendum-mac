@@ -38,6 +38,7 @@ private actor FakeWriter: SyncTaskWriter {
         var ghAuthor: String?
         var ghAuthorName: String?
         var tags: String?
+        var changedColumns: Set<String>
         var resetSeen: Bool
         var now: String
     }
@@ -80,13 +81,13 @@ private actor FakeWriter: SyncTaskWriter {
         id: Int, title: String?, source: String?, status: String?,
         project: String?, ghRepo: String?, ghNumber: Int?,
         ghAuthor: String?, ghAuthorName: String?, tags: String?,
-        resetSeen: Bool, now: String
+        changedColumns: Set<String>, resetSeen: Bool, now: String
     ) async throws {
         ops.append(.update(.init(
             id: id, title: title, source: source, status: status,
             project: project, ghRepo: ghRepo, ghNumber: ghNumber,
             ghAuthor: ghAuthor, ghAuthorName: ghAuthorName, tags: tags,
-            resetSeen: resetSeen, now: now
+            changedColumns: changedColumns, resetSeen: resetSeen, now: now
         )))
     }
 
@@ -305,6 +306,7 @@ private func existing(
         #expect(upd.title == "New title")
         #expect(upd.status == "approved")
         #expect(upd.ghAuthor == "carol")
+        #expect(upd.changedColumns == ["title", "status", "gh_author"])
         #expect(upd.source == nil)
         #expect(upd.project == nil)
         #expect(upd.ghAuthorName == nil)
@@ -313,6 +315,31 @@ private func existing(
         #expect(upd.ghNumber == nil)
         #expect(upd.resetSeen == true)
         #expect(upd.now == fixedNow)
+    }
+
+    @Test func toUpdateCanWriteExplicitNullForOptionalColumns() async throws {
+        let writer = FakeWriter()
+        let patch = UpdatePatch(
+            id: 12,
+            ghAuthor: nil,
+            ghAuthorName: nil,
+            tags: nil,
+            changedFields: [.ghAuthor, .ghAuthorName, .tags]
+        )
+        let diff = SyncDiff(toUpdate: [patch])
+
+        let result = try await applyDiff(diff, store: writer, now: fixedNow)
+
+        #expect(result.changes == 1)
+        let ops = await writer.recordedOps()
+        guard case .update(let upd) = ops[0] else {
+            Issue.record("expected update"); return
+        }
+        #expect(upd.ghAuthor == nil)
+        #expect(upd.ghAuthorName == nil)
+        #expect(upd.tags == nil)
+        #expect(upd.changedColumns == ["gh_author", "gh_author_name", "tags"])
+        #expect(upd.resetSeen == true)
     }
 
     @Test func toUpdateAttentionFiresForEachWatchedStatus() async throws {

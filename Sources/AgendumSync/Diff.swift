@@ -18,8 +18,8 @@ public struct IncomingTask: Equatable, Sendable {
     public var ghAuthor: String?        // login
     public var ghAuthorName: String?    // display-name first-token
     /// JSON-encoded array string (e.g. `["bug","ui"]`), matching the schema's
-    /// storage format. Use `nil` to leave the column unchanged on update;
-    /// `""`/empty-JSON to clear it.
+    /// storage format. Whether nil means "clear tags" or "leave unchanged" is
+    /// determined by `presentFields.contains(.tags)`.
     public var tags: String?
 
     /// Fields the incoming dict carries. Tracks Python's `"key in item"`
@@ -113,8 +113,9 @@ public struct SyncDiff: Equatable, Sendable {
 }
 
 /// A row in the to-update bucket. Carries only the columns that differ.
-/// `nil` values mean "don't touch this column" — matching Python's sparse
-/// update dict semantics (`syncer.py:67-77` builds it that way).
+/// `changedFields` disambiguates "don't touch this column" from "write SQL
+/// NULL". That distinction matters for Python parity: `syncer.diff_tasks`
+/// can emit `{"gh_author": None}` and `db.update_task` writes it through.
 public struct UpdatePatch: Equatable, Sendable {
     public let id: Int
     public var title: String?
@@ -124,6 +125,11 @@ public struct UpdatePatch: Equatable, Sendable {
     public var ghAuthor: String?
     public var ghAuthorName: String?
     public var tags: String?
+    public var changedFields: Set<Field>
+
+    public enum Field: Hashable, Sendable {
+        case title, source, status, project, ghRepo, ghNumber, ghAuthor, ghAuthorName, tags
+    }
 
     public init(
         id: Int,
@@ -133,7 +139,8 @@ public struct UpdatePatch: Equatable, Sendable {
         project: String? = nil,
         ghAuthor: String? = nil,
         ghAuthorName: String? = nil,
-        tags: String? = nil
+        tags: String? = nil,
+        changedFields: Set<Field>? = nil
     ) {
         self.id = id
         self.title = title
@@ -143,12 +150,43 @@ public struct UpdatePatch: Equatable, Sendable {
         self.ghAuthor = ghAuthor
         self.ghAuthorName = ghAuthorName
         self.tags = tags
+        if let changedFields {
+            self.changedFields = changedFields
+        } else {
+            var inferred: Set<Field> = []
+            if title != nil { inferred.insert(.title) }
+            if source != nil { inferred.insert(.source) }
+            if status != nil { inferred.insert(.status) }
+            if project != nil { inferred.insert(.project) }
+            if ghAuthor != nil { inferred.insert(.ghAuthor) }
+            if ghAuthorName != nil { inferred.insert(.ghAuthorName) }
+            if tags != nil { inferred.insert(.tags) }
+            self.changedFields = inferred
+        }
     }
 
     public var hasAnyChange: Bool {
-        title != nil || source != nil || status != nil
-            || project != nil || ghAuthor != nil
-            || ghAuthorName != nil || tags != nil
+        !changedFields.isEmpty
+    }
+
+    public var changedColumns: Set<String> {
+        Set(changedFields.map(\.columnName))
+    }
+}
+
+private extension UpdatePatch.Field {
+    var columnName: String {
+        switch self {
+        case .title: return "title"
+        case .source: return "source"
+        case .status: return "status"
+        case .project: return "project"
+        case .ghRepo: return "gh_repo"
+        case .ghNumber: return "gh_number"
+        case .ghAuthor: return "gh_author"
+        case .ghAuthorName: return "gh_author_name"
+        case .tags: return "tags"
+        }
     }
 }
 
@@ -210,10 +248,12 @@ public func diffTasks(
         // payload WILL overwrite the stored title — intentional in Python, retained here.
         if old.status != item.status {
             patch.status = item.status
+            patch.changedFields.insert(.status)
             changed = true
         }
         if old.title != item.title {
             patch.title = item.title
+            patch.changedFields.insert(.title)
             changed = true
         }
 
@@ -221,18 +261,22 @@ public func diffTasks(
         // Matches Python `for key in (…): if key in item and old.get(key) != item.get(key)`.
         if item.presentFields.contains(.ghAuthor) && old.ghAuthor != item.ghAuthor {
             patch.ghAuthor = item.ghAuthor
+            patch.changedFields.insert(.ghAuthor)
             changed = true
         }
         if item.presentFields.contains(.ghAuthorName) && old.ghAuthorName != item.ghAuthorName {
             patch.ghAuthorName = item.ghAuthorName
+            patch.changedFields.insert(.ghAuthorName)
             changed = true
         }
         if item.presentFields.contains(.tags) && old.tags != item.tags {
             patch.tags = item.tags
+            patch.changedFields.insert(.tags)
             changed = true
         }
         if item.presentFields.contains(.project) && old.project != item.project {
             patch.project = item.project
+            patch.changedFields.insert(.project)
             changed = true
         }
 

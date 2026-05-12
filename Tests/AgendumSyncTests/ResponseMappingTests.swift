@@ -441,7 +441,7 @@ struct ResponseMappingTests {
     }
 
     @Test
-    func emptyLabelsProduceNoTagsField() throws {
+    func emptyLabelsProduceNilTagsFieldForClearingStaleTags() throws {
         let json = #"""
         {
           "data": {
@@ -466,7 +466,7 @@ struct ResponseMappingTests {
         let data = try decode(GHRepoQueryData.self, json: json)
         let tasks = try #require(ResponseMapping.mapRepoData(data, repoFullName: "acme/widget", ghUser: "danseely"))
         #expect(tasks[0].tags == nil)
-        #expect(!tasks[0].presentFields.contains(.tags))
+        #expect(tasks[0].presentFields.contains(.tags))
     }
 
     // MARK: - Fixture decoding helpers
