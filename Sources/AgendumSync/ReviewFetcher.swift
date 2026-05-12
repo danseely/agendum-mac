@@ -26,6 +26,7 @@ public func fetchReviewTasks(
 
     if config.orgs.isEmpty {
         reviewPRs = []
+        reviewFetchOK = false
     } else {
         do {
             let result = try await client.discoverReviewPRs(orgs: config.orgs, user: user)
@@ -36,10 +37,6 @@ public func fetchReviewTasks(
             reviewPRs = []
             reviewFetchOK = false
         }
-    }
-
-    if !config.repos.isEmpty && config.orgs.isEmpty {
-        reviewFetchOK = false
     }
 
     let allowList = Set(config.repos)
@@ -95,6 +92,12 @@ private func repoFullName(from item: GHSearchItem) -> String? {
 private func repoFullName(fromURL rawURL: String?) -> String? {
     guard let rawURL, let url = URL(string: rawURL) else { return nil }
     let parts = url.pathComponents.filter { $0 != "/" }
+    if parts.count >= 3, parts[0] == "repos" {
+        let owner = parts[1]
+        let name = parts[2]
+        guard !owner.isEmpty, !name.isEmpty else { return nil }
+        return "\(owner)/\(name)"
+    }
     guard parts.count >= 2 else { return nil }
     let owner = parts[0]
     let name = parts[1]

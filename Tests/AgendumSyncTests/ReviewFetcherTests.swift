@@ -125,11 +125,51 @@ private struct DummyError: Error {}
     }
 
     @Test
+    func apiURLFallbackDerivesRepoFullNameWhenRepositoryLacksOwner() async throws {
+        let client = FakeReviewClient()
+        await client.setDiscovery([
+            GHSearchItem(
+                number: 5,
+                title: "API URL",
+                url: "https://api.github.com/repos/acme/widget/issues/5",
+                repository: GHSearchRepository(name: "widget"),
+                author: nil
+            )
+        ])
+
+        let result = await fetchReviewTasks(
+            config: WorkspaceRepoConfig(orgs: ["acme"]),
+            user: "danseely",
+            client: client
+        )
+
+        #expect(result.reviewFetchOK)
+        #expect(result.incoming.map(\.ghRepo) == ["acme/widget"])
+        #expect(await client.fetchCalls == ["acme/widget#5"])
+    }
+
+    @Test
     func repoOnlyWorkspaceReturnsReviewFetchNotOK() async throws {
         let client = FakeReviewClient()
 
         let result = await fetchReviewTasks(
             config: WorkspaceRepoConfig(repos: ["acme/widget"]),
+            user: "danseely",
+            client: client
+        )
+
+        #expect(result.incoming.isEmpty)
+        #expect(result.reviewFetchOK == false)
+        #expect(await client.discoverCalls.isEmpty)
+        #expect(await client.fetchCalls.isEmpty)
+    }
+
+    @Test
+    func emptyWorkspaceReturnsReviewFetchNotOKDefensively() async throws {
+        let client = FakeReviewClient()
+
+        let result = await fetchReviewTasks(
+            config: WorkspaceRepoConfig(),
             user: "danseely",
             client: client
         )
