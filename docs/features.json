@@ -129,7 +129,7 @@
       "title": "S3+S4: Swift sync engine + cutover + module reshape (MVP gate)",
       "status": "in_progress",
       "priority": "must",
-      "evidence": "Branch codex/s3-s4-sync-and-cutover; implemented checkpoints: ef4da01 (module setup + diff_tasks port + B2 module move), 8542c3b (ResponseMapping +16 tests), 73aa675 (ApplyDiff +16 tests), 5764f83 (RepoFetcher +11 tests), 2026-05-12 ReviewFetcher checkpoint (Sources/AgendumSync/ReviewFetcher.swift + 9 ReviewFetcherTests; validation passed: swift build, swift test --filter AgendumSyncTests.ReviewFetcherTests, swift test --enable-code-coverage, git diff --check). Remaining: WorkspaceConfig, SyncEngine, cutover (BackendStatusModel.forceSync → SyncEngine; native gh auth status; delete helper subprocess), module reshape (kill AgendumBackend, rename BackendStatusModel→DashboardModel, drop AgendumTask).",
+      "evidence": "Branch codex/s3-s4-sync-and-cutover; implemented checkpoints: ef4da01 (module setup + diff_tasks port + B2 module move), 8542c3b (ResponseMapping +16 tests), 73aa675 (ApplyDiff +16 tests), 5764f83 (RepoFetcher +11 tests), 3725f23 (ReviewFetcher +9 tests; validation passed: swift build, swift test --filter AgendumSyncTests.ReviewFetcherTests, swift test --enable-code-coverage, git diff --check). Remaining: WorkspaceConfig, SyncEngine, cutover (BackendStatusModel.forceSync → SyncEngine; native gh auth status; delete helper subprocess), module reshape (kill AgendumBackend, rename BackendStatusModel→DashboardModel, drop AgendumTask).",
       "notes": "Next commit: WorkspaceConfig.swift — load workspace config.toml into the sync-engine config shape."
     },
     {
