@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project": "agendum-mac",
-  "updated_at": "2026-05-10",
+  "updated_at": "2026-05-12",
   "active_goal": "Industry-standards-following Swift macOS app (possibly OSS) that does what the ../agendum CLI does — viewer for my GitHub stuff — with native architecture: app-owned GRDB SQLite, no Python at runtime, Apple-canonical SwiftUI/Observation/structured-concurrency. Speed-run port per the 2026-05-09 plan revision and 2026-05-10 scope refinement.",
   "features": [
     {
@@ -119,18 +119,18 @@
     {
       "id": "speed-run-s2-github-transport",
       "title": "S2: Native GitHub transport (URLSession + concurrent-fetch)",
-      "status": "not_started",
+      "status": "passed",
       "priority": "must",
-      "evidence": "Not yet filed. Source spec: docs/syncer-spec.md §5.",
-      "notes": "Port gh.py transport halves to Swift via URLSession (B2 already shipped status derivation). gh auth token cached at launch as the bearer. GraphQL POST + REST GET. The two queries (REPO_QUERY for per-repo authored PRs + assigned issues + merged/closed batches; REVIEW_QUERY for per-PR review detail). Codable response types. REST endpoints: /user (username). Search endpoints (org-scoped author/assignee/review-requested) used by discover_repos / discover_review_prs. Concurrent-fetch helper (Semaphore(8)-equivalent via TaskGroup + custom async semaphore) — user runs against a 150+-repo work org so sequential is not viable. SKIPPED per 2026-05-10 MVP cut: /notifications endpoint (the overlay it drove is dropped from S3). Pure transport + parsing layer; no consumer until S3+S4."
+      "evidence": "PR #57 squash-merged into feature/mac-prototype as 77feb8d on 2026-05-11 after two adversarial review cycles. New AgendumGitHub module: GitHubClient actor + GhCLITokenProvider + AsyncSemaphore + Codable response types + the two GraphQL queries copied verbatim from ../agendum/src/agendum/gh.py. Cycle-1 fixes (3 critical, 6 major): AsyncSemaphore cancellation leak (withTaskCancellationHandler + UUID-keyed waiters); GHNodes/GHCommits null→empty decode; AnyEncodable+RawJSON replaced with typed GraphQLVariable enum (Bool-dispatch + nested-value bugs eliminated); discoverReviewPRs `ok` semantics aligned with Python (empty results keep ok=true; only caught transport errors flip false); partial-success errors surfaced via (data, partialErrors) tuple; gh subprocess 10s deadline via runProcessWithDeadline + TimeoutWatchdog; 429 / 403+Retry-After surface as .rateLimited; 401 retry replays POST body. Cycle-2: zero critical/major findings → early exit. Final validation: swift build; swift test (130 XCTest + 81 Swift Testing, 28 in AgendumGitHubTests); Python unittest 68 tests; swift run smoke; git diff --check; GitHub Actions Test passed (3m2s).",
+      "notes": "Cycle-2 minors deferred to S3+S4 or later: R2-1 TimeoutWatchdog narrow race, R2-2 URLSession cache policy on GETs, R2-3 401 retry runs applyAuth twice on success-after-401, R2-4 POST redirect handling, R2-5/R2-6 coverage gaps for .bool encoding + .missingData branch, R2-7 429 without Retry-After/x-ratelimit-remaining, R2-8 X-GitHub-Api-Version header pin. See docs/project-state.md §'S2 Deferred Minors'."
     },
     {
       "id": "speed-run-s3-s4-sync-and-cutover",
       "title": "S3+S4: Swift sync engine + cutover + module reshape (MVP gate)",
-      "status": "not_started",
+      "status": "in_progress",
       "priority": "must",
-      "evidence": "Not yet filed.",
-      "notes": "Faithful port of syncer.py per docs/syncer-spec.md MINUS the /notifications overlay (cut for MVP per 2026-05-10). Keeps: concurrent fetch via Semaphore(8)-equivalent, per-repo close protection (fetched_repos guard), pr_review exemption from that guard, syncer-driven isUnseen flag on create/update, attention classification (B2). Workspace-config plumbing so multi-workspace stays (each workspace's config.toml drives its own sync). Wire into BackendStatusModel.forceSync() / refresh(). Replace remaining helper calls with inline Swift (gh auth status subprocess for auth label, internal Swift state for sync status). Delete AgendumBackendClient + Backend/agendum_backend_helper.py + Backend/agendum_backend/helper.py. Module reshape: kill AgendumBackend module; create AgendumGitHub (S2 transport + B2 status derivation move here) and AgendumSync (S3 engine); rename BackendStatusModel → DashboardModel; drop AgendumTask intermediate (sync engine produces TaskItem directly); replace BackendClientError with focused per-layer errors. DO NOT delete Backend/agendum_engine/ from filesystem — keeps Python parity oracle alive. MVP gate: when this lands, AgendumMac process spawns no Python."
+      "evidence": "PR #58 foundation checkpoint merges codex/s3-s4-sync-and-cutover into feature/mac-prototype with implemented checkpoints: ef4da01 (module setup + diff_tasks port + B2 module move), 8542c3b (ResponseMapping +16 tests), 73aa675 (ApplyDiff +16 tests), 5764f83 (RepoFetcher +11 tests), 3725f23 + review fixes (ReviewFetcher +11 tests; adversarial loop fixed API Search URL fallback and no-org defensive reviewFetchOK=false), 2026-05-12 full PR review fixes (tri-state UpdatePatch/changedColumns for SQL NULL writes; open PR/issue empty-label mappings now keep tags present to clear stale labels), and CI coverage-build fix (split a complex ResponseMappingTests #require predicate after GitHub Actions hit a Swift compiler type-check timeout). Validation passed before merge: swift build, swift test --filter AgendumSyncTests, swift test --enable-code-coverage, Python unittest discover, git diff --check; final handoff/CI-fix validation passed jq empty docs/features.json and git diff --check. Remaining: WorkspaceConfig, SyncEngine, cutover (BackendStatusModel.forceSync -> SyncEngine; native gh auth status; delete helper subprocess), module reshape (kill AgendumBackend, rename BackendStatusModel -> DashboardModel, drop AgendumTask).",
+      "notes": "No queued next implementation step in this handoff. If continuing S3+S4, the natural next checkpoint is WorkspaceConfig.swift — load workspace config.toml into the sync-engine config shape."
     },
     {
       "id": "speed-run-s5-onboarding",

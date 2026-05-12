@@ -191,6 +191,45 @@ struct TaskStoreTests {
     }
 
     @Test
+    func applySyncUpdateCanClearOptionalColumns() async throws {
+        let store = try TaskStore()
+        try await store.insert(TaskRecord(
+            id: 1,
+            title: "Review",
+            source: "pr_review",
+            status: "review requested",
+            project: "widget",
+            ghRepo: "acme/widget",
+            ghURL: "https://github.com/acme/widget/pull/1",
+            ghNumber: 1,
+            ghAuthor: "deleted-user",
+            ghAuthorName: "Deleted",
+            tags: #"["review","stale"]"#,
+            seen: 1,
+            lastChangedAt: "2026-05-09T00:00:00.000000+00:00",
+            createdAt: "2026-05-09T00:00:00.000000+00:00",
+            updatedAt: "2026-05-09T00:00:00.000000+00:00"
+        ))
+
+        try await store.applySyncUpdate(
+            id: 1,
+            ghAuthor: nil,
+            ghAuthorName: nil,
+            tags: nil,
+            changedColumns: ["gh_author", "gh_author_name", "tags"],
+            resetSeen: true,
+            now: "2026-05-12T00:00:00.000000+00:00"
+        )
+
+        let record = try await store.rawRecord(id: 1)
+        #expect(record?.ghAuthor == nil)
+        #expect(record?.ghAuthorName == nil)
+        #expect(record?.tags == nil)
+        #expect(record?.seen == 0)
+        #expect(record?.lastChangedAt == "2026-05-12T00:00:00.000000+00:00")
+    }
+
+    @Test
     func removeTaskDeletesRow() async throws {
         let store = try TaskStore()
         try await insertTask(store, id: 1, title: "T", source: "manual")

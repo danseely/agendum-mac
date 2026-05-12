@@ -1,4 +1,4 @@
-@testable import AgendumBackend
+@testable import AgendumGitHub
 import Foundation
 import Testing
 
