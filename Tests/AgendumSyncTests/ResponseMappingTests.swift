@@ -17,7 +17,10 @@ struct ResponseMappingTests {
         #expect(tasks.count == 5)
 
         // The open issue: linked PR present → status "in progress".
-        let openIssue = try #require(tasks.first(where: { $0.source == "issue" && $0.status == "in progress" }))
+        let openIssueCandidate = tasks.first { task in
+            task.source == "issue" && task.status == "in progress"
+        }
+        let openIssue = try #require(openIssueCandidate)
         #expect(openIssue.title == "Bug: nav drawer flickers")
         #expect(openIssue.ghURL == "https://github.com/acme/widget/issues/42")
         #expect(openIssue.ghNumber == 42)
@@ -27,14 +30,20 @@ struct ResponseMappingTests {
         #expect(openIssue.presentFields.contains(.tags))
 
         // The closed issue: bare payload.
-        let closedIssue = try #require(tasks.first(where: { $0.source == "issue" && $0.status == "closed" }))
+        let closedIssueCandidate = tasks.first { task in
+            task.source == "issue" && task.status == "closed"
+        }
+        let closedIssue = try #require(closedIssueCandidate)
         #expect(closedIssue.title == "")
         #expect(closedIssue.ghNumber == 30)
         #expect(!closedIssue.presentFields.contains(.tags))
         #expect(!closedIssue.presentFields.contains(.ghAuthor))
 
         // The authored PR (open).
-        let authoredPR = try #require(tasks.first(where: { $0.source == "pr_authored" && $0.status != "merged" && $0.status != "closed" }))
+        let authoredPRCandidate = tasks.first { task in
+            task.source == "pr_authored" && task.status != "merged" && task.status != "closed"
+        }
+        let authoredPR = try #require(authoredPRCandidate)
         #expect(authoredPR.title == "Fix nav drawer flicker")
         #expect(authoredPR.ghNumber == 99)
         #expect(authoredPR.tags == #"["frontend"]"#)
@@ -43,12 +52,18 @@ struct ResponseMappingTests {
         #expect(authoredPR.status == "review received")
 
         // The merged PR (bare).
-        let mergedPR = try #require(tasks.first(where: { $0.source == "pr_authored" && $0.status == "merged" }))
+        let mergedPRCandidate = tasks.first { task in
+            task.source == "pr_authored" && task.status == "merged"
+        }
+        let mergedPR = try #require(mergedPRCandidate)
         #expect(mergedPR.title == "")
         #expect(mergedPR.ghNumber == 88)
 
         // The closed PR (bare).
-        let closedPR = try #require(tasks.first(where: { $0.source == "pr_authored" && $0.status == "closed" }))
+        let closedPRCandidate = tasks.first { task in
+            task.source == "pr_authored" && task.status == "closed"
+        }
+        let closedPR = try #require(closedPRCandidate)
         #expect(closedPR.title == "")
         #expect(closedPR.ghNumber == 77)
     }
