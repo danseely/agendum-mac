@@ -258,8 +258,9 @@ public actor GitHubClient {
     private func getData(url: URL) async throws -> Data {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        try await applyAuth(&request)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
         request.setValue("agendum-mac/0.1 (Swift)", forHTTPHeaderField: "User-Agent")
         return try await runWithAuthRetry(request)
     }
@@ -267,9 +268,10 @@ public actor GitHubClient {
     private func postJSON<Body: Encodable>(_ path: String, body: Body) async throws -> Data {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = "POST"
-        try await applyAuth(&request)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
         request.setValue("agendum-mac/0.1 (Swift)", forHTTPHeaderField: "User-Agent")
         do {
             request.httpBody = try JSONEncoder().encode(body)
@@ -294,10 +296,7 @@ public actor GitHubClient {
     private func runWithAuthRetry(_ originalRequest: URLRequest) async throws -> Data {
         for attempt in 0..<2 {
             var request = originalRequest
-            if attempt > 0 {
-                // Refresh auth header
-                try await applyAuth(&request)
-            }
+            try await applyAuth(&request)
             let result: (Data, URLResponse)
             do {
                 result = try await session.data(for: request)
@@ -328,6 +327,9 @@ public actor GitHubClient {
                         .flatMap { TimeInterval($0) }
                         .map { Date(timeIntervalSince1970: $0) }
                     throw GitHubClientError.rateLimited(resetAt: reset)
+                }
+                if http.statusCode == 429 {
+                    throw GitHubClientError.rateLimited(resetAt: nil)
                 }
                 fallthrough
             default:

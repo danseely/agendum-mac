@@ -49,6 +49,10 @@ public actor GhCLITokenProvider: GitHubTokenProviding {
         self.runner = runner
     }
 
+    public init(ghConfigDir: URL?) {
+        self.runner = GhCLITokenProvider.runner(ghConfigDir: ghConfigDir)
+    }
+
     public func token() async throws -> String {
         if let cached, !cached.isEmpty { return cached }
         let result: (stdout: String, stderr: String, exitCode: Int32)
@@ -82,16 +86,44 @@ public actor GhCLITokenProvider: GitHubTokenProviding {
     /// Bounded by a 10s deadline so a stuck `gh` (interactive prompt, keychain
     /// hang) doesn't stall sync indefinitely.
     public static let defaultRunner: Runner = {
-        guard let ghURL = locateGhBinary() else {
-            throw POSIXError(.ENOENT)
-        }
-        return try await runProcessWithDeadline(executableURL: ghURL, arguments: ["auth", "token"], deadline: .seconds(10))
+        try await runner(ghConfigDir: nil)()
     }
 
-    /// Visible to tests via `@testable import` so a tighter deadline can be exercised.
-    static func runProcessWithDeadline(
+    public static func runner(ghConfigDir: URL?) -> Runner {
+        {
+            guard let ghURL = locateGhBinary() else {
+                throw POSIXError(.ENOENT)
+            }
+            var environment = ProcessInfo.processInfo.environment
+            if let ghConfigDir {
+                environment["GH_CONFIG_DIR"] = ghConfigDir.path
+            }
+            return try await runProcessWithDeadline(
+                executableURL: ghURL,
+                arguments: ["auth", "token"],
+                environment: environment,
+                deadline: .seconds(10)
+            )
+        }
+    }
+
+    public static func locateGhBinary() -> URL? {
+        let candidates = [
+            "/opt/homebrew/bin/gh",
+            "/usr/local/bin/gh",
+            "/usr/bin/gh",
+            "/opt/local/bin/gh", // MacPorts
+        ]
+        for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
+            return URL(fileURLWithPath: path)
+        }
+        return nil
+    }
+
+    public static func runProcessWithDeadline(
         executableURL: URL,
         arguments: [String],
+        environment: [String: String] = ProcessInfo.processInfo.environment,
         deadline: Duration
     ) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
         // Process/Pipe are non-Sendable classes. We confine all access to one
@@ -104,6 +136,7 @@ public actor GhCLITokenProvider: GitHubTokenProviding {
             process.standardError = stderrPipe
             process.executableURL = executableURL
             process.arguments = arguments
+            process.environment = environment
             do {
                 try process.run()
             } catch let error as NSError where error.domain == NSPOSIXErrorDomain && error.code == ENOENT {
@@ -113,7 +146,11 @@ public actor GhCLITokenProvider: GitHubTokenProviding {
             // Deadline task: SIGTERM the child if the deadline expires.
             let watchdog = TimeoutWatchdog(process: process)
             let deadlineTask = Task {
-                try? await Task.sleep(for: deadline)
+                do {
+                    try await Task.sleep(for: deadline)
+                } catch {
+                    return
+                }
                 watchdog.fireIfStillRunning()
             }
             defer { deadlineTask.cancel() }
@@ -145,8 +182,8 @@ public actor GhCLITokenProvider: GitHubTokenProviding {
         func fireIfStillRunning() {
             lock.lock(); defer { lock.unlock() }
             guard process.isRunning else { return }
-            _didFire = true
             process.terminate()
+            _didFire = true
         }
 
         var didFire: Bool {
@@ -155,16 +192,4 @@ public actor GhCLITokenProvider: GitHubTokenProviding {
         }
     }
 
-    private static func locateGhBinary() -> URL? {
-        let candidates = [
-            "/opt/homebrew/bin/gh",
-            "/usr/local/bin/gh",
-            "/usr/bin/gh",
-            "/opt/local/bin/gh", // MacPorts
-        ]
-        for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
-            return URL(fileURLWithPath: path)
-        }
-        return nil
-    }
 }

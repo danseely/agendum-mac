@@ -8,8 +8,8 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library(name: "AgendumBackend", targets: ["AgendumBackend"]),
         .library(name: "AgendumFeature", targets: ["AgendumFeature"]),
+        .library(name: "AgendumAppServices", targets: ["AgendumAppServices"]),
         .library(name: "AgendumGitHub", targets: ["AgendumGitHub"]),
         .library(name: "AgendumMacStore", targets: ["AgendumMacStore"]),
         .library(name: "AgendumModel", targets: ["AgendumModel"]),
@@ -21,14 +21,21 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "AgendumBackend"
-        ),
-        .target(
             name: "AgendumModel"
         ),
         .target(
             name: "AgendumFeature",
-            dependencies: ["AgendumBackend", "AgendumModel"]
+            dependencies: ["AgendumModel"]
+        ),
+        .target(
+            name: "AgendumAppServices",
+            dependencies: [
+                "AgendumFeature",
+                "AgendumGitHub",
+                "AgendumMacStore",
+                "AgendumModel",
+                "AgendumSync"
+            ]
         ),
         .target(
             name: "AgendumGitHub"
@@ -50,12 +57,22 @@ let package = Package(
         ),
         .executableTarget(
             name: "AgendumMac",
-            dependencies: ["AgendumBackend", "AgendumFeature", "AgendumMacStore", "AgendumModel"],
+            dependencies: [
+                "AgendumAppServices",
+                "AgendumFeature",
+                "AgendumMacStore",
+                "AgendumModel"
+            ],
             exclude: ["Info.plist.template"]
         ),
         .testTarget(
-            name: "AgendumBackendTests",
-            dependencies: ["AgendumBackend"]
+            name: "AgendumAppServicesTests",
+            dependencies: [
+                "AgendumAppServices",
+                "AgendumFeature",
+                "AgendumModel",
+                "AgendumSync"
+            ]
         ),
         .testTarget(
             name: "AgendumFeatureTests",

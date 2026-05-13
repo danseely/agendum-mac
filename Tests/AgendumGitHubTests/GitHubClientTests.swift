@@ -53,6 +53,8 @@ struct GitHubClientTests {
         #expect(recorded.count == 1)
         #expect(recorded.all.first?.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
         #expect(recorded.all.first?.value(forHTTPHeaderField: "Accept") == "application/vnd.github+json")
+        #expect(recorded.all.first?.value(forHTTPHeaderField: "X-GitHub-Api-Version") == "2022-11-28")
+        #expect(recorded.all.first?.cachePolicy == .reloadIgnoringLocalCacheData)
     }
 
     @Test
@@ -141,6 +143,25 @@ struct GitHubClientTests {
         } catch GitHubClientError.rateLimited(let resetAt) {
             let resolved = try #require(resetAt)
             #expect(resolved.timeIntervalSinceNow > 50 && resolved.timeIntervalSinceNow <= 60)
+        }
+    }
+
+    @Test
+    func tooManyRequestsWithoutHeadersStillSurfacesAsRateLimited() async throws {
+        StubURLProtocol.setHandler { _ in
+            (429, [:], Data())
+        }
+        defer { StubURLProtocol.setHandler(nil) }
+
+        let client = GitHubClient(
+            session: StubURLProtocol.makeSession(),
+            tokenProvider: FakeTokenProvider(initial: "t")
+        )
+        do {
+            _ = try await client.currentUserLogin()
+            Issue.record("expected rateLimited")
+        } catch GitHubClientError.rateLimited(let resetAt) {
+            #expect(resetAt == nil)
         }
     }
 
@@ -245,6 +266,29 @@ struct GitHubClientTests {
         #expect((variables["name"] as? String) == "widget")
         #expect((variables["user"] as? String) == "danseely")
         #expect((parsed["query"] as? String)?.contains("query($owner: String!") == true)
+        #expect(request.value(forHTTPHeaderField: "X-GitHub-Api-Version") == "2022-11-28")
+        #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+    }
+
+    @Test
+    func graphQLVariableEncodingRoundTripsAllStructuredCases() throws {
+        let body = GraphQLRequestBodyForTest(
+            variables: [
+                "bool": .bool(true),
+                "null": .null,
+                "array": .array([.string("a"), .int(2)]),
+                "object": .object(["nested": .double(1.5)]),
+            ]
+        )
+        let data = try JSONEncoder().encode(body)
+        let parsed = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let variables = try #require(parsed["variables"] as? [String: Any])
+
+        #expect((variables["bool"] as? Bool) == true)
+        #expect(variables["null"] is NSNull)
+        #expect((variables["array"] as? [Any])?.count == 2)
+        let object = try #require(variables["object"] as? [String: Any])
+        #expect((object["nested"] as? Double) == 1.5)
     }
 
     @Test
@@ -366,6 +410,26 @@ struct GitHubClientTests {
         }
     }
 
+    @Test
+    func graphQLMissingDataThrowsMissingData() async throws {
+        StubURLProtocol.setHandler { _ in
+            (200, ["Content-Type": "application/json"], Data(#"{}"#.utf8))
+        }
+        defer { StubURLProtocol.setHandler(nil) }
+
+        let client = GitHubClient(
+            session: StubURLProtocol.makeSession(),
+            tokenProvider: FakeTokenProvider(initial: "t")
+        )
+
+        do {
+            _ = try await client.fetchRepoData(owner: "acme", name: "widget", user: "danseely")
+            Issue.record("expected missingData")
+        } catch GitHubClientError.missingData {
+            // expected
+        }
+    }
+
     // MARK: - GraphQL: REVIEW_QUERY
 
     @Test
@@ -470,6 +534,10 @@ struct GitHubClientTests {
     }
 
     enum FixtureError: Error { case notFound(String) }
+}
+
+private struct GraphQLRequestBodyForTest: Encodable {
+    let variables: [String: GraphQLVariable]
 }
 
 // MARK: - InputStream → Data helper
