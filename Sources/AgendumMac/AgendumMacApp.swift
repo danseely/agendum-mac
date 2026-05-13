@@ -474,6 +474,7 @@ private struct TaskDashboardView: View {
     @Binding var isShowingCreateManualTask: Bool
     @Binding var selectedTask: TaskItem.ID?
     @State private var actionTaskID: TaskItem.ID?
+    @FocusState private var taskListFocused: Bool
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -498,16 +499,29 @@ private struct TaskDashboardView: View {
                         ForEach(section.tasks) { task in
                             TaskRow(task: task)
                                 .tag(task.id)
+                                // Insurance against rows whose intrinsic
+                                // content geometry is narrower than the row;
+                                // restores the explicit full-row hit shape
+                                // even though List(selection:) routes clicks
+                                // through NSTableView in practice.
                                 .contentShape(Rectangle())
-                                .simultaneousGesture(
-                                    TapGesture(count: 2).onEnded {
-                                        presentActions(for: task.id)
-                                    }
-                                )
                         }
                     } header: {
                         TaskSectionHeader(section: section)
                     }
+                }
+            }
+            .focused($taskListFocused)
+            .contextMenu(forSelectionType: TaskItem.ID.self) { ids in
+                if let id = ids.first {
+                    Button("Open actions…") {
+                        presentActions(for: id)
+                    }
+                    .accessibilityIdentifier("task-list-context-open-actions")
+                }
+            } primaryAction: { ids in
+                if let id = ids.first {
+                    presentActions(for: id)
                 }
             }
             .navigationTitle(selectedSource.rawValue)
@@ -518,6 +532,27 @@ private struct TaskDashboardView: View {
             }
             .onKeyPress(.space) {
                 presentSelectedTaskActions()
+                return .handled
+            }
+            .onKeyPress(.downArrow) {
+                // Seed selection with the first visible task when nothing is
+                // (effectively) selected — either selectedTask is nil OR it
+                // points at a row that's no longer in visibleTaskIDs (e.g.,
+                // restored via @SceneStorage before tasks loaded, or filtered
+                // out by the current source/filter combo). Without this the
+                // first arrow keystroke would be a no-op because
+                // List(selection:) has no anchor row to navigate from.
+                guard selectedTask == nil || !visibleTaskIDs.contains(selectedTask!),
+                      let first = visibleTaskIDs.first
+                else { return .ignored }
+                selectedTask = first
+                return .handled
+            }
+            .onKeyPress(.upArrow) {
+                guard selectedTask == nil || !visibleTaskIDs.contains(selectedTask!),
+                      let first = visibleTaskIDs.first
+                else { return .ignored }
+                selectedTask = first
                 return .handled
             }
             .onChange(of: visibleTaskIDs) { _, _ in
@@ -531,6 +566,28 @@ private struct TaskDashboardView: View {
             }
             .onChange(of: filters) { _, _ in
                 revalidateSelectionForVisibleTasks()
+            }
+            .onAppear {
+                // Claim keyboard focus for the task list when the dashboard
+                // first appears so arrow keys reach the list before the user
+                // explicitly clicks into it.
+                taskListFocused = true
+            }
+            .onChange(of: columnVisibility) { _, newValue in
+                // When the sidebar is collapsed, focus would otherwise be
+                // stranded on a now-hidden control. Reclaim it for the list so
+                // keyboard navigation stays alive in single-pane mode.
+                //
+                // Intentionally asymmetric: when the sidebar is *revealed*
+                // (e.g. .detailOnly -> .all), we leave focus on the task list
+                // rather than auto-focusing the sidebar. That matches the
+                // macOS convention (Mail, Notes don't refocus sidebar on
+                // reveal) and respects the user's likely intent — they
+                // toggled the sidebar visible for reference, not to navigate
+                // it. Tab still moves focus to the sidebar on demand.
+                if newValue == .detailOnly {
+                    taskListFocused = true
+                }
             }
             .toolbar {
                 ToolbarItem {
@@ -982,6 +1039,7 @@ private struct TaskActionModal: View {
     let dismiss: () -> Void
 
     @State private var runningAction: TaskDetailAction?
+    @FocusState private var focusedAction: TaskDetailAction?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1022,7 +1080,25 @@ private struct TaskActionModal: View {
                     }
                     .disabled(isLoading || runningAction != nil)
                     .buttonStyle(.bordered)
+                    .focused($focusedAction, equals: action)
                     .accessibilityIdentifier("task-action-\(action.rawValue)")
+                }
+            }
+            .onAppear {
+                // Focus the first available action so Return / Space can drive
+                // it immediately without requiring a Tab.
+                if focusedAction == nil, let first = availableActions.first {
+                    focusedAction = first
+                }
+            }
+            .onChange(of: availableActions) { _, new in
+                // If the previously-focused action disappears (e.g. user just
+                // marked the task seen and `.markSeen` drops out of
+                // availableActions), the corresponding `.focused(equals:)`
+                // unmounts and `focusedAction` goes nil. Re-seed with the new
+                // first action so the next Return / Space still fires.
+                if focusedAction == nil || !new.contains(focusedAction!) {
+                    focusedAction = new.first
                 }
             }
 
@@ -1054,6 +1130,18 @@ private struct TaskActionModal: View {
         }
         .padding(20)
         .frame(width: 420)
+        .onKeyPress(.return) {
+            // macOS reserves Return for the .defaultAction button by default,
+            // so SwiftUI's bordered buttons only respond to Space when focused.
+            // Route Return to whichever action button currently has focus so
+            // keyboard-only operation is symmetric with Space.
+            guard let action = focusedAction,
+                  !isLoading,
+                  runningAction == nil
+            else { return .ignored }
+            run(action)
+            return .handled
+        }
     }
 
     private var availableActions: [TaskDetailAction] {

@@ -145,6 +145,18 @@ Acceptance:
 - Cover force-sync polling and detail-pane task actions in SwiftPM tests before relying on manual smoke tests for future UI changes.
 - Decide whether menu command wiring belongs in the same checkpoint; current app validation expects toolbar and menu sync commands to converge on the same action.
 
+### Dashboard Interactions (Manual)
+The task list selection model is a SwiftUI / `NSTableView` gesture composition that unit tests cannot fully exercise. Every dashboard PR that touches `Sources/AgendumMac/AgendumMacApp.swift` around `List(selection:)` must manually verify:
+
+- **Single-click on a task row** selects + highlights the row (drives `selectedTask`).
+- **Keyboard ↑/↓** navigates between visible rows and matches the click-selected state. With no current selection, the first ↑ or ↓ keystroke selects the first visible row; subsequent presses navigate normally.
+- **Return / Space** with a selected row opens the task action modal.
+- **Double-click on a task row** opens the task action modal.
+- **Right-click (or two-finger tap) on a task row** shows a context menu with "Open actions…" that opens the same modal.
+- **Inside the task action modal**, both **Space** and **Return** activate the focused action button; **Tab / Shift-Tab** moves focus between buttons; **Esc** closes. The first action is focused automatically on open.
+
+Regression note: attaching `.simultaneousGesture(TapGesture(count: 2))` (or any per-row `TapGesture`) to rows inside `List(selection:)` on macOS swallows the single-click before `NSTableView` selection sees it — keyboard nav keeps working but click selection silently breaks. See issue #61. The fix is `List.contextMenu(forSelectionType:menu:primaryAction:)` at the **list level**: the `primaryAction` closure fires on double-click and Return without interfering with single-click selection because it lives on the List, not on each row. Use that API rather than per-row tap gestures.
+
 ### Before Calling The Prototype Ready
 - `swift build` passes.
 - Python unit and integration tests pass.
