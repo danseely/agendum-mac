@@ -3,92 +3,71 @@
 ## Goal
 Keep test coverage aligned with the prototype risks as the app moves from sample data to a live Mac vertical slice.
 
-The highest-risk areas are the helper protocol, workspace/auth behavior, task mutation semantics, sync lifecycle, and Swift-to-helper process integration. UI tests should start small and focus on Mac workflows once the UI is backed by real helper data.
+The highest-risk areas are native workspace/auth behavior, task mutation semantics, sync lifecycle, GitHub transport behavior, and Swift app-service integration. UI tests should start small and focus on Mac workflows once the UI is backed by live native services.
 
 ## Coverage Layers
 
-### Backend Unit Tests
-Use focused Python tests for helper command handlers and service-layer behavior.
+### Python Parity Tests
+Use focused Python tests only as a parity oracle for retained reference code and fixtures.
 
-Must cover as commands are added:
-- protocol envelope validation, unsupported versions, unknown commands, malformed payloads, and non-object requests
-- workspace current/list/select behavior, including base workspace and namespace paths
-- auth status for missing `gh`, unauthenticated `gh`, authenticated `gh`, and username lookup failure
-- task list/search/get/create payload mapping from agendum storage into bridge schema
-- task actions: mark reviewed, mark in progress, move to backlog, mark done, remove, and mark seen
-- sync force/status state transitions, duplicate sync requests, terminal errors, and event/polling semantics
-- stable error codes and user-presentable recovery text
-
-### Backend Integration Tests
-Use subprocess tests against `Backend/agendum_backend_helper.py` to verify the actual JSONL process boundary.
-
-Must cover:
-- one request/one response framing
-- multiple sequential requests in one helper process
-- malformed input recovery, where the helper continues after returning an error envelope
-- environment handling for `AGENDUM_MAC_BASE_DIR`, `AGENDUM_MAC_GH_PATHS`, and `GH_CONFIG_DIR`
-- fixture-backed task storage once task commands are implemented
+Current scope:
+- `Tests/test_gh_status_derivation.py` characterizes original CLI status derivation against the shared fixture.
+- `Backend/agendum_engine/` remains in-tree as a post-cutover parity reference, not runtime app code.
+- No Python helper subprocess or JSONL bridge tests remain after S3+S4 app cutover.
 
 ### Coverage Reporting
 Use coverage reporting that matches the layer under test.
 
-Current Python helper scope:
-- use `python3 Scripts/python_coverage.py` as a temporary helper-only report
-- reports stdlib line coverage for `Backend/agendum_backend/helper.py`
-- runs the full Python unittest suite before reporting
-- treats subprocess-entrypoint behavior as integration-tested but not line-counted
-- avoids adding a third-party coverage dependency until the project has package/dependency management
-
-Intended Swift app scope:
+Current Swift app scope:
 - use `swift test --enable-code-coverage` while the app remains SwiftPM-only
 - inspect SwiftPM coverage through the generated LLVM coverage artifacts
-- add Swift coverage reporting once helper-client code exists outside SwiftUI views
+- keep Python parity tests as pass/fail characterization, not line-coverage gates
 
 Future Xcode app scope:
 - when the project moves to an Xcode app/scheme, use `xcodebuild test -enableCodeCoverage YES`
 - inspect or export coverage from the `.xcresult` bundle with `xccov`
 - keep Mac app validation tied to normal app workflows, including launch, Settings, menus, keyboard navigation, and window resizing
 
-Revisit once dependency management and CI are in place:
-- switch Python helper reporting to `coverage.py` if subprocess coverage, HTML reports, XML/CI output, or branch coverage becomes useful
-- add minimum coverage thresholds only after backend command and Swift helper-client coverage stabilizes
+Revisit once Swift coverage has stabilized:
+- add minimum coverage thresholds only after native service, store, sync, and workflow coverage stabilizes
 
 ### CI Pipeline
 Use GitHub Actions to run the current local validation pipeline on macOS.
 
 Current CI shape:
 - check out `danseely/agendum-mac`
-- check out `danseely/agendum` as a sibling directory because the helper currently bootstraps imports from `../agendum/src`
 - run for all pull requests
 - run for direct pushes to `main`
-- run `python3 Scripts/python_coverage.py`
-- run `python3 -m unittest discover -s Tests`
+- run `python3 -m unittest discover -s Tests` for parity tests
 - run `swift build`
 - run `swift test --enable-code-coverage`
+- run `Scripts/build_app_bundle.sh` plus bundle existence/plist checks
+- run `jq empty docs/features.json`
+- run stale helper/runtime reference checks over `.github Scripts docs/testing.md Package.swift Sources Tests`
 - run `git diff --check`
 
 CI should stay aligned with the local handoff validation. When new test layers are added, update the workflow in the same checkpoint as the tests.
 
 Later updates:
 - export Xcode coverage with `xccov` once there is an Xcode app project or scheme
-- replace the sibling checkout with package/dependency setup once the backend dependency is formalized
 
 ### Swift Unit Tests
-Add Swift tests once helper-client code is separated from SwiftUI views.
+Add Swift tests for native service, transport, store, sync, model, and command behavior.
 
 Must cover:
-- request encoding and response decoding
-- backend error mapping into UI-facing state
+- GitHub request encoding, response decoding, rate-limit/auth behavior, and retry semantics
+- native workspace/auth/sync service behavior
+- app-service error mapping into UI-facing state
 - task/workspace/auth/sync model decoding
-- helper process lifecycle decisions that can be tested without launching the full app
+- store and sync behavior without launching the full app
 
 ### SwiftUI Workflow Unit Tests
 Before adding broad UI automation, move workflow logic behind a testable seam so SwiftPM tests can cover behavior without launching the app.
 
-Recommended next checkpoint:
-- Extract `BackendStatusModel` out of `Sources/AgendumMac/AgendumMacApp.swift` into a testable target, or introduce a small app-workflow target that the executable and tests can both import.
-- Add a backend-client protocol/fake so workflow tests can drive workspace, auth, sync, task-list, and task-action responses without spawning the Python helper.
-- Keep SwiftUI view code thin: views should call model methods or a small action planner, while state transitions and available action decisions live in testable Swift code.
+Current shape:
+- `DashboardModel` lives in `AgendumFeature`.
+- `DashboardServicing` fakes drive workspace, auth, sync, task-list, and task-action responses without spawning subprocesses.
+- SwiftUI view code stays thin: views call model methods or command descriptors, while state transitions and available action decisions live in testable Swift code.
 
 Must cover:
 - `refresh()` success and failure: workspace, workspace list, auth, sync, task loading, task clearing on failure, and user-presentable error state.
@@ -100,7 +79,7 @@ Must cover:
 
 Acceptance:
 - New SwiftPM tests run under `swift test --enable-code-coverage`.
-- No Python helper process is needed for these workflow tests; process-boundary behavior remains covered by `AgendumBackendTests` and Python subprocess tests.
+- No Python helper process is needed for workflow tests.
 - Manual launch smoke remains useful, but it should no longer be the only coverage for force-sync polling and detail-pane task actions.
 
 ### Swift UI / App Validation
@@ -119,50 +98,43 @@ Must validate:
 Defer until a distribution channel is chosen.
 
 Before release planning, validate:
-- helper discovery from a Finder-launched app
 - `gh` discovery and auth repair path outside a terminal environment
 - signing, hardened runtime, notarization, sandbox, and privacy manifest requirements for the chosen channel
 
 ## Milestone Gates
 
-## Immediate Test Checkpoint
-Before adding more backend commands or Swift helper wiring, establish the helper boundary baseline.
+## Current Test Checkpoint
+Before publishing S3+S4 app-cutover work, keep the helper-free runtime gates green.
 
 Scope:
-- Add subprocess JSONL tests for `Backend/agendum_backend_helper.py`.
-- Add missing helper protocol edge-case unit tests.
-- Keep the checkpoint limited to the existing commands: `workspace.current` and `auth.status`.
-- Do not add Swift tests until helper-client code exists outside SwiftUI views.
+- Native app services own workspace/auth/sync status and `SyncEngine` composition.
+- `DashboardModel` workflow tests use `DashboardServicing` fakes and `TaskStoreProviding` fakes.
+- Python tests are parity-only.
 
 Acceptance:
-- `python3 -m unittest discover -s Tests` passes.
 - `swift build` passes.
+- `swift test --enable-code-coverage` passes.
+- `python3 -m unittest discover -s Tests` passes.
+- `Scripts/build_app_bundle.sh` passes.
+- `jq empty docs/features.json` passes.
 - `git diff --check` passes.
-- `docs/status.md` and `docs/handoff.md` record the completed validation.
+- stale helper/runtime grep over `.github Scripts docs/testing.md Package.swift Sources Tests` returns no matches.
+- `docs/project-state.md` and `docs/features.json` record completed validation.
 
-### Before Swift Helper Wiring
-- Keep `swift build` passing.
-- Keep Python unit tests passing.
-- Add subprocess JSONL integration tests for the helper entrypoint.
-- Add missing protocol edge-case tests for bad payloads and unknown commands.
-- Run temporary helper coverage with `python3 Scripts/python_coverage.py` and record the result in `docs/handoff.md`.
-- Keep the GitHub Actions test workflow aligned with these local checks.
-
-### Before Adding Each New Backend Command
-- Add or update contract examples in `docs/backend-contract.md`.
+### Before Adding Each New Native Service Method
+- Add or update contract examples only when the method crosses a module or app-service boundary that needs a documented payload.
 - Add unit tests for success, invalid payload, and expected failure states.
-- Add subprocess coverage when the command crosses environment or process-boundary behavior.
+- Add process-boundary coverage only for behavior that still shells out intentionally, such as `gh` auth discovery.
 
-### Before Replacing Sample Data
+### Before Expanding Native Task Data
 - Add fixture-backed task tests for list/search/get.
 - Add Swift model decoding tests for task payloads.
-- Add helper-client tests using fake stdio or a controllable subprocess wrapper.
-- Start SwiftPM coverage reporting with `swift test --enable-code-coverage` once Swift tests exist.
+- Keep `DashboardServicing` and `TaskStoreProviding` fake coverage aligned with the new fields.
 
 ### Before Task Mutations
-- Add backend tests proving each mutation changes storage as expected.
+- Add store/service tests proving each mutation changes storage as expected.
 - Add idempotency or not-found behavior tests.
-- Verify returned task payloads match the bridge schema.
+- Verify returned task payloads match the Swift model contract.
 
 ### Before Sync UI
 - Add tests for sync status state transitions and duplicate `sync.force`.
@@ -180,4 +152,4 @@ Acceptance:
 - Swift coverage reporting is available through SwiftPM or Xcode, depending on project shape.
 - `swift run AgendumMac` has been manually smoke-tested.
 - The live app can load, sync, show errors, open URLs, and perform core task actions.
-- `docs/status.md` and `docs/handoff.md` record the validation run.
+- `docs/project-state.md` and `docs/features.json` record the validation run.

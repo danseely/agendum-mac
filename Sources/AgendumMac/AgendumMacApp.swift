@@ -5,7 +5,7 @@ import SwiftUI
 
 @main
 struct AgendumMacApp: App {
-    @State private var settingsBackendStatus = BackendStatusModel.live()
+    @State private var settingsBackendStatus = DashboardModel.live()
     private let commands = TaskDashboardCommands.standard
 
     var body: some Scene {
@@ -25,7 +25,7 @@ struct AgendumMacApp: App {
 
 @MainActor
 private struct DashboardCommandTarget {
-    let backendStatus: BackendStatusModel
+    let backendStatus: DashboardModel
     let isShowingCreateManualTask: Binding<Bool>
     let selectedTaskID: Binding<TaskItem.ID?>
 }
@@ -155,7 +155,7 @@ private struct DashboardMenuCommands: Commands {
 @MainActor
 private struct DashboardSceneRoot: View {
     let commands: TaskDashboardCommands
-    @State private var backendStatus = BackendStatusModel.live()
+    @State private var backendStatus = DashboardModel.live()
     @State private var isShowingCreateManualTask = false
     @State private var didInitialRefresh = false
     @SceneStorage("dashboard.selectedTaskID") private var selectedTaskID: TaskItem.ID?
@@ -466,7 +466,7 @@ private extension Color {
 }
 
 private struct TaskDashboardView: View {
-    var backendStatus: BackendStatusModel
+    var backendStatus: DashboardModel
     let commands: TaskDashboardCommands
     @Binding var columnVisibility: NavigationSplitViewVisibility
     @Binding var selection: TaskSource?
@@ -690,7 +690,7 @@ private struct TaskDashboardView: View {
 }
 
 private struct TaskListFiltersPanel: View {
-    var status: BackendStatusModel
+    var status: DashboardModel
     @Binding var filters: TaskListFilters
     @AppStorage("task-list-filters-expanded") private var isExpanded: Bool = true
 
@@ -811,7 +811,7 @@ private struct TaskListFiltersPanel: View {
 }
 
 private struct BackendStatusPanel: View {
-    var status: BackendStatusModel
+    var status: DashboardModel
     let clearSelectedTask: () -> Void
 
     var body: some View {
@@ -1198,7 +1198,7 @@ private struct CreateManualTaskSheet: View {
 }
 
 private struct SettingsView: View {
-    @Environment(BackendStatusModel.self) private var backendStatus
+    @Environment(DashboardModel.self) private var backendStatus
     @State private var notificationAuthorizationStatus: UNAuthorizationStatus?
 
     var body: some View {
@@ -1221,21 +1221,21 @@ private struct SettingsView: View {
                 LabeledContent("GH_CONFIG_DIR", value: backendStatus.auth?.workspaceGhConfigDir ?? "—")
                     .accessibilityIdentifier("settings-gh-config-dir")
             }
-            Section("Helper PATH") {
-                if let path = backendStatus.diagnostics?.helperPath, !path.isEmpty {
+            Section("App PATH") {
+                if let path = backendStatus.diagnostics?.pathEntries, !path.isEmpty {
                     ForEach(Array(path.enumerated()), id: \.offset) { _, entry in
                         Text(entry)
                             .font(.system(.caption, design: .monospaced))
-                            .accessibilityIdentifier("settings-helper-path-row")
+                            .accessibilityIdentifier("settings-app-path-row")
                     }
                 } else {
-                    Text("—").accessibilityIdentifier("settings-helper-path-empty")
+                    Text("—").accessibilityIdentifier("settings-app-path-empty")
                 }
                 if backendStatus.diagnostics?.gh.found == false {
-                    Text("Relaunch Agendum if you've just installed gh — the helper's PATH is captured at launch and won't pick up new installs until restart.")
+                    Text("Relaunch Agendum if you've just installed gh — the app process PATH is captured at launch and won't pick up new installs until restart.")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                        .accessibilityIdentifier("settings-helper-path-relaunch-hint")
+                        .accessibilityIdentifier("settings-app-path-relaunch-hint")
                 }
             }
             if let prose = backendStatus.auth?.repairInstructions {

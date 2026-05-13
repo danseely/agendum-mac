@@ -13,7 +13,7 @@ public enum TaskStoreError: Error, Equatable, Sendable {
 
 public actor TaskStore: TaskStoreProviding {
     /// Storage handle. `DatabasePool` for file-based DBs (opens in WAL mode by default,
-    /// matching Python's `PRAGMA journal_mode=WAL` so the helper and Swift can coexist
+    /// matching Python's `PRAGMA journal_mode=WAL` so legacy Python rows and Swift rows stay compatible
     /// at the same SQLite file during the speed-run port). `DatabaseQueue` for in-memory
     /// test DBs (DatabasePool does not support in-memory).
     private let database: any DatabaseWriter
@@ -30,7 +30,7 @@ public actor TaskStore: TaskStoreProviding {
     }()
 
     /// Opens or creates the task database at `path`, running all schema migrations.
-    /// Uses `DatabasePool` (WAL mode) so Python helper writes and Swift writes can
+    /// Uses `DatabasePool` (WAL mode) so Python-written rows and Swift writes can
     /// coexist on the same SQLite file during the speed-run port.
     ///
     /// Creates the parent directory (mode 0o700) and chmod-s the resulting db file

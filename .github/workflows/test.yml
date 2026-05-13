@@ -20,12 +20,12 @@ jobs:
         with:
           path: agendum-mac
 
-      - name: Run backend coverage
-        run: python3 Scripts/python_coverage.py
+      - name: Run Python parity tests
+        run: python3 -m unittest discover -s Tests
         working-directory: agendum-mac
 
-      - name: Run backend tests
-        run: python3 -m unittest discover -s Tests
+      - name: Validate feature ledger
+        run: jq empty docs/features.json
         working-directory: agendum-mac
 
       - name: Build Swift package
@@ -46,4 +46,9 @@ jobs:
 
       - name: Check whitespace
         run: git diff --check
+        working-directory: agendum-mac
+
+      - name: Check stale helper runtime references
+        run: |
+          ! rg -n "python[_]coverage|Run backend coverag[e]|Backend/agendum[_]backend|agendum[_]backend_helper" .github Scripts docs/testing.md Package.swift Sources Tests
         working-directory: agendum-mac

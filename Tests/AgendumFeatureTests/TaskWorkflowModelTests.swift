@@ -1,5 +1,4 @@
 @testable import AgendumFeature
-import AgendumBackend
 import AgendumModel
 import XCTest
 
@@ -8,7 +7,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testRefreshLoadsWorkspaceAuthSyncAndTasks() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, title: "Review release workflow", source: "pr_review", seen: false)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await model.refresh()
 
@@ -27,7 +26,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testRefreshFailureClearsTasksAndSurfacesError() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await model.refresh()
         XCTAssertEqual(model.tasks.map(\.id), [17])
@@ -45,7 +44,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testSelectWorkspaceNoOpsForCurrentWorkspaceAndLoadsSelectedWorkspace() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
 
@@ -69,7 +68,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testSelectWorkspaceFailureClearsTasksAndSurfacesError() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         await backend.failNext("selectWorkspace", message: "select failed")
@@ -88,8 +87,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         await backend.setSyncStatusQueue([sync(state: "running"), sync(state: "idle", changes: 3)])
         await backend.setTasks([makeTask(id: 31, title: "Synced task")])
         let sleepRecorder = SleepRecorder()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             syncPollIntervalNanoseconds: 10,
             maxSyncPollAttempts: 5,
             sleep: { nanoseconds in await sleepRecorder.record(nanoseconds) }
@@ -109,7 +108,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testForceSyncPollingFailureKeepsTasksAndSurfacesError() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, title: "Existing")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         await backend.setForceSyncStatus(sync(state: "running"))
@@ -132,7 +131,7 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setForceSyncStatus(sync(state: "idle", changes: 1))
         await backend.setTasks([makeTask(id: 42)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await commands.menuSync.perform(on: model)
         await commands.toolbarSync.perform(on: model)
@@ -145,7 +144,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testDashboardRefreshCommandUsesRefreshPath() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await TaskDashboardCommands.standard.toolbarRefresh.perform(on: model)
 
@@ -155,7 +154,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     }
 
     func testTaskActionsCallBackendAndReloadTasks() async throws {
-        let cases: [(String, (BackendStatusModel) async -> Void)] = [
+        let cases: [(String, (DashboardModel) async -> Void)] = [
             ("markTaskSeen:17", { await $0.markSeen(id: 17) }),
             ("markTaskReviewed:17", { await $0.markReviewed(id: 17) }),
             ("markTaskInProgress:17", { await $0.markInProgress(id: 17) }),
@@ -167,7 +166,7 @@ final class TaskWorkflowModelTests: XCTestCase {
         for (expectedCall, action) in cases {
             let backend = FakeBackend()
             await backend.setTasks([makeTask(id: 99, title: "Reloaded")])
-            let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+            let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
             await action(model)
 
@@ -182,7 +181,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testTaskActionFailureScopesErrorToTaskAndKeepsGlobalErrorClean() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, title: "Existing")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         await backend.failNext("markTaskDone", message: "done failed")
@@ -199,7 +198,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testTaskActionSuccessClearsExistingPerTaskError() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, title: "Existing")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.failNext("markTaskDone", message: "done failed")
         await model.markDone(id: 17)
@@ -214,7 +213,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testTaskActionFailureOnOneTaskDoesNotClearAnotherTasksError() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, title: "First"), makeTask(id: 23, title: "Second")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.failNext("markTaskDone", message: "done 17 failed")
         await model.markDone(id: 17)
@@ -230,7 +229,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testRefreshClearsTaskActionErrors() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, title: "Existing")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.failNext("markTaskDone", message: "done failed")
         await model.markDone(id: 17)
@@ -245,7 +244,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testSelectWorkspaceClearsTaskActionErrors() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, title: "Existing")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.failNext("markTaskDone", message: "done failed")
         await model.markDone(id: 17)
@@ -261,7 +260,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testCreateManualTaskSucceedsAndReloadsTasks() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 99, title: "Created via fake", source: "manual")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         let succeeded = await model.createManualTask(
             title: "Sketch backend contract",
@@ -286,7 +285,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testCreateManualTaskFailureKeepsExistingTasksAndSurfacesError() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, title: "Existing")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         await backend.failNext("createManualTask", message: "create failed")
@@ -300,14 +299,13 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertEqual(calls, ["createManualTask:New|nil|nil"])
     }
 
-    func testPresentedErrorExtractsHelperPayloadFields() {
-        let payload = BackendErrorPayload(
+    func testPresentedErrorExtractsServiceErrorFields() {
+        let error = DashboardServiceError(
             code: "auth.required",
             message: "GitHub auth needed",
-            detail: "scopes: repo",
             recovery: "Run gh auth login"
         )
-        let presented = PresentedError.from(BackendClientError.helperError(payload))
+        let presented = PresentedError.from(error)
         XCTAssertEqual(presented.message, "GitHub auth needed")
         XCTAssertEqual(presented.recovery, "Run gh auth login")
         XCTAssertEqual(presented.code, "auth.required")
@@ -321,56 +319,10 @@ final class TaskWorkflowModelTests: XCTestCase {
     }
 
     func testPresentedErrorMapsStoreNotReadyToFriendlyMessage() {
-        let presented = PresentedError.from(BackendStatusModelError.storeNotReady)
+        let presented = PresentedError.from(DashboardModelError.storeNotReady)
         XCTAssertEqual(presented.message, "Workspace database is not ready yet.")
         XCTAssertEqual(presented.recovery, "Refresh the dashboard, then try again.")
         XCTAssertEqual(presented.code, "store.notReady")
-    }
-
-    func testPresentedErrorMapsInvalidResponseToProtocolMismatch() {
-        let presented = PresentedError.from(BackendClientError.invalidResponse("malformed JSON"))
-        XCTAssertEqual(presented.code, "client.protocolMismatch")
-        XCTAssertEqual(presented.message, "malformed JSON")
-        if let recovery = presented.recovery {
-            XCTAssertFalse(recovery.isEmpty)
-        } else {
-            XCTFail("expected non-nil recovery for .invalidResponse")
-        }
-    }
-
-    func testPresentedErrorMapsHelperTerminatedToTerminatedCode() {
-        let presented = PresentedError.from(BackendClientError.helperTerminated("boom"))
-        XCTAssertEqual(presented.code, "client.helperTerminated")
-        XCTAssertTrue(presented.message.contains("boom"))
-        XCTAssertNotNil(presented.recovery)
-    }
-
-    func testPresentedErrorMapsHelperTerminatedEmptyStderrToTerminatedCode() {
-        let presented = PresentedError.from(BackendClientError.helperTerminated(""))
-        XCTAssertEqual(presented.code, "client.helperTerminated")
-        XCTAssertFalse(presented.message.isEmpty)
-        XCTAssertNotNil(presented.recovery)
-    }
-
-    func testPresentedErrorMapsRequestTimedOutToTimeoutCode() {
-        let presented = PresentedError.from(BackendClientError.requestTimedOut(5))
-        XCTAssertEqual(presented.code, "client.timeout")
-        XCTAssertTrue(presented.message.contains("5"))
-        XCTAssertNotNil(presented.recovery)
-    }
-
-    func testPresentedErrorMapsUnexpectedResponseIDToProtocolMismatch() {
-        let presented = PresentedError.from(BackendClientError.unexpectedResponseID(expected: "a", actual: "b"))
-        XCTAssertEqual(presented.code, "client.protocolMismatch")
-        XCTAssertTrue(presented.message.contains("b"))
-        XCTAssertNotNil(presented.recovery)
-    }
-
-    func testPresentedErrorMapsUnsupportedProtocolVersionToVersionCode() {
-        let presented = PresentedError.from(BackendClientError.unsupportedProtocolVersion(2))
-        XCTAssertEqual(presented.code, "client.unsupportedProtocolVersion")
-        XCTAssertTrue(presented.message.contains("2"))
-        XCTAssertNotNil(presented.recovery)
     }
 
     func testPresentedErrorMapsUnknownErrorToClientUnknown() {
@@ -381,42 +333,47 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertEqual(presented.message, String(describing: DummyError()))
     }
 
-    func testPresentedErrorPreservesHelperPayloadCodeAndRecovery() {
-        let payload = BackendErrorPayload(
+    func testPresentedErrorPreservesServiceErrorCodeAndRecovery() {
+        let error = DashboardServiceError(
             code: "task.locked",
             message: "Task locked",
-            detail: nil,
             recovery: "Refresh and retry"
         )
-        let presented = PresentedError.from(BackendClientError.helperError(payload))
+        let presented = PresentedError.from(error)
         XCTAssertEqual(presented.code, "task.locked")
         XCTAssertEqual(presented.recovery, "Refresh and retry")
-        XCTAssertNotEqual(presented.code, "client.helperError")
+        XCTAssertNotEqual(presented.code, "client.unknown")
     }
 
     func testRefreshFailureSurfacesTimeoutRecoveryToConsumer() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 1)])
-        await backend.failNextWithError("currentWorkspace", error: BackendClientError.requestTimedOut(0.1))
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        await backend.failNextWithError(
+            "currentWorkspace",
+            error: DashboardServiceError(
+                code: "service.timeout",
+                message: "Sync service did not respond.",
+                recovery: "Try refreshing again."
+            )
+        )
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await model.refresh()
 
-        XCTAssertEqual(model.error?.code, "client.timeout")
+        XCTAssertEqual(model.error?.code, "service.timeout")
         XCTAssertNotNil(model.error?.recovery)
     }
 
     func testRefreshFailureSurfacesStructuredRecoveryHint() async throws {
-        let payload = BackendErrorPayload(
+        let error = DashboardServiceError(
             code: "workspace.invalid",
             message: "Workspace missing",
-            detail: nil,
             recovery: "Pick another workspace"
         )
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 1)])
-        await backend.failNextWithError("currentWorkspace", error: BackendClientError.helperError(payload))
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        await backend.failNextWithError("currentWorkspace", error: error)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await model.refresh()
 
@@ -427,17 +384,16 @@ final class TaskWorkflowModelTests: XCTestCase {
     }
 
     func testTaskActionFailureSurfacesStructuredRecoveryHint() async throws {
-        let payload = BackendErrorPayload(
+        let error = DashboardServiceError(
             code: "task.locked",
             message: "Task locked",
-            detail: nil,
             recovery: "Refresh and retry"
         )
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, title: "Existing")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
-        await backend.failNextWithError("markTaskDone", error: BackendClientError.helperError(payload))
+        await backend.failNextWithError("markTaskDone", error: error)
 
         await model.markDone(id: 17)
 
@@ -455,8 +411,8 @@ final class TaskWorkflowModelTests: XCTestCase {
             sync(state: "idle", lastSyncAt: "2026-05-02T12:30:00Z")
         )
         let fixedNow = ISO8601DateFormatter().date(from: "2026-05-02T12:35:00Z") ?? Date()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             now: { fixedNow },
             locale: Locale(identifier: "en_US_POSIX")
@@ -474,8 +430,8 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testLastSyncLabelNilWhenNoTimestamp() async throws {
         let backend = FakeBackend()
         await backend.setTasks([])
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             locale: Locale(identifier: "en_US_POSIX")
         )
@@ -491,7 +447,7 @@ final class TaskWorkflowModelTests: XCTestCase {
         await backend.setSyncStatusOverride(
             sync(state: "idle", hasAttentionItems: true)
         )
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await model.refresh()
 
@@ -499,38 +455,38 @@ final class TaskWorkflowModelTests: XCTestCase {
     }
 
     func testDetailActionAvailability() {
-        let review = TaskItem(task: makeTask(id: 1, source: "pr_review", url: "https://github.com/danseely/agendum-mac/pull/1", seen: false))
+        let review = makeTask(id: 1, source: "pr_review", url: "https://github.com/danseely/agendum-mac/pull/1", seen: false)
         XCTAssertEqual(review.availableDetailActions, [.openBrowser, .markSeen, .markReviewed, .remove])
 
-        let manualBacklog = TaskItem(task: makeTask(id: 2, source: "manual", status: "backlog", url: nil))
+        let manualBacklog = makeTask(id: 2, source: "manual", status: "backlog", url: nil)
         XCTAssertEqual(manualBacklog.availableDetailActions, [.markInProgress, .markDone, .remove])
 
-        let manualInProgress = TaskItem(task: makeTask(id: 3, source: "manual", status: "in progress", url: nil))
+        let manualInProgress = makeTask(id: 3, source: "manual", status: "in progress", url: nil)
         XCTAssertEqual(manualInProgress.availableDetailActions, [.moveToBacklog, .markDone, .remove])
 
-        let issue = TaskItem(task: makeTask(id: 4, source: "issue", url: nil))
+        let issue = makeTask(id: 4, source: "issue", url: nil)
         XCTAssertEqual(issue.availableDetailActions, [.remove])
     }
 
     func testTaskSourceMapsBackendSourcesWithoutCollapsingIssueAndManual() {
-        XCTAssertEqual(TaskItem(task: makeTask(id: 1, source: "pr_authored")).source, .authored)
-        XCTAssertEqual(TaskItem(task: makeTask(id: 2, source: "pr_review")).source, .review)
-        XCTAssertEqual(TaskItem(task: makeTask(id: 3, source: "issue")).source, .issues)
-        XCTAssertEqual(TaskItem(task: makeTask(id: 4, source: "manual")).source, .manual)
+        XCTAssertEqual(makeTask(id: 1, source: "pr_authored").source, .authored)
+        XCTAssertEqual(makeTask(id: 2, source: "pr_review").source, .review)
+        XCTAssertEqual(makeTask(id: 3, source: "issue").source, .issues)
+        XCTAssertEqual(makeTask(id: 4, source: "manual").source, .manual)
         XCTAssertNotEqual(
-            TaskItem(task: makeTask(id: 3, source: "issue")).source,
-            TaskItem(task: makeTask(id: 4, source: "manual")).source
+            makeTask(id: 3, source: "issue").source,
+            makeTask(id: 4, source: "manual").source
         )
     }
 
     func testTaskItemUsesGitHubRepoWhenProjectIsMissing() {
-        let item = TaskItem(task: makeTask(id: 1, source: "pr_review", project: nil, ghRepo: "danseely/agendum-mac"))
+        let item = makeTask(id: 1, source: "pr_review", project: nil, ghRepo: "danseely/agendum-mac")
 
         XCTAssertEqual(item.project, "danseely/agendum-mac")
     }
 
     func testTaskItemKeepsNoProjectFallbackWhenProjectAndRepoAreMissing() {
-        let item = TaskItem(task: makeTask(id: 1, source: "manual", project: nil, ghRepo: nil))
+        let item = makeTask(id: 1, source: "manual", project: nil, ghRepo: nil)
 
         XCTAssertEqual(item.project, "No project")
     }
@@ -541,11 +497,11 @@ final class TaskWorkflowModelTests: XCTestCase {
 
     func testTaskDisplaySectionsGroupsAllSelectionInDisplayOrder() {
         let tasks = [
-            TaskItem(task: makeTask(id: 4, source: "manual")),
-            TaskItem(task: makeTask(id: 2, source: "pr_review")),
-            TaskItem(task: makeTask(id: 5, source: "manual")),
-            TaskItem(task: makeTask(id: 1, source: "pr_authored")),
-            TaskItem(task: makeTask(id: 3, source: "issue")),
+            makeTask(id: 4, source: "manual"),
+            makeTask(id: 2, source: "pr_review"),
+            makeTask(id: 5, source: "manual"),
+            makeTask(id: 1, source: "pr_authored"),
+            makeTask(id: 3, source: "issue"),
         ]
 
         let sections = TaskDisplaySection.sections(for: tasks, selection: .all)
@@ -556,9 +512,9 @@ final class TaskWorkflowModelTests: XCTestCase {
 
     func testTaskDisplaySectionsSingleSourceSelectionOnlyReturnsThatSource() {
         let tasks = [
-            TaskItem(task: makeTask(id: 1, source: "pr_authored")),
-            TaskItem(task: makeTask(id: 2, source: "issue")),
-            TaskItem(task: makeTask(id: 3, source: "manual")),
+            makeTask(id: 1, source: "pr_authored"),
+            makeTask(id: 2, source: "issue"),
+            makeTask(id: 3, source: "manual"),
         ]
 
         let issueSections = TaskDisplaySection.sections(for: tasks, selection: .issues)
@@ -572,7 +528,7 @@ final class TaskWorkflowModelTests: XCTestCase {
 
     func testTaskDisplaySectionsOmitEmptySections() {
         let tasks = [
-            TaskItem(task: makeTask(id: 1, source: "pr_review")),
+            makeTask(id: 1, source: "pr_review"),
         ]
 
         XCTAssertEqual(TaskDisplaySection.sections(for: tasks, selection: .all).map(\.source), [.review])
@@ -581,8 +537,8 @@ final class TaskWorkflowModelTests: XCTestCase {
 
     func testTaskDisplaySectionsTaskLookupOnlySearchesVisibleSections() {
         let tasks = [
-            TaskItem(task: makeTask(id: 1, source: "pr_review")),
-            TaskItem(task: makeTask(id: 2, source: "manual")),
+            makeTask(id: 1, source: "pr_review"),
+            makeTask(id: 2, source: "manual"),
         ]
         let sections = TaskDisplaySection.sections(for: tasks, selection: .review)
 
@@ -597,8 +553,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         await backend.setTasks([makeTask(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
         let opener = RecordingURLOpener()
         opener.setNextResult(true)
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -615,8 +571,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
         let opener = RecordingURLOpener()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -635,8 +591,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
         let opener = RecordingURLOpener()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -656,8 +612,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
         let opener = RecordingURLOpener()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -677,8 +633,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, source: "manual", status: "backlog", url: nil)])
         let opener = RecordingURLOpener()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -697,8 +653,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setTasks([])
         let opener = RecordingURLOpener()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -716,8 +672,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
         let opener = RecordingURLOpener()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -733,8 +689,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
         let opener = RecordingURLOpener()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -753,8 +709,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
         let opener = RecordingURLOpener()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -773,7 +729,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testApplyFiltersSendsExactPayload() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         let filters = TaskListFilters(
@@ -795,7 +751,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testRestoredFiltersAreUsedOnFirstRefreshWithoutDefaultListCall() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         let restored = TaskListFilters(
             source: "pr_review",
             status: "review received",
@@ -821,7 +777,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testApplyFiltersTriggersExactlyOneReload() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         let callsBefore = await backend.calls
@@ -838,7 +794,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testApplyFiltersIsNoOpWhenFiltersUnchanged() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         let callsBefore = await backend.calls
@@ -854,7 +810,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testApplyFiltersDefaultClearsAllFilters() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         await model.applyFilters(TaskListFilters(
@@ -876,7 +832,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testSelectWorkspaceResetsFilters() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         await model.applyFilters(TaskListFilters(
@@ -901,7 +857,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testWorkspaceFilterResetLeavesModelAtSceneDefaultsForMirror() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         model.restoreSceneState(
             filters: TaskListFilters(source: "manual", status: "done", project: "agendum", includeSeen: false, limit: 100),
             selectedTaskID: 17
@@ -922,7 +878,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testSelectWorkspaceFailureAlsoResetsFilters() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         await model.applyFilters(TaskListFilters(status: "open", limit: 100))
@@ -937,7 +893,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testApplyFiltersFailureSetsGlobalErrorAndPreservesFilters() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         await model.applyFilters(TaskListFilters(status: "open"))
@@ -954,7 +910,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testRefreshUsesCurrentFilters() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         let filters = TaskListFilters(source: "manual", status: "done", limit: 25)
@@ -973,7 +929,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testForceSyncUsesCurrentFilters() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         let filters = TaskListFilters(source: "pr_authored", limit: 100)
@@ -992,7 +948,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testPerformTaskActionReloadUsesCurrentFilters() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17, source: "pr_review", seen: false)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         let filters = TaskListFilters(status: "review received", limit: 25)
@@ -1011,7 +967,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testCreateManualTaskReloadHonorsActiveFilters() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 99, title: "Created", source: "manual")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         let filters = TaskListFilters(source: "manual", limit: 100)
@@ -1031,14 +987,14 @@ final class TaskWorkflowModelTests: XCTestCase {
 
     func testInitialFiltersAreDefault() {
         let backend = FakeBackend()
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         XCTAssertEqual(model.filters, .default)
     }
 
     func testListTasksDefaultIsByteIdenticalToPriorBehavior() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 17)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await model.refresh()
 
@@ -1056,8 +1012,8 @@ final class TaskWorkflowModelTests: XCTestCase {
             makeTask(id: 23, title: "Second", source: "pr_review", url: "https://example.com/issue/23", seen: false),
         ])
         let opener = RecordingURLOpener()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -1075,9 +1031,9 @@ final class TaskWorkflowModelTests: XCTestCase {
 
     func testRefreshDiagnosticsPopulatesDiagnosticsOnSuccess() async throws {
         let backend = FakeBackend()
-        let stub = diagnostics(host: "ghe.example.com", helperPath: ["/usr/bin"])
+        let stub = diagnostics(host: "ghe.example.com", pathEntries: ["/usr/bin"])
         await backend.setDiagnostics(stub)
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await model.refreshDiagnostics()
 
@@ -1089,12 +1045,14 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         let firstResult = diagnostics(host: "github.com")
         await backend.setDiagnostics(firstResult)
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refreshDiagnostics()
         XCTAssertEqual(model.diagnostics, firstResult)
 
-        let payload = BackendErrorPayload(code: "storage.failed", message: "disk denied", detail: nil, recovery: nil)
-        await backend.failNextWithError("authDiagnose", error: BackendClientError.helperError(payload))
+        await backend.failNextWithError(
+            "authDiagnose",
+            error: DashboardServiceError(code: "storage.failed", message: "disk denied")
+        )
 
         await model.refreshDiagnostics()
 
@@ -1106,7 +1064,7 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setDiagnostics(diagnostics())
         await backend.failNext("authDiagnose", message: "first failed")
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refreshDiagnostics()
         XCTAssertNotNil(model.diagnosticsError)
 
@@ -1119,7 +1077,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testRefreshDiagnosticsDoesNotChangeIsLoading() async throws {
         let backend = FakeBackend()
         await backend.setDiagnostics(diagnostics())
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         XCTAssertFalse(model.isLoading)
 
         await model.refreshDiagnostics()
@@ -1127,14 +1085,14 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertFalse(model.isLoading)
     }
 
-    func testCopyAuthLoginCommandWritesHelperFormattedString() async throws {
+    func testCopyAuthLoginCommandWritesNativeFormattedString() async throws {
         let backend = FakeBackend()
         let formatted = "GH_CONFIG_DIR='/Users/x/.agendum/gh' gh auth login"
         await backend.setAuth(authUnauthenticated(repairCommand: formatted))
         await backend.setTasks([])
         let pasteboard = RecordingPasteboard()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             pasteboard: { [pasteboard] string in pasteboard.write(string) }
         )
@@ -1148,8 +1106,8 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testCopyAuthLoginCommandNoOpsWhenAuthMissing() async throws {
         let backend = FakeBackend()
         let pasteboard = RecordingPasteboard()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             pasteboard: { [pasteboard] string in pasteboard.write(string) }
         )
@@ -1164,8 +1122,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         await backend.setAuth(authUnauthenticated(repairCommand: nil))
         await backend.setTasks([])
         let pasteboard = RecordingPasteboard()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             pasteboard: { [pasteboard] string in pasteboard.write(string) }
         )
@@ -1180,8 +1138,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         let opener = RecordingURLOpener()
         opener.setNextResult(true)
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -1194,7 +1152,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testRefreshDiagnosticsFailureKeepsGlobalErrorClean() async throws {
         let backend = FakeBackend()
         await backend.failNext("authDiagnose", message: "diag failed")
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await model.refreshDiagnostics()
 
@@ -1205,7 +1163,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testFakeBackendAuthDiagnoseInvocationCount() async throws {
         let backend = FakeBackend()
         await backend.setDiagnostics(diagnostics())
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await model.refreshDiagnostics()
 
@@ -1216,7 +1174,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testRefreshDiagnosticsBeforeRefreshPopulatesDiagnostics() async throws {
         let backend = FakeBackend()
         await backend.setDiagnostics(diagnostics())
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         await model.refreshDiagnostics()
 
@@ -1228,7 +1186,7 @@ final class TaskWorkflowModelTests: XCTestCase {
 
     func testSetSelectedTaskIDUpdatesPublishedValue() async throws {
         let backend = FakeBackend()
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         model.setSelectedTaskID(17)
         XCTAssertEqual(model.selectedTaskID, 17)
@@ -1243,7 +1201,7 @@ final class TaskWorkflowModelTests: XCTestCase {
             makeTask(id: 10, source: "pr_review", seen: false),
             makeTask(id: 42, source: "pr_review", seen: false),
         ])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
 
         model.restoreSceneState(filters: .default, selectedTaskID: 42)
         await model.refresh()
@@ -1258,7 +1216,7 @@ final class TaskWorkflowModelTests: XCTestCase {
 
     func testInitialSelectedTaskIDIsNil() {
         let backend = FakeBackend()
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         XCTAssertNil(model.selectedTaskID)
     }
 
@@ -1267,8 +1225,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         await backend.setTasks([makeTask(id: 42, source: "pr_review", url: "https://example.com/issue/42", seen: false)])
         let opener = RecordingURLOpener()
         opener.setNextResult(true)
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             openURL: { [opener] url in opener.open(url) }
         )
@@ -1283,7 +1241,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testMenuMarkSeenCommandInvokesMarkSeenForSelectedTask() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 42, source: "pr_review", seen: false)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         model.setSelectedTaskID(42)
@@ -1297,7 +1255,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testMenuMarkReviewedCommandInvokesMarkReviewedForSelectedTask() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 42, source: "pr_review", seen: false)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         model.setSelectedTaskID(42)
@@ -1311,7 +1269,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testMenuMarkInProgressCommandInvokesMarkInProgressForSelectedTask() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 42, source: "manual", status: "backlog")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         model.setSelectedTaskID(42)
@@ -1325,7 +1283,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testMenuMoveToBacklogCommandInvokesMoveToBacklogForSelectedTask() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 42, source: "manual", status: "in progress")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         model.setSelectedTaskID(42)
@@ -1339,7 +1297,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testMenuMarkDoneCommandInvokesMarkDoneForSelectedTask() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 42, source: "manual", status: "backlog")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         model.setSelectedTaskID(42)
@@ -1353,7 +1311,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testMenuRemoveCommandInvokesRemoveTaskForSelectedTask() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 42, source: "manual")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         model.setSelectedTaskID(42)
@@ -1379,8 +1337,8 @@ final class TaskWorkflowModelTests: XCTestCase {
             let backend = FakeBackend()
             await backend.setTasks([makeTask(id: 42, source: "manual", url: "https://example.com/x", seen: false)])
             let opener = RecordingURLOpener()
-            let model = BackendStatusModel(
-                client: backend, storeFactory: storeFactory(forBackend: backend),
+            let model = DashboardModel(
+                service: backend, storeFactory: storeFactory(forBackend: backend),
                 sleep: immediateSleep,
                 openURL: { [opener] url in opener.open(url) }
             )
@@ -1406,7 +1364,7 @@ final class TaskWorkflowModelTests: XCTestCase {
             makeTask(id: 10, source: "pr_review", seen: false),
             makeTask(id: 42, source: "pr_review", seen: false),
         ])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
         model.setSelectedTaskID(42)
@@ -1421,7 +1379,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testPerTaskCommandAvailabilityFalseWhenNoSelection() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 42, source: "manual", url: "https://example.com/x", seen: false)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         let perTask: [TaskDashboardCommand] = [
@@ -1436,7 +1394,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testPerTaskCommandAvailabilityFalseWhenSelectedTaskNotInList() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 42, source: "manual")])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         model.setSelectedTaskID(999)
 
@@ -1455,7 +1413,7 @@ final class TaskWorkflowModelTests: XCTestCase {
             makeTask(id: 10, source: "pr_review", url: "https://example.com/10", seen: false),
             makeTask(id: 11, source: "manual", status: "backlog", url: nil),
         ])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         model.setSelectedTaskID(10)
@@ -1471,7 +1429,7 @@ final class TaskWorkflowModelTests: XCTestCase {
             makeTask(id: 10, source: "pr_review", seen: false),
             makeTask(id: 11, source: "pr_review", seen: true),
         ])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         model.setSelectedTaskID(10)
@@ -1487,7 +1445,7 @@ final class TaskWorkflowModelTests: XCTestCase {
             makeTask(id: 10, source: "pr_review", seen: true),
             makeTask(id: 11, source: "pr_authored", seen: true),
         ])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         model.setSelectedTaskID(10)
@@ -1503,7 +1461,7 @@ final class TaskWorkflowModelTests: XCTestCase {
             makeTask(id: 10, source: "manual", status: "in progress"),
             makeTask(id: 11, source: "manual", status: "backlog"),
         ])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         model.setSelectedTaskID(10)
@@ -1521,7 +1479,7 @@ final class TaskWorkflowModelTests: XCTestCase {
             makeTask(id: 10, source: "manual", status: "backlog"),
             makeTask(id: 11, source: "pr_review", seen: true),
         ])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
 
         model.setSelectedTaskID(10)
@@ -1536,7 +1494,7 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testNewTaskCommandPerformIsNoOp() async throws {
         let backend = FakeBackend()
         await backend.setTasks([makeTask(id: 42)])
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await model.refresh()
         await backend.resetCalls()
 
@@ -1548,7 +1506,7 @@ final class TaskWorkflowModelTests: XCTestCase {
 
     func testNewTaskCommandAvailabilityTracksIsLoading() async throws {
         let backend = FakeBackend()
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         XCTAssertFalse(model.isLoading)
         XCTAssertTrue(TaskDashboardCommands.standard.menuNewTask.availability(on: model))
     }
@@ -1560,8 +1518,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         await backend.setForceSyncStatus(sync(state: "completed", hasAttentionItems: false))
         let notifier = RecordingNotifier()
         let badge = RecordingBadgeSetter()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             notifier: { [notifier] content in notifier.record(content) },
             setBadge: { [badge] count in badge.record(count) }
@@ -1580,8 +1538,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setForceSyncStatus(sync(state: "completed", hasAttentionItems: true))
         let notifier = RecordingNotifier()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             notifier: { [notifier] content in notifier.record(content) },
             setBadge: { _ in }
@@ -1599,13 +1557,15 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.failNextWithError(
             "forceSync",
-            error: BackendClientError.helperError(
-                .init(code: "helper.boom", message: "GitHub auth needed.", detail: nil, recovery: "Run gh auth login.")
+            error: DashboardServiceError(
+                code: "service.boom",
+                message: "GitHub auth needed.",
+                recovery: "Run gh auth login."
             )
         )
         let notifier = RecordingNotifier()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             notifier: { [notifier] content in notifier.record(content) },
             setBadge: { _ in }
@@ -1621,12 +1581,37 @@ final class TaskWorkflowModelTests: XCTestCase {
         XCTAssertEqual(model.error?.message, "GitHub auth needed.")
     }
 
+    func testForceSyncThrownFailureRefreshesSyncErrorState() async throws {
+        let backend = FakeBackend()
+        await backend.setSyncStatusOverride(sync(state: "error", lastError: "store unavailable"))
+        await backend.failNextWithError(
+            "forceSync",
+            error: DashboardServiceError(
+                code: "sync.failed",
+                message: "store unavailable"
+            )
+        )
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
+            sleep: immediateSleep
+        )
+
+        await model.forceSync()
+
+        XCTAssertEqual(model.sync?.state, "error")
+        XCTAssertEqual(model.sync?.lastError, "store unavailable")
+        XCTAssertEqual(model.error?.code, "sync.failed")
+        XCTAssertEqual(model.error?.message, "store unavailable")
+        let calls = await backend.calls
+        XCTAssertEqual(calls, ["syncStatus"])
+    }
+
     func testForceSyncBackendReportedErrorPostsFailureNotification() async throws {
         let backend = FakeBackend()
         await backend.setForceSyncStatus(sync(state: "error", lastError: "remote 500"))
         let notifier = RecordingNotifier()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             notifier: { [notifier] content in notifier.record(content) },
             setBadge: { _ in }
@@ -1647,8 +1632,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backendOK = FakeBackend()
         await backendOK.setForceSyncStatus(sync(state: "completed"))
         let notifierOK = RecordingNotifier(suppressed: true)
-        let modelOK = BackendStatusModel(
-            client: backendOK, storeFactory: storeFactory(forBackend: backendOK),
+        let modelOK = DashboardModel(
+            service: backendOK, storeFactory: storeFactory(forBackend: backendOK),
             sleep: immediateSleep,
             notifier: { [notifierOK] content in notifierOK.record(content) },
             setBadge: { _ in }
@@ -1661,13 +1646,11 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backendThrow = FakeBackend()
         await backendThrow.failNextWithError(
             "forceSync",
-            error: BackendClientError.helperError(
-                .init(code: "boom", message: "boom", detail: nil, recovery: nil)
-            )
+            error: DashboardServiceError(code: "boom", message: "boom")
         )
         let notifierThrow = RecordingNotifier(suppressed: true)
-        let modelThrow = BackendStatusModel(
-            client: backendThrow, storeFactory: storeFactory(forBackend: backendThrow),
+        let modelThrow = DashboardModel(
+            service: backendThrow, storeFactory: storeFactory(forBackend: backendThrow),
             sleep: immediateSleep,
             notifier: { [notifierThrow] content in notifierThrow.record(content) },
             setBadge: { _ in }
@@ -1680,8 +1663,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backendBranchB = FakeBackend()
         await backendBranchB.setForceSyncStatus(sync(state: "error", lastError: "x"))
         let notifierB = RecordingNotifier(suppressed: true)
-        let modelB = BackendStatusModel(
-            client: backendBranchB, storeFactory: storeFactory(forBackend: backendBranchB),
+        let modelB = DashboardModel(
+            service: backendBranchB, storeFactory: storeFactory(forBackend: backendBranchB),
             sleep: immediateSleep,
             notifier: { [notifierB] content in notifierB.record(content) },
             setBadge: { _ in }
@@ -1695,8 +1678,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setForceSyncStatus(sync(state: "completed"))
         let notifier = RecordingNotifier()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             notifier: { [notifier] content in notifier.record(content) },
             setBadge: { _ in }
@@ -1713,8 +1696,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setForceSyncStatus(sync(state: "idle"))
         let notifier = RecordingNotifier()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             notifier: { [notifier] content in notifier.record(content) },
             setBadge: { _ in }
@@ -1730,8 +1713,8 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testSetBadgeForAttentionCountWritesZeroWhenNoSync() async throws {
         let backend = FakeBackend()
         let badge = RecordingBadgeSetter()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             setBadge: { [badge] count in badge.record(count) }
         )
@@ -1745,8 +1728,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setSyncStatusOverride(sync(state: "idle", hasAttentionItems: true))
         let badge = RecordingBadgeSetter()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             setBadge: { [badge] count in badge.record(count) }
         )
@@ -1761,8 +1744,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setSyncStatusOverride(sync(state: "idle", hasAttentionItems: false))
         let badge = RecordingBadgeSetter()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             setBadge: { [badge] count in badge.record(count) }
         )
@@ -1776,20 +1759,20 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testAttentionItemCountAccessorReflectsSyncBoolean() async throws {
         let backend = FakeBackend()
         await backend.setSyncStatusOverride(sync(state: "idle", hasAttentionItems: true))
-        let modelTrue = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let modelTrue = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         await modelTrue.refresh()
         XCTAssertEqual(modelTrue.attentionItemCount, 1)
 
         let backend2 = FakeBackend()
         await backend2.setSyncStatusOverride(sync(state: "idle", hasAttentionItems: false))
-        let modelFalse = BackendStatusModel(client: backend2, storeFactory: storeFactory(forBackend: backend2), sleep: immediateSleep)
+        let modelFalse = DashboardModel(service: backend2, storeFactory: storeFactory(forBackend: backend2), sleep: immediateSleep)
         await modelFalse.refresh()
         XCTAssertEqual(modelFalse.attentionItemCount, 0)
     }
 
     func testAttentionItemCountIsZeroWhenSyncIsNil() async throws {
         let backend = FakeBackend()
-        let model = BackendStatusModel(client: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
+        let model = DashboardModel(service: backend, storeFactory: storeFactory(forBackend: backend), sleep: immediateSleep)
         XCTAssertEqual(model.attentionItemCount, 0)
     }
 
@@ -1797,8 +1780,8 @@ final class TaskWorkflowModelTests: XCTestCase {
         let backend = FakeBackend()
         await backend.setForceSyncStatus(sync(state: "completed", hasAttentionItems: true))
         let badge = RecordingBadgeSetter()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             setBadge: { [badge] count in badge.record(count) }
         )
@@ -1811,8 +1794,8 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testRefreshDoesNotPostNotification() async throws {
         let backend = FakeBackend()
         let notifier = RecordingNotifier()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             notifier: { [notifier] content in notifier.record(content) }
         )
@@ -1825,8 +1808,8 @@ final class TaskWorkflowModelTests: XCTestCase {
     func testSelectWorkspaceDoesNotPostNotification() async throws {
         let backend = FakeBackend()
         let notifier = RecordingNotifier()
-        let model = BackendStatusModel(
-            client: backend, storeFactory: storeFactory(forBackend: backend),
+        let model = DashboardModel(
+            service: backend, storeFactory: storeFactory(forBackend: backend),
             sleep: immediateSleep,
             notifier: { [notifier] content in notifier.record(content) }
         )
@@ -1941,7 +1924,7 @@ struct ListTasksCall: Equatable {
     let limit: Int
 }
 
-private actor FakeBackend: AgendumBackendServicing {
+private actor FakeBackend: DashboardServicing {
     private(set) var calls: [String] = []
     private(set) var lastListTasksCall: ListTasksCall?
     private var failures: [String: any Error] = [:]
@@ -1954,14 +1937,14 @@ private actor FakeBackend: AgendumBackendServicing {
     private var currentSync = sync(state: "idle")
     private var forceSyncResult = sync(state: "idle")
     private var syncStatusQueue: [SyncStatus] = []
-    private var currentTasks: [AgendumTask] = []
+    private var currentTasks: [TaskItem] = []
     private var diagnosticsResult: AuthDiagnostics = diagnostics()
 
     func resetCalls() {
         calls = []
     }
 
-    func setTasks(_ tasks: [AgendumTask]) {
+    func setTasks(_ tasks: [TaskItem]) {
         currentTasks = tasks
     }
 
@@ -2009,7 +1992,7 @@ private actor FakeBackend: AgendumBackendServicing {
         return selection(namespace: namespace)
     }
 
-    func listTasks(source: String?, status: String?, project: String?, includeSeen: Bool, limit: Int) async throws -> [AgendumTask] {
+    private func listTasks(source: String?, status: String?, project: String?, includeSeen: Bool, limit: Int) async throws -> [TaskItem] {
         lastListTasksCall = ListTasksCall(
             source: source,
             status: status,
@@ -2022,29 +2005,29 @@ private actor FakeBackend: AgendumBackendServicing {
         return currentTasks
     }
 
-    func getTask(id: Int) async throws -> AgendumTask? {
+    private func getTask(id: Int) async throws -> TaskItem? {
         try failIfNeeded("getTask")
         calls.append("getTask:\(id)")
         return currentTasks.first { $0.id == id }
     }
 
-    func markTaskReviewed(id: Int) async throws -> AgendumTask {
+    private func markTaskReviewed(id: Int) async throws -> TaskItem {
         try taskAction("markTaskReviewed", id: id)
     }
 
-    func markTaskInProgress(id: Int) async throws -> AgendumTask {
+    private func markTaskInProgress(id: Int) async throws -> TaskItem {
         try taskAction("markTaskInProgress", id: id)
     }
 
-    func moveTaskToBacklog(id: Int) async throws -> AgendumTask {
+    private func moveTaskToBacklog(id: Int) async throws -> TaskItem {
         try taskAction("moveTaskToBacklog", id: id)
     }
 
-    func markTaskDone(id: Int) async throws -> AgendumTask {
+    private func markTaskDone(id: Int) async throws -> TaskItem {
         try taskAction("markTaskDone", id: id)
     }
 
-    func markTaskSeen(id: Int) async throws -> AgendumTask {
+    private func markTaskSeen(id: Int) async throws -> TaskItem {
         try taskAction("markTaskSeen", id: id)
     }
 
@@ -2090,7 +2073,7 @@ private actor FakeBackend: AgendumBackendServicing {
         currentAuth = value
     }
 
-    func createManualTask(title: String, project: String?, tags: [String]?) async throws -> AgendumTask {
+    private func createManualTaskForStore(title: String, project: String?, tags: [String]?) async throws -> TaskItem {
         let projectLabel = project ?? "nil"
         let tagsLabel = tags.map { "[" + $0.joined(separator: ",") + "]" } ?? "nil"
         calls.append("createManualTask:\(title)|\(projectLabel)|\(tagsLabel)")
@@ -2098,7 +2081,7 @@ private actor FakeBackend: AgendumBackendServicing {
         return makeTask(id: 99, title: title, source: "manual", status: "backlog", url: nil)
     }
 
-    private func taskAction(_ method: String, id: Int) throws -> AgendumTask {
+    private func taskAction(_ method: String, id: Int) throws -> TaskItem {
         calls.append("\(method):\(id)")
         try failIfNeeded(method)
         return currentTasks.first { $0.id == id } ?? makeTask(id: id)
@@ -2113,8 +2096,8 @@ private actor FakeBackend: AgendumBackendServicing {
 
 // MARK: - FakeBackend ↔ TaskStoreProviding bridge
 //
-// S1 made BackendStatusModel route task CRUD through a TaskStoreProviding
-// instead of through AgendumBackendServicing. To keep the existing test
+// S1 made DashboardModel route task CRUD through a TaskStoreProviding
+// instead of through DashboardServicing. To keep the existing test
 // surface (and the .calls assertions) intact, FakeBackend itself
 // satisfies TaskStoreProviding by delegating each store method to the
 // corresponding backend method. The real production wiring uses
@@ -2128,7 +2111,7 @@ extension FakeBackend: TaskStoreProviding {
             project: filters.project,
             includeSeen: filters.includeSeen,
             limit: filters.limit
-        ).map(TaskItem.init)
+        )
     }
 
     nonisolated func observe(matching filters: TaskListFilters) -> AsyncStream<[TaskItem]> {
@@ -2138,7 +2121,7 @@ extension FakeBackend: TaskStoreProviding {
     }
 
     func task(id: TaskItem.ID) async throws -> TaskItem? {
-        try await getTask(id: id).map(TaskItem.init)
+        try await getTask(id: id)
     }
 
     func markSeen(id: TaskItem.ID) async throws {
@@ -2166,8 +2149,7 @@ extension FakeBackend: TaskStoreProviding {
 
     @discardableResult
     func createManualTask(title: String, project: String?, tags: [String]?) async throws -> TaskItem {
-        let task = try await createManualTask(title: title, project: project, tags: tags) as AgendumTask
-        return TaskItem(task: task)
+        try await createManualTaskForStore(title: title, project: project, tags: tags)
     }
 
     func searchTasks(
@@ -2183,7 +2165,7 @@ extension FakeBackend: TaskStoreProviding {
 }
 
 /// Test-only convenience: a `TaskStoreFactory` that always returns the given
-/// fake (which conforms to both `AgendumBackendServicing` and `TaskStoreProviding`).
+/// fake (which conforms to both `DashboardServicing` and `TaskStoreProviding`).
 @MainActor
 private func storeFactory(forBackend backend: FakeBackend) -> TaskStoreFactory {
     return { _ in backend }
@@ -2247,9 +2229,9 @@ private func diagnostics(
     found: Bool = true,
     version: String? = "gh version 2.50.0",
     host: String = "github.com",
-    helperPath: [String] = ["/usr/bin", "/bin"]
+    pathEntries: [String] = ["/usr/bin", "/bin"]
 ) -> AuthDiagnostics {
-    let pathJSON = "[" + helperPath.map { "\"\($0)\"" }.joined(separator: ",") + "]"
+    let pathJSON = "[" + pathEntries.map { "\"\($0)\"" }.joined(separator: ",") + "]"
     let versionJSON = version.map { "\"\($0)\"" } ?? "null"
     return decode(
         """
@@ -2270,7 +2252,7 @@ private func diagnostics(
                 "repairCommand": null
             },
             "host": "\(host)",
-            "helperPath": \(pathJSON)
+            "pathEntries": \(pathJSON)
         }
         """
     )
@@ -2315,7 +2297,8 @@ private func selection(namespace: String?) -> WorkspaceSelection {
                 "authenticated": true,
                 "username": "dan",
                 "workspaceGhConfigDir": "/tmp/agendum\(namespace.map { "/workspaces/\($0)" } ?? "")/gh",
-                "repairInstructions": null
+                "repairInstructions": null,
+                "repairCommand": null
             },
             "sync": {
                 "state": "idle",
@@ -2339,26 +2322,18 @@ private func makeTask(
     ghRepo: String? = nil,
     url: String? = nil,
     seen: Bool = true
-) -> AgendumTask {
-    decode(
-        """
-        {
-            "id": \(id),
-            "title": "\(title)",
-            "source": "\(source)",
-            "status": "\(status)",
-            "project": \(project.map { "\"\($0)\"" } ?? "null"),
-            "ghRepo": \(ghRepo.map { "\"\($0)\"" } ?? "null"),
-            "ghUrl": \(url.map { "\"\($0)\"" } ?? "null"),
-            "ghNumber": null,
-            "ghAuthor": null,
-            "ghAuthorName": null,
-            "tags": [],
-            "seen": \(seen),
-            "lastChangedAt": null,
-            "updatedAt": null
-        }
-        """
+) -> TaskItem {
+    TaskItem(
+        id: id,
+        title: title,
+        backendSource: source,
+        source: TaskSource(backendSource: source),
+        status: status,
+        project: project ?? ghRepo ?? "No project",
+        author: nil,
+        number: nil,
+        url: url.flatMap(URL.init(string:)),
+        isUnseen: !seen
     )
 }
 

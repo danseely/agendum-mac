@@ -1,12 +1,14 @@
+import AgendumAppServices
 import AgendumFeature
 import AgendumMacStore
 import AppKit
 import Foundation
 @preconcurrency import UserNotifications
 
-extension BackendStatusModel {
-    static func live() -> BackendStatusModel {
-        BackendStatusModel(
+extension DashboardModel {
+    static func live() -> DashboardModel {
+        DashboardModel(
+            service: NativeDashboardService(),
             openURL: defaultURLOpener,
             pasteboard: defaultPasteboard,
             notifier: defaultNotifier,

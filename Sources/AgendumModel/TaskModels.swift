@@ -1,5 +1,125 @@
 import Foundation
 
+public struct Workspace: Codable, Equatable, Sendable {
+    public let id: String
+    public let namespace: String?
+    public let displayName: String
+    public let configPath: String
+    public let dbPath: String
+    public let isCurrent: Bool
+
+    public init(
+        id: String,
+        namespace: String?,
+        displayName: String,
+        configPath: String,
+        dbPath: String,
+        isCurrent: Bool
+    ) {
+        self.id = id
+        self.namespace = namespace
+        self.displayName = displayName
+        self.configPath = configPath
+        self.dbPath = dbPath
+        self.isCurrent = isCurrent
+    }
+}
+
+public struct AuthStatus: Codable, Equatable, Sendable {
+    public let ghFound: Bool
+    public let ghPath: String?
+    public let authenticated: Bool
+    public let username: String?
+    public let workspaceGhConfigDir: String
+    public let repairInstructions: String?
+    public let repairCommand: String?
+
+    public init(
+        ghFound: Bool,
+        ghPath: String?,
+        authenticated: Bool,
+        username: String?,
+        workspaceGhConfigDir: String,
+        repairInstructions: String?,
+        repairCommand: String?
+    ) {
+        self.ghFound = ghFound
+        self.ghPath = ghPath
+        self.authenticated = authenticated
+        self.username = username
+        self.workspaceGhConfigDir = workspaceGhConfigDir
+        self.repairInstructions = repairInstructions
+        self.repairCommand = repairCommand
+    }
+}
+
+public struct AuthDiagnostics: Codable, Equatable, Sendable {
+    public let gh: GHInstallation
+    public let auth: AuthStatus
+    public let host: String
+    public let pathEntries: [String]
+
+    public init(
+        gh: GHInstallation,
+        auth: AuthStatus,
+        host: String,
+        pathEntries: [String]
+    ) {
+        self.gh = gh
+        self.auth = auth
+        self.host = host
+        self.pathEntries = pathEntries
+    }
+
+    public struct GHInstallation: Codable, Equatable, Sendable {
+        public let found: Bool
+        public let path: String?
+        public let version: String?
+        public let installed: Bool
+
+        public init(found: Bool, path: String?, version: String?, installed: Bool) {
+            self.found = found
+            self.path = path
+            self.version = version
+            self.installed = installed
+        }
+    }
+}
+
+public struct SyncStatus: Codable, Equatable, Sendable {
+    public let state: String
+    public let lastSyncAt: String?
+    public let lastError: String?
+    public let changes: Int
+    public let hasAttentionItems: Bool
+
+    public init(
+        state: String,
+        lastSyncAt: String?,
+        lastError: String?,
+        changes: Int,
+        hasAttentionItems: Bool
+    ) {
+        self.state = state
+        self.lastSyncAt = lastSyncAt
+        self.lastError = lastError
+        self.changes = changes
+        self.hasAttentionItems = hasAttentionItems
+    }
+}
+
+public struct WorkspaceSelection: Codable, Equatable, Sendable {
+    public let workspace: Workspace
+    public let auth: AuthStatus
+    public let sync: SyncStatus
+
+    public init(workspace: Workspace, auth: AuthStatus, sync: SyncStatus) {
+        self.workspace = workspace
+        self.auth = auth
+        self.sync = sync
+    }
+}
+
 public struct TaskItem: Identifiable, Hashable, Sendable {
     public let id: Int
     public let title: String

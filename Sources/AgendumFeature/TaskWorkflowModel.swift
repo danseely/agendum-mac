@@ -1,4 +1,3 @@
-import AgendumBackend
 import AgendumModel
 import Foundation
 import Observation
@@ -20,42 +19,14 @@ public struct NotificationContent: Equatable, Sendable {
     }
 }
 
-public protocol AgendumBackendServicing: Sendable {
+public protocol DashboardServicing: Sendable {
     func currentWorkspace() async throws -> Workspace
     func listWorkspaces() async throws -> [Workspace]
     func selectWorkspace(namespace: String?) async throws -> WorkspaceSelection
-    func listTasks(source: String?, status: String?, project: String?, includeSeen: Bool, limit: Int) async throws -> [AgendumTask]
-    func getTask(id: Int) async throws -> AgendumTask?
-    func markTaskReviewed(id: Int) async throws -> AgendumTask
-    func markTaskInProgress(id: Int) async throws -> AgendumTask
-    func moveTaskToBacklog(id: Int) async throws -> AgendumTask
-    func markTaskDone(id: Int) async throws -> AgendumTask
-    func markTaskSeen(id: Int) async throws -> AgendumTask
-    func removeTask(id: Int) async throws -> Bool
     func syncStatus() async throws -> SyncStatus
     func forceSync() async throws -> SyncStatus
     func authStatus() async throws -> AuthStatus
     func authDiagnose() async throws -> AuthDiagnostics
-    func createManualTask(title: String, project: String?, tags: [String]?) async throws -> AgendumTask
-}
-
-extension AgendumBackendClient: AgendumBackendServicing {}
-
-extension TaskItem {
-    init(task: AgendumTask) {
-        self.init(
-            id: task.id,
-            title: task.title,
-            backendSource: task.source,
-            source: TaskSource(backendSource: task.source),
-            status: task.status,
-            project: task.project ?? task.ghRepo ?? "No project",
-            author: task.ghAuthorName ?? task.ghAuthor,
-            number: task.ghNumber,
-            url: task.ghUrl.flatMap(URL.init(string:)),
-            isUnseen: !task.seen
-        )
-    }
 }
 
 public enum TaskDetailAction: String, Hashable, Sendable {
@@ -101,7 +72,7 @@ public enum TaskDashboardCommand: Hashable, Sendable {
     case remove
 
     @MainActor
-    public func perform(on model: BackendStatusModel) async {
+    public func perform(on model: DashboardModel) async {
         switch self {
         case .refresh:
             await model.refresh()
@@ -138,7 +109,7 @@ public enum TaskDashboardCommand: Hashable, Sendable {
     }
 
     @MainActor
-    public func availability(on model: BackendStatusModel) -> Bool {
+    public func availability(on model: DashboardModel) -> Bool {
         switch self {
         case .refresh, .sync, .newTask:
             return !model.isLoading
@@ -162,7 +133,7 @@ public enum TaskDashboardCommand: Hashable, Sendable {
     @MainActor
     private func perTaskAvailable(
         _ action: TaskDetailAction,
-        on model: BackendStatusModel
+        on model: DashboardModel
     ) -> Bool {
         // Block per-task actions while a workspace switch / refresh / force-sync
         // is in flight. Otherwise a click during `await client.selectWorkspace`
@@ -222,47 +193,14 @@ public struct PresentedError: Equatable, Sendable {
     }
 
     public static func from(_ error: any Error) -> PresentedError {
-        if let clientError = error as? BackendClientError {
-            switch clientError {
-            case .helperError(let payload):
-                return PresentedError(
-                    message: payload.message,
-                    recovery: payload.recovery ?? payload.detail,
-                    code: payload.code
-                )
-            case .invalidResponse:
-                return PresentedError(
-                    message: clientError.description,
-                    recovery: "The backend helper returned an unexpected response. Try refreshing; if the problem persists, restart the app.",
-                    code: "client.protocolMismatch"
-                )
-            case .helperTerminated:
-                return PresentedError(
-                    message: clientError.description,
-                    recovery: "The backend helper crashed. The app will relaunch it on the next request — try refreshing.",
-                    code: "client.helperTerminated"
-                )
-            case .requestTimedOut:
-                return PresentedError(
-                    message: clientError.description,
-                    recovery: "The backend helper is unresponsive. Try refreshing; if it keeps timing out, check whether sync is stuck.",
-                    code: "client.timeout"
-                )
-            case .unexpectedResponseID:
-                return PresentedError(
-                    message: clientError.description,
-                    recovery: "The backend helper got out of sync with the app. Try refreshing.",
-                    code: "client.protocolMismatch"
-                )
-            case .unsupportedProtocolVersion:
-                return PresentedError(
-                    message: clientError.description,
-                    recovery: "This app version is incompatible with the installed backend helper. Update the app or the helper.",
-                    code: "client.unsupportedProtocolVersion"
-                )
-            }
+        if let dashboardError = error as? DashboardServiceError {
+            return PresentedError(
+                message: dashboardError.message,
+                recovery: dashboardError.recovery,
+                code: dashboardError.code
+            )
         }
-        if let modelError = error as? BackendStatusModelError {
+        if let modelError = error as? DashboardModelError {
             switch modelError {
             case .storeNotReady:
                 return PresentedError(
@@ -276,19 +214,31 @@ public struct PresentedError: Equatable, Sendable {
     }
 }
 
-/// Factory invoked by `BackendStatusModel` to create a `TaskStoreProviding` for a
+public struct DashboardServiceError: Error, Equatable, Sendable {
+    public let code: String
+    public let message: String
+    public let recovery: String?
+
+    public init(code: String, message: String, recovery: String? = nil) {
+        self.code = code
+        self.message = message
+        self.recovery = recovery
+    }
+}
+
+/// Factory invoked by `DashboardModel` to create a `TaskStoreProviding` for a
 /// given on-disk database URL. Production passes `{ try TaskStore(path: $0) }`;
 /// tests pass `{ _ in fakeStore }`.
 public typealias TaskStoreFactory = @Sendable (URL) throws -> any TaskStoreProviding
 
-public enum BackendStatusModelError: Error, Equatable, Sendable {
+public enum DashboardModelError: Error, Equatable, Sendable {
     /// A task action ran before `refresh()` populated the workspace and store.
     case storeNotReady
 }
 
 @Observable
 @MainActor
-public final class BackendStatusModel {
+public final class DashboardModel {
     public private(set) var workspace: Workspace?
     public private(set) var workspaces: [Workspace] = []
     public private(set) var auth: AuthStatus?
@@ -313,7 +263,7 @@ public final class BackendStatusModel {
 
     public var errorMessage: String? { error?.message }
 
-    private let client: any AgendumBackendServicing
+    private let service: any DashboardServicing
     /// Factory invoked when the workspace's `dbPath` first becomes known (in `refresh()`)
     /// or changes (in `selectWorkspace(...)`). Tests inject a closure returning a
     /// `FakeTaskStore`; production injects `{ try TaskStore(path: $0) }`.
@@ -332,6 +282,7 @@ public final class BackendStatusModel {
     private let iso8601Formatter: ISO8601DateFormatter
 
     public convenience init(
+        service: any DashboardServicing,
         openURL: @escaping URLOpening,
         pasteboard: @escaping Pasteboarding,
         notifier: @escaping Notifying,
@@ -339,7 +290,7 @@ public final class BackendStatusModel {
         storeFactory: @escaping TaskStoreFactory
     ) {
         self.init(
-            client: AgendumBackendClient(),
+            service: service,
             storeFactory: storeFactory,
             openURL: openURL,
             pasteboard: pasteboard,
@@ -349,7 +300,7 @@ public final class BackendStatusModel {
     }
 
     init(
-        client: any AgendumBackendServicing,
+        service: any DashboardServicing,
         storeFactory: @escaping TaskStoreFactory,
         syncPollIntervalNanoseconds: UInt64 = 500_000_000,
         maxSyncPollAttempts: Int = 120,
@@ -362,7 +313,7 @@ public final class BackendStatusModel {
         locale: Locale = .autoupdatingCurrent,
         filters: TaskListFilters = .default
     ) {
-        self.client = client
+        self.service = service
         self.storeFactory = storeFactory
         self.syncPollIntervalNanoseconds = syncPollIntervalNanoseconds
         self.maxSyncPollAttempts = maxSyncPollAttempts
@@ -470,26 +421,26 @@ public final class BackendStatusModel {
     }
 
     public func refresh() async {
-        logger.notice("BackendStatusModel.refresh start")
+        logger.notice("DashboardModel.refresh start")
         isLoading = true
         defer { isLoading = false }
 
         do {
-            workspace = try await client.currentWorkspace()
-            workspaces = try await client.listWorkspaces()
-            auth = try await client.authStatus()
-            sync = try await client.syncStatus()
+            workspace = try await service.currentWorkspace()
+            workspaces = try await service.listWorkspaces()
+            auth = try await service.authStatus()
+            sync = try await service.syncStatus()
             try updateStoreIfNeeded(workspace: workspace)
             tasks = try await loadTaskItems()
             self.error = nil
             taskActionErrors = [:]
-            logger.notice("BackendStatusModel.refresh ok: \(self.tasks.count, privacy: .public) tasks")
+            logger.notice("DashboardModel.refresh ok: \(self.tasks.count, privacy: .public) tasks")
         } catch {
             tasks = []
             taskActionErrors = [:]
             let presented = PresentedError.from(error)
             self.error = presented
-            logger.error("BackendStatusModel.refresh failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
+            logger.error("DashboardModel.refresh failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
         }
     }
 
@@ -504,47 +455,49 @@ public final class BackendStatusModel {
             return
         }
 
-        logger.notice("BackendStatusModel.selectWorkspace start: id=\(id, privacy: .public)")
+        logger.notice("DashboardModel.selectWorkspace start: id=\(id, privacy: .public)")
         isLoading = true
         defer { isLoading = false }
 
         do {
-            let selection = try await client.selectWorkspace(namespace: target.namespace)
+            let selection = try await service.selectWorkspace(namespace: target.namespace)
             workspace = selection.workspace
             auth = selection.auth
             sync = selection.sync
-            workspaces = try await client.listWorkspaces()
+            workspaces = try await service.listWorkspaces()
             filters = .default
             tasks = []
             try updateStoreIfNeeded(workspace: workspace)
             tasks = try await loadTaskItems()
             self.error = nil
             taskActionErrors = [:]
-            logger.notice("BackendStatusModel.selectWorkspace ok: id=\(id, privacy: .public)")
+            logger.notice("DashboardModel.selectWorkspace ok: id=\(id, privacy: .public)")
         } catch {
             filters = .default
             tasks = []
             taskActionErrors = [:]
             let presented = PresentedError.from(error)
             self.error = presented
-            logger.error("BackendStatusModel.selectWorkspace failed: id=\(id, privacy: .public) code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
+            logger.error("DashboardModel.selectWorkspace failed: id=\(id, privacy: .public) code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
         }
     }
 
     public func forceSync() async {
-        logger.notice("BackendStatusModel.forceSync start")
+        logger.notice("DashboardModel.forceSync start")
         isLoading = true
         defer { isLoading = false }
+        var didReceiveForceSyncStatus = false
 
         do {
-            sync = try await client.forceSync()
+            sync = try await service.forceSync()
+            didReceiveForceSyncStatus = true
             try await pollSyncUntilComplete()
             tasks = try await loadTaskItems()
             self.error = nil
-            logger.notice("BackendStatusModel.forceSync state=\(self.sync?.state ?? "unknown", privacy: .public) changes=\(self.sync?.changes ?? 0, privacy: .public)")
+            logger.notice("DashboardModel.forceSync state=\(self.sync?.state ?? "unknown", privacy: .public) changes=\(self.sync?.changes ?? 0, privacy: .public)")
             if sync?.state == "error" {
                 // Backend-reported error path: forceSync did not throw, but
-                // sync.state == "error". Route through the shared helper
+                // sync.state == "error". Route through the shared notification
                 // by synthesizing a PresentedError so the failure-body
                 // template lives in exactly one place. Do NOT clobber
                 // self.error: branch (b) deliberately leaves the model's
@@ -558,16 +511,16 @@ public final class BackendStatusModel {
                 await postSyncCompletedNotification(success: true, failure: nil)
             }
         } catch {
+            if !didReceiveForceSyncStatus,
+               let latestSync = try? await service.syncStatus() {
+                sync = latestSync
+            }
             let presented = PresentedError.from(error)
             self.error = presented
-            if case BackendClientError.requestTimedOut = error {
-                logger.error("BackendStatusModel.forceSync timed out: \(presented.message, privacy: .public)")
-            } else {
-                logger.error("BackendStatusModel.forceSync failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
-            }
+            logger.error("DashboardModel.forceSync failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
             if let code = presented.code,
                code.contains("auth") || code.contains("token") {
-                logger.notice("BackendStatusModel.forceSync auth/token invalidation surfaced: code=\(code, privacy: .public)")
+                logger.notice("DashboardModel.forceSync auth/token invalidation surfaced: code=\(code, privacy: .public)")
             }
             await postSyncCompletedNotification(success: false, failure: presented)
         }
@@ -636,13 +589,13 @@ public final class BackendStatusModel {
     }
 
     public func openTaskURL(id: TaskItem.ID) async {
-        logger.notice("BackendStatusModel.openTaskURL start: id=\(id, privacy: .public)")
+        logger.notice("DashboardModel.openTaskURL start: id=\(id, privacy: .public)")
         guard let task = tasks.first(where: { $0.id == id }) else {
             // Unknown task ID: return without mutating taskActionErrors.
             // No view can read or clear a stale entry under an id that does
             // not correspond to a visible task, so writing one would leak
             // state.
-            logger.error("BackendStatusModel.openTaskURL unknown id=\(id, privacy: .public)")
+            logger.error("DashboardModel.openTaskURL unknown id=\(id, privacy: .public)")
             return
         }
         guard let url = task.url else {
@@ -651,7 +604,7 @@ public final class BackendStatusModel {
                 recovery: "Manual tasks have no link; remove them or add a URL upstream.",
                 code: "client.taskHasNoURL"
             )
-            logger.error("BackendStatusModel.openTaskURL no URL: id=\(id, privacy: .public)")
+            logger.error("DashboardModel.openTaskURL no URL: id=\(id, privacy: .public)")
             return
         }
         let opened = openURL(url)
@@ -663,19 +616,19 @@ public final class BackendStatusModel {
                 recovery: "Check that a default browser is set, then try again.",
                 code: "client.urlOpenFailed"
             )
-            logger.error("BackendStatusModel.openTaskURL failed to open URL for id=\(id, privacy: .public)")
+            logger.error("DashboardModel.openTaskURL failed to open URL for id=\(id, privacy: .public)")
         }
     }
 
     public func refreshDiagnostics() async {
         do {
-            let result = try await client.authDiagnose()
+            let result = try await service.authDiagnose()
             diagnostics = result
             diagnosticsError = nil
         } catch {
             let presented = PresentedError.from(error)
             diagnosticsError = presented
-            logger.error("BackendStatusModel.refreshDiagnostics failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
+            logger.error("DashboardModel.refreshDiagnostics failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
         }
     }
 
@@ -695,7 +648,7 @@ public final class BackendStatusModel {
         project: String? = nil,
         tags: [String]? = nil
     ) async -> Bool {
-        logger.notice("BackendStatusModel.createManualTask start")
+        logger.notice("DashboardModel.createManualTask start")
         isLoading = true
         defer { isLoading = false }
 
@@ -703,18 +656,18 @@ public final class BackendStatusModel {
             _ = try await requireStore().createManualTask(title: title, project: project, tags: tags)
             tasks = try await loadTaskItems()
             self.error = nil
-            logger.notice("BackendStatusModel.createManualTask ok")
+            logger.notice("DashboardModel.createManualTask ok")
             return true
         } catch {
             let presented = PresentedError.from(error)
             self.error = presented
-            logger.error("BackendStatusModel.createManualTask failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
+            logger.error("DashboardModel.createManualTask failed: code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
             return false
         }
     }
 
     private func performTaskAction(name: String, taskID: TaskItem.ID, _ action: () async throws -> Void) async {
-        logger.notice("BackendStatusModel.\(name, privacy: .public) start: id=\(taskID, privacy: .public)")
+        logger.notice("DashboardModel.\(name, privacy: .public) start: id=\(taskID, privacy: .public)")
         isLoading = true
         defer { isLoading = false }
 
@@ -726,7 +679,7 @@ public final class BackendStatusModel {
         } catch {
             let presented = PresentedError.from(error)
             taskActionErrors[taskID] = presented
-            logger.error("BackendStatusModel.\(name, privacy: .public) failed: id=\(taskID, privacy: .public) code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
+            logger.error("DashboardModel.\(name, privacy: .public) failed: id=\(taskID, privacy: .public) code=\(presented.code ?? "nil", privacy: .public) message=\(presented.message, privacy: .public)")
         }
     }
 
@@ -734,7 +687,7 @@ public final class BackendStatusModel {
         var attempts = 0
         while sync?.state == "running", attempts < maxSyncPollAttempts {
             try await sleep(syncPollIntervalNanoseconds)
-            sync = try await client.syncStatus()
+            sync = try await service.syncStatus()
             attempts += 1
         }
     }
