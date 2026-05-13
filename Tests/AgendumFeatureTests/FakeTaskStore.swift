@@ -1,4 +1,5 @@
 import AgendumFeature
+import AgendumModel
 import Testing
 
 actor FakeTaskStore: TaskStoreProviding {
