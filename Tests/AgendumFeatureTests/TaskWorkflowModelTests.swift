@@ -1,5 +1,6 @@
 @testable import AgendumFeature
 import AgendumBackend
+import AgendumModel
 import XCTest
 
 @MainActor

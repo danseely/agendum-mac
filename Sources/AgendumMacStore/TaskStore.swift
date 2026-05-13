@@ -1,6 +1,6 @@
 import Foundation
 import GRDB
-import AgendumFeature
+import AgendumModel
 
 /// Statuses Python's `get_active_tasks` excludes from the default list.
 /// Mirrors `Backend/agendum_engine/agendum/db.py` `TERMINAL_STATUSES`.
@@ -290,6 +290,28 @@ public actor TaskStore: TaskStoreProviding {
     }
 
     // MARK: - Sync writes (consumed by AgendumSync.ApplyDiff)
+
+    /// Existing active rows as raw records for the sync engine's diff phase.
+    /// Mirrors Python `db.get_active_tasks`: terminal rows are excluded and
+    /// source-group ordering is retained for deterministic parity.
+    public func activeSyncTaskRecords() async throws -> [TaskRecord] {
+        try await database.read { db in
+            try TaskRecord.fetchAll(db, sql: """
+                SELECT * FROM \(DatabaseSchema.tasksTable)
+                WHERE status NOT IN (?, ?, ?)
+                ORDER BY
+                    CASE source
+                        WHEN 'pr_authored' THEN 1
+                        WHEN 'pr_review' THEN 2
+                        WHEN 'issue' THEN 3
+                        WHEN 'manual' THEN 4
+                        ELSE 5
+                    END,
+                    seen ASC,
+                    updated_at DESC
+                """, arguments: StatementArguments(terminalStatuses))
+        }
+    }
 
     /// Looks up a task's primary key by its `gh_url`. Returns `nil` if no row matches.
     /// Mirrors Python `db.find_task_by_gh_url` (returns id only — sync only needs the id).

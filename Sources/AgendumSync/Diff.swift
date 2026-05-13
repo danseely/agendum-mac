@@ -1,5 +1,5 @@
 import Foundation
-import AgendumFeature
+import AgendumModel
 
 /// Pure data shape for an "incoming" task discovered from GitHub during a sync.
 /// Mirrors the dict shape Python `syncer.run_sync` builds in `incoming_tasks`.

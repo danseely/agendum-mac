@@ -1,5 +1,5 @@
 @testable import AgendumMacStore
-import AgendumFeature
+import AgendumModel
 import Foundation
 import GRDB
 import Testing
