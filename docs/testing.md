@@ -95,11 +95,23 @@ Must validate:
 - browser opening remains owned by the Mac app
 
 ### Release / Packaging Tests
-Defer until a distribution channel is chosen.
 
-Before release planning, validate:
-- `gh` discovery and auth repair path outside a terminal environment
-- signing, hardened runtime, notarization, sandbox, and privacy manifest requirements for the chosen channel
+Distribution channel: GitHub Releases. Every push to `main` produces a prerelease tagged `v0.1.0-dev.<short-sha>` with a compressed unsigned DMG attached. Pipeline lives in `.github/workflows/release.yml`; scripts live in `Scripts/build_dmg.sh` (build) and `Scripts/verify_dmg.sh` (mount + structural check).
+
+Before pushing changes that touch the packaging path, run locally:
+
+- `Scripts/build_app_bundle.sh` — produces `.build/Agendum.app`.
+- `Scripts/build_dmg.sh` — produces `.build/Agendum-<version>.dmg` + sidecar `.sha256`.
+- `Scripts/verify_dmg.sh` — mounts the latest DMG, checks SHA256, asserts `.app` + `/Applications` symlink are present, lints `Info.plist`, confirms the bundle executable is executable, prints the version. Always cleans up the mount.
+- Manual DMG smoke (highest-confidence check; do it for any release-affecting change): open the DMG in Finder, drag `Agendum.app` to `Applications`, right-click → Open the first time, confirm the app reaches the dashboard. Then `rm -rf /Applications/Agendum.app` to clean up.
+
+CI checks the same gates in `release.yml` plus tags + uploads the DMG. The release path stays open even if the unit-test suite would fail by accident on `main` (the test suite still runs as a step — release fails if tests fail).
+
+Deferred to a later slice when the audience widens:
+- Apple Developer ID code-signing (`codesign --deep --options runtime --entitlements ...`).
+- `xcrun notarytool` notarization + stapling.
+- Hardened runtime, sandbox, and privacy manifest entries.
+- A signed `.pkg` installer alternative for `mdmgr`/MDM deployment.
 
 ## Milestone Gates
 
