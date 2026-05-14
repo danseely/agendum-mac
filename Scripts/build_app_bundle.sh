@@ -41,4 +41,21 @@ sed \
 
 plutil -lint "$APP_BUNDLE/Contents/Info.plist" >/dev/null
 
+# Re-sign the whole bundle ad-hoc. The Swift linker ships the binary with a
+# linker-injected ad-hoc signature (mandatory on Apple Silicon), but that
+# signature predates the resources we just dropped in (Info.plist,
+# AppIcon.icns) and there's no Contents/_CodeSignature/CodeResources manifest
+# to cover them. On launch from a quarantined DMG that mismatch trips
+# Gatekeeper's integrity check, which surfaces as the "Agendum.app is damaged
+# and can't be opened" dialog — a dead-end with no GUI escape on macOS 15+.
+#
+# `codesign --force --deep --sign -` synthesizes the bundle-level manifest
+# and re-signs everything ad-hoc. The bundle is still unsigned in the
+# Developer-ID sense, so Gatekeeper still rejects on first launch, but it
+# rejects with the "unidentified developer" wording which DOES give users a
+# working "Open Anyway" button in System Settings → Privacy & Security.
+# Full Developer-ID signing + notarization is a separate slice.
+codesign --force --deep --sign - "$APP_BUNDLE"
+codesign --verify --deep --strict "$APP_BUNDLE"
+
 echo "Built $APP_BUNDLE (version $SHORT_VERSION, build $BUNDLE_VERSION)"

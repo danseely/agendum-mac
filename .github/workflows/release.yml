@@ -148,10 +148,13 @@ jobs:
 
           1. Download \`$(basename "$DMG_PATH")\`.
           2. Open the DMG and drag **Agendum** to **Applications**.
-          3. **First launch only:** right-click \`Agendum\` in Applications and choose **Open**. macOS will prompt once because this build is unsigned; after that, normal double-click works.
-             - Alternative: \`xattr -dr com.apple.quarantine /Applications/Agendum.app\`
+          3. **First launch only:** clear the download quarantine. This build is ad-hoc signed but not Developer-ID signed or notarized, so macOS marks it as untrusted on download.
+             - **GUI path:** double-click Agendum, click **Done** on the "cannot check for malicious software" dialog, then open **System Settings → Privacy & Security**, scroll to the bottom, and click **Open Anyway** next to the Agendum line.
+             - **Terminal path:** \`xattr -dr com.apple.quarantine /Applications/Agendum.app\`
 
-          This build is unsigned and unnotarized. Code-signing + notarization will land in a later release.
+          The older "right-click → Open" trick from pre-Sequoia macOS no longer applies to unsigned apps — use one of the two paths above.
+
+          This build is ad-hoc signed but not Developer-ID signed or notarized. Full code-signing + notarization will land in a later release.
 
           ## Verify
 
