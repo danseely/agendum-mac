@@ -1,0 +1,170 @@
+name: Release
+
+# Builds a DMG and publishes it as a GitHub Release on every push to main.
+#
+# Note: `main` is README-only until the feature/mac-prototype prototype is
+# explicitly graduated. This workflow won't actually fire until that
+# happens — wiring it up now so the release path is ready and the surface
+# can be exercised before we graduate.
+
+on:
+  push:
+    branches:
+      - main
+
+# Don't cancel an in-flight release if a follow-on push arrives — the first
+# build's artifact is still meaningful, and a cancel mid-release could leave
+# a half-created GH Release.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # gh release create needs to push the tag + upload assets
+
+jobs:
+  release:
+    name: Build and release DMG
+    # Pinned to macos-14 (Sonoma) rather than macos-latest so future GH
+    # image rolls don't silently change Swift toolchain or hdiutil behavior
+    # for releases. Bump deliberately when validated against a new image.
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          # Full history so Scripts/build_app_bundle.sh's `git describe` and
+          # `git rev-list HEAD --count` produce useful values.
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: version
+        run: |
+          set -euo pipefail
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          FULL_SHA="$(git rev-parse HEAD)"
+          # SemVer prerelease identifier. Once you tag a real `v*.*.*` at HEAD
+          # this auto-generated tag would be skipped (we exit cleanly if the
+          # release already exists), and the explicit tag's release stands.
+          TAG="v0.1.0-dev.${SHORT_SHA}"
+          {
+            echo "tag=${TAG}"
+            echo "sha=${SHORT_SHA}"
+            echo "full_sha=${FULL_SHA}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build Swift package (release)
+        run: swift build -c release
+
+      - name: Run Swift tests
+        run: swift test --enable-code-coverage
+
+      - name: Run Python parity tests
+        run: /usr/bin/python3 -m unittest discover -s Tests
+
+      - name: Build app bundle
+        run: Scripts/build_app_bundle.sh
+
+      - name: Build DMG
+        run: Scripts/build_dmg.sh
+
+      - name: Verify DMG
+        run: Scripts/verify_dmg.sh
+
+      - name: Collect artifact paths
+        id: artifact
+        run: |
+          set -euo pipefail
+          DMG_PATH="$(ls -t .build/Agendum-*.dmg | head -1)"
+          SHA_PATH="${DMG_PATH}.sha256"
+          SHA256="$(awk '{print $1}' "$SHA_PATH")"
+          DMG_NAME="$(basename "$DMG_PATH")"
+          # BSD `stat -f '%z'` is macOS-only — fine, this workflow pins macos-14.
+          DMG_SIZE="$(stat -f '%z' "$DMG_PATH")"
+          DMG_SIZE_MB="$(awk -v b="$DMG_SIZE" 'BEGIN{printf "%.1f", b/1048576}')"
+          {
+            echo "dmg_path=${DMG_PATH}"
+            echo "sha_path=${SHA_PATH}"
+            echo "sha256=${SHA256}"
+            echo "dmg_name=${DMG_NAME}"
+            echo "dmg_size_mb=${DMG_SIZE_MB}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload DMG as workflow artifact
+        # Safety net: if `gh release create` later fails for any reason, the
+        # built DMG is still recoverable from the Actions run page for 90
+        # days, so a re-run doesn't have to rebuild from scratch.
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.dmg_name }}
+          path: |
+            ${{ steps.artifact.outputs.dmg_path }}
+            ${{ steps.artifact.outputs.sha_path }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Job summary
+        run: |
+          set -euo pipefail
+          {
+            echo "### Agendum ${{ steps.version.outputs.tag }}"
+            echo ""
+            echo "- DMG: \`${{ steps.artifact.outputs.dmg_name }}\` (${{ steps.artifact.outputs.dmg_size_mb }} MB)"
+            echo "- SHA256: \`${{ steps.artifact.outputs.sha256 }}\`"
+            echo "- Commit: \`${{ steps.version.outputs.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SHA: ${{ steps.version.outputs.sha }}
+          FULL_SHA: ${{ steps.version.outputs.full_sha }}
+          DMG_PATH: ${{ steps.artifact.outputs.dmg_path }}
+          SHA_PATH: ${{ steps.artifact.outputs.sha_path }}
+          SHA256: ${{ steps.artifact.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+
+          # Be idempotent: if the release for this commit already exists (e.g.,
+          # the workflow re-ran), skip create and just re-upload the assets so
+          # a re-run after a partial failure still leaves the release whole.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — skipping create. Uploading assets idempotently."
+            gh release upload "$TAG" "$DMG_PATH" "$SHA_PATH" --clobber
+            exit 0
+          fi
+
+          NOTES_FILE="$(mktemp)"
+          cat > "$NOTES_FILE" <<EOF
+          Automatic dev build from \`main\` at \`${SHA}\`.
+
+          ## Install
+
+          1. Download \`$(basename "$DMG_PATH")\`.
+          2. Open the DMG and drag **Agendum** to **Applications**.
+          3. **First launch only:** right-click \`Agendum\` in Applications and choose **Open**. macOS will prompt once because this build is unsigned; after that, normal double-click works.
+             - Alternative: \`xattr -dr com.apple.quarantine /Applications/Agendum.app\`
+
+          This build is unsigned and unnotarized. Code-signing + notarization will land in a later release.
+
+          ## Verify
+
+          \`\`\`
+          shasum -a 256 $(basename "$DMG_PATH")
+          # should print: ${SHA256}
+          \`\`\`
+          EOF
+
+          # Pin the release tag to the exact build commit, not the branch.
+          # `--target main` would re-resolve to main HEAD at release-create
+          # time, which could differ if a parallel push landed mid-build.
+          gh release create "$TAG" \
+            "$DMG_PATH" \
+            "$SHA_PATH" \
+            --target "$FULL_SHA" \
+            --title "Agendum $TAG" \
+            --notes-file "$NOTES_FILE" \
+            --prerelease
