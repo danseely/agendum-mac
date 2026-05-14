@@ -1,8 +1,12 @@
 # Agendum
 
+<a href="https://github.com/danseely/agendum-mac/releases/latest"><img src="Resources/AppIcon-1024.png" width="128" alt="Agendum app icon — download the latest release" align="left"></a>
+
 A native macOS viewer for your GitHub work: pull requests you authored, reviews requested of you, issues, and a small set of manual tasks. One window, one inbox, kept fresh by a background syncer.
 
 Agendum is a personal-use tool for one developer's daily GitHub workflow. It is working software, not a sketch — but it has not been hardened for general distribution. Treat it accordingly.
+
+<br clear="left">
 
 <!-- TODO: screenshot -->
 
