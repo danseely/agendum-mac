@@ -25,12 +25,14 @@ Every push to `main` publishes an unsigned, unnotarized DMG as a GitHub prerelea
 
 1. Grab the latest DMG from the [Releases page](../../releases) — pick the newest `Agendum-*.dmg`.
 2. Open the DMG and drag **Agendum** into **Applications**.
-3. First launch only, work around Gatekeeper. Either:
-   - Right-click `Agendum` in Applications and choose **Open** — macOS will warn once, then remember the choice. Or:
-   - Strip the quarantine attribute from a terminal:
+3. First launch only, clear the download quarantine. The build is ad-hoc signed but not Developer-ID signed or notarized, so macOS marks the download as untrusted. Either:
+   - **GUI path:** double-click Agendum. macOS will say "Agendum can't be opened because Apple cannot check it for malicious software." Click **Done**, then open **System Settings → Privacy & Security**, scroll to the bottom, and click **Open Anyway** next to the Agendum line. Confirm at the second prompt. After this, normal double-click works.
+   - **Terminal path:** strip the quarantine attribute and open normally.
      ```
      xattr -dr com.apple.quarantine /Applications/Agendum.app
      ```
+
+   The older "right-click → Open" trick from pre-Sequoia macOS no longer applies to unsigned apps — use one of the two paths above.
 4. (Optional) Verify the download against the checksum sidecar:
    ```
    shasum -a 256 Agendum-<version>.dmg
