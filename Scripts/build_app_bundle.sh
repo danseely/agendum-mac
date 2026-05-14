@@ -10,6 +10,7 @@ SWIFT_PRODUCT="AgendumMac"
 BUILD_DIR=".build"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 PLIST_TEMPLATE="Sources/AgendumMac/Info.plist.template"
+APP_ICON="Resources/AppIcon.icns"
 
 SHORT_VERSION="$(git describe --tags --match 'v*' --dirty --always 2>/dev/null | sed 's/^v//' || true)"
 if [ -z "$SHORT_VERSION" ] || ! echo "$SHORT_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+'; then
@@ -26,6 +27,12 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 cp "$BUILD_DIR/release/$SWIFT_PRODUCT" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+
+if [ ! -f "$APP_ICON" ]; then
+  echo "Missing app icon: $APP_ICON" >&2
+  exit 1
+fi
+cp "$APP_ICON" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 
 sed \
   -e "s/__SHORT_VERSION__/$SHORT_VERSION/g" \
