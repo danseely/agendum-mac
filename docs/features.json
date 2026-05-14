@@ -135,10 +135,10 @@
     {
       "id": "speed-run-s5-onboarding",
       "title": "S5: Onboarding & first-run polish",
-      "status": "not_started",
+      "status": "in_progress",
       "priority": "must",
-      "evidence": "Not yet filed.",
-      "notes": "Materialize default ~/.agendum/config.toml if missing (matches Python helper template). Settings UI: orgs/repos as form fields (text-list editor) instead of 'edit this TOML file'. If gh auth status returns unauthenticated, surface a banner with 'Run gh auth login in Terminal' + copy-to-clipboard button. First-run sheet: brief 'add your org or repos in Settings, then click Sync' guidance. ~200 LOC."
+      "evidence": "PR #63 from codex/s5-onboarding-polish against feature/mac-prototype on 2026-05-13. Implements (1) WorkspaceConfig.materializeDefaultIfMissing + WorkspaceConfig.save (engine APIs; .save is preserved as future-proofed dead code for now, no UI consumer) with four new WorkspaceConfigTests (96 sync tests total); (2) gh auth unauthenticated banner pinned above the dashboard via safeAreaInset, with copy-to-clipboard button for the literal 'gh auth login' command — auto-dismisses when DashboardModel.auth.authenticated flips true; (3) one-shot first-run welcome sheet gated on @AppStorage('agendum.firstRunCompleted'), triggered only when AgendumMacApp.init had to materialize a brand-new base config.toml; welcome copy points users at the sidebar workspace switcher + the gh auth login command. The Settings UI (Workspace tab) was deliberately dropped at user request during 2026-05-13 smoke — org scoping is handled by the sidebar workspace switcher, and the user did not want a settings editor for orgs/repos/interval/seen_delay at this stage. The existing pre-S5 Diagnostics Settings panel stays untouched. Manual smoke against the user's real workspace, 2026-05-13: Test 1 (fresh first-run) PASSED — welcome sheet appeared on launch after `rm ~/.agendum/config.toml && defaults delete com.danseely.agendum-mac agendum.firstRunCompleted`; default config.toml materialized to disk with orgs=[]/repos=[]/exclude_repos=[]/interval=120/seen_delay=3.",
+      "notes": "Status stays in_progress until the remaining smoke flows pass: Test 2 (gh auth unauthenticated banner appearance + copy-to-clipboard) and Test 3 (banner auto-dismiss after gh auth login). Settings round-trip test from the original plan is no longer applicable — Settings UI was dropped. Outstanding work: finish the auth-banner smoke flows; flip status to passed with appended evidence."
     },
     {
       "id": "c1-store-schema",

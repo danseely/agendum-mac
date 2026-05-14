@@ -118,6 +118,35 @@ public struct WorkspaceConfig: Equatable, Sendable {
         return try load(from: configPath)
     }
 
+    /// Writes `config` to `paths.configPath`. Always overwrites existing
+    /// contents; structured rewrite — non-canonical keys/comments outside the
+    /// rendered template are dropped (MVP). Creates the workspace directory
+    /// (and any missing parents) at 0o700 if absent — delegated to `write`,
+    /// which is the single authority on parent-directory creation and file
+    /// permissions for the rendered TOML.
+    ///
+    /// Currently unused at runtime: the S5 Settings editor was dropped during
+    /// 2026-05-13 smoke. Kept as the canonical write seam for the next time a
+    /// UI consumer needs to persist workspace changes.
+    public static func save(_ config: WorkspaceConfig, to paths: WorkspaceRuntimePaths) throws {
+        try write(config: config, to: paths.configPath)
+    }
+
+    /// Creates the workspace directory and writes the default base config when
+    /// `config.toml` is missing. Returns `true` when a new file was written,
+    /// `false` when an existing file was left untouched. Never overwrites.
+    @discardableResult
+    public static func materializeDefaultIfMissing(paths: WorkspaceRuntimePaths) throws -> Bool {
+        let root = paths.workspaceRoot.expandingTildeInPath()
+        let configPath = paths.configPath.expandingTildeInPath()
+        try createPrivateDirectory(root)
+        if FileManager.default.fileExists(atPath: configPath.path) {
+            return false
+        }
+        try write(config: WorkspaceConfig(), to: configPath)
+        return true
+    }
+
     public static func parse(_ text: String) throws -> WorkspaceConfig {
         var config = WorkspaceConfig()
         var section = ""

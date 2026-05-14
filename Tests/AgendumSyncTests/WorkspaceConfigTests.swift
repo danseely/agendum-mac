@@ -222,6 +222,82 @@ import Testing
         #expect(try WorkspaceRuntimePaths.normalizeNamespace(" Example-Org ") == "Example-Org")
     }
 
+    @Test func materializeDefaultCreatesFileWhenMissing() throws {
+        let base = try temporaryDirectory()
+        let paths = try WorkspaceRuntimePaths.workspace(namespace: nil, baseDirectory: base)
+
+        let created = try WorkspaceConfig.materializeDefaultIfMissing(paths: paths)
+
+        #expect(created == true)
+        #expect(FileManager.default.fileExists(atPath: paths.configPath.path))
+        let text = try String(contentsOf: paths.configPath, encoding: .utf8)
+        #expect(text.contains("orgs = []"))
+        #expect(text.contains("interval = 120"))
+        #expect(text.contains("seen_delay = 3"))
+        #expect(try posixMode(paths.configPath) == 0o600)
+        #expect(try posixMode(paths.workspaceRoot) == 0o700)
+    }
+
+    @Test func materializeDefaultPreservesExistingFile() throws {
+        let base = try temporaryDirectory()
+        let paths = try WorkspaceRuntimePaths.workspace(namespace: nil, baseDirectory: base)
+        try FileManager.default.createDirectory(at: paths.workspaceRoot, withIntermediateDirectories: true)
+        let custom = #"""
+        [github]
+        orgs = ["pre-existing"]
+        repos = []
+        exclude_repos = []
+        [sync]
+        interval = 60
+        [display]
+        seen_delay = 5
+        """#
+        try custom.write(to: paths.configPath, atomically: true, encoding: .utf8)
+
+        let created = try WorkspaceConfig.materializeDefaultIfMissing(paths: paths)
+
+        #expect(created == false)
+        #expect(try String(contentsOf: paths.configPath, encoding: .utf8) == custom)
+    }
+
+    @Test func saveRoundTripsThroughLoad() throws {
+        let base = try temporaryDirectory()
+        let paths = try WorkspaceRuntimePaths.workspace(namespace: nil, baseDirectory: base)
+        try FileManager.default.createDirectory(at: paths.workspaceRoot, withIntermediateDirectories: true)
+
+        let config = WorkspaceConfig(
+            orgs: ["Example", "Other-Org"],
+            repos: ["Example/api"],
+            excludeRepos: ["Example/legacy"],
+            syncInterval: 45,
+            seenDelay: 9
+        )
+        try WorkspaceConfig.save(config, to: paths)
+
+        let reloaded = try WorkspaceConfig.load(from: paths.configPath)
+        #expect(reloaded == config)
+        #expect(try posixMode(paths.configPath) == 0o600)
+    }
+
+    @Test func saveCreatesWorkspaceDirectoryWhenMissing() throws {
+        // Regression: an earlier save() omitted createPrivateDirectory, which
+        // made it throw when the workspace directory hadn't been materialized
+        // yet. Locks in that save() now seeds the directory itself with the
+        // expected 0o700 / 0o600 permissions.
+        let base = try temporaryDirectory()
+        let paths = try WorkspaceRuntimePaths.workspace(namespace: "Example", baseDirectory: base)
+        #expect(FileManager.default.fileExists(atPath: paths.workspaceRoot.path) == false)
+
+        let config = WorkspaceConfig(orgs: ["Example"], repos: [], excludeRepos: [], syncInterval: 90, seenDelay: 2)
+        try WorkspaceConfig.save(config, to: paths)
+
+        #expect(FileManager.default.fileExists(atPath: paths.configPath.path))
+        let reloaded = try WorkspaceConfig.load(from: paths.configPath)
+        #expect(reloaded == config)
+        #expect(try posixMode(paths.workspaceRoot) == 0o700)
+        #expect(try posixMode(paths.configPath) == 0o600)
+    }
+
     @Test func rejectsInvalidNamespaceValues() throws {
         #expect(throws: WorkspaceConfigError.invalidNamespace("enter a GitHub owner name, not owner/repo")) {
             _ = try WorkspaceRuntimePaths.normalizeNamespace("owner/repo")

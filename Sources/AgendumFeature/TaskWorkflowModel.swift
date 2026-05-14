@@ -493,6 +493,17 @@ public final class DashboardModel {
             didReceiveForceSyncStatus = true
             try await pollSyncUntilComplete()
             tasks = try await loadTaskItems()
+            // A successful sync round-trip is proof the gh token is healthy.
+            // Refresh the cached auth status only when it currently says
+            // "not authenticated" — that's the only state where a stale value
+            // would surface a misleading banner. Skipping this when already
+            // authenticated avoids paying for an extra `gh auth status`
+            // subprocess (~200ms) on every successful sync. Best-effort: a
+            // failed lookup keeps the prior value rather than flapping the UI.
+            if auth?.authenticated == false,
+               let refreshedAuth = try? await service.authStatus() {
+                auth = refreshedAuth
+            }
             self.error = nil
             logger.notice("DashboardModel.forceSync state=\(self.sync?.state ?? "unknown", privacy: .public) changes=\(self.sync?.changes ?? 0, privacy: .public)")
             if sync?.state == "error" {

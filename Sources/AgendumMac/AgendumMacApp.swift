@@ -1,16 +1,29 @@
+import AgendumAppServices
 import AgendumFeature
 import AgendumModel
+import AppKit
 import SwiftUI
 @preconcurrency import UserNotifications
 
 @main
 struct AgendumMacApp: App {
-    @State private var settingsBackendStatus = DashboardModel.live()
     private let commands = TaskDashboardCommands.standard
+    /// True if this launch had to materialize a brand-new default
+    /// `config.toml`. Drives the first-run welcome sheet exactly once: combined
+    /// with the persisted `firstRunCompletedKey`, the sheet only appears for
+    /// users whose `~/.agendum/` was genuinely empty.
+    private let didMaterializeDefaultConfig: Bool
+
+    init() {
+        self.didMaterializeDefaultConfig = OnboardingDefaults.materializeBaseConfigIfMissing()
+    }
 
     var body: some Scene {
         WindowGroup {
-            DashboardSceneRoot(commands: commands)
+            DashboardSceneRoot(
+                commands: commands,
+                shouldOfferFirstRun: didMaterializeDefaultConfig
+            )
         }
         .commands {
             DashboardMenuCommands(commands: commands)
@@ -18,7 +31,6 @@ struct AgendumMacApp: App {
 
         Settings {
             SettingsView()
-                .environment(settingsBackendStatus)
         }
     }
 }
@@ -155,9 +167,12 @@ private struct DashboardMenuCommands: Commands {
 @MainActor
 private struct DashboardSceneRoot: View {
     let commands: TaskDashboardCommands
+    let shouldOfferFirstRun: Bool
     @State private var backendStatus = DashboardModel.live()
     @State private var isShowingCreateManualTask = false
     @State private var didInitialRefresh = false
+    @State private var isShowingFirstRunSheet = false
+    @AppStorage(OnboardingDefaults.firstRunCompletedKey) private var firstRunCompleted = false
     @SceneStorage("dashboard.selectedTaskID") private var selectedTaskID: TaskItem.ID?
     @SceneStorage("dashboard.v2.sourceSelection") private var sourceSelectionRaw = TaskSource.default.rawValue
     @SceneStorage("dashboard.columnVisibility") private var columnVisibilityRaw = StoredColumnVisibility.automatic.rawValue
@@ -186,6 +201,13 @@ private struct DashboardSceneRoot: View {
             isShowingCreateManualTask: $isShowingCreateManualTask,
             selectedTask: $selectedTaskID
         )
+        .sheet(isPresented: $isShowingFirstRunSheet) {
+            FirstRunWelcomeSheet(onDismiss: {
+                firstRunCompleted = true
+                isShowingFirstRunSheet = false
+            })
+            .interactiveDismissDisabled()
+        }
         .focusedSceneValue(
             \.dashboardCommandTarget,
             DashboardCommandTarget(
@@ -200,6 +222,9 @@ private struct DashboardSceneRoot: View {
             restoreDefaultWindowStateIfNeeded()
             didInitializeSceneState = true
             backendStatus.restoreSceneState(filters: sceneFilters, selectedTaskID: selectedTaskID)
+            if shouldOfferFirstRun, !firstRunCompleted {
+                isShowingFirstRunSheet = true
+            }
             await backendStatus.refresh()
             backendStatus.setBadgeForAttentionCount()
         }
@@ -589,6 +614,15 @@ private struct TaskDashboardView: View {
                     taskListFocused = true
                 }
             }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                // Scope the auth banner to the detail pane only; pinning it
+                // above the whole NavigationSplitView lets its background
+                // bleed into the toolbar / title bar when the sidebar is
+                // open, which looks broken on macOS.
+                if shouldShowAuthBanner {
+                    GhAuthBanner(copyCommand: copyGhAuthLoginToPasteboard)
+                }
+            }
             .toolbar {
                 ToolbarItem {
                     Button {
@@ -668,6 +702,21 @@ private struct TaskDashboardView: View {
 
     private var visibleTaskIDs: [TaskItem.ID] {
         sections.flatMap { $0.tasks.map(\.id) }
+    }
+
+    private var shouldShowAuthBanner: Bool {
+        // Only after we've heard back from `gh auth status` (auth != nil).
+        // Show the banner whenever the user is not authenticated; that
+        // includes "gh CLI missing" because the actionable fix
+        // (`gh auth login`) is identical downstream once gh is installed.
+        guard let auth = backendStatus.auth else { return false }
+        return !auth.authenticated
+    }
+
+    private func copyGhAuthLoginToPasteboard() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(ghAuthLoginCommand, forType: .string)
     }
 
     private var actionSheetBinding: Binding<Bool> {
