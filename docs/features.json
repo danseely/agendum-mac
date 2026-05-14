@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project": "agendum-mac",
-  "updated_at": "2026-05-14",
+  "updated_at": "2026-05-14T18:50Z",
   "active_goal": "Industry-standards-following Swift macOS app (possibly OSS) that does what the ../agendum CLI does — viewer for my GitHub stuff — with native architecture: app-owned GRDB SQLite, no Python at runtime, Apple-canonical SwiftUI/Observation/structured-concurrency. Speed-run port per the 2026-05-09 plan revision and 2026-05-10 scope refinement.",
   "features": [
     {
@@ -163,6 +163,14 @@
       "priority": "should",
       "evidence": "Branch codex/fix-task-row-selection on feature/mac-prototype HEAD 71184cf. Replaced the per-row .simultaneousGesture(TapGesture(count: 2)) with the canonical macOS-13+ API List.contextMenu(forSelectionType: TaskItem.ID.self, menu:, primaryAction:) at the list level. primaryAction fires on double-click and Return without intercepting single-click selection because it lives on the List, not on each row. Layered four UX improvements surfaced during the 2026-05-13 live smoke: (1) modal action buttons now bind @FocusState (focusedAction) and auto-focus the first action; modal-level .onKeyPress(.return) routes Return to whichever action button has keyboard focus so Return and Space behave symmetrically (macOS reserves Return for .defaultAction by default — bordered buttons only respond to Space). (2) ↑ and ↓ on the dashboard list seed selection with the first visible task when nothing is selected so the first arrow keystroke is useful; subsequent presses fall through to List's native navigation. (3) The task list claims keyboard focus on dashboard .onAppear via @FocusState (taskListFocused), so arrows reach the list before the user explicitly clicks into it. (4) When columnVisibility changes to .detailOnly (sidebar collapsed), focus is reclaimed for the list so keyboard navigation stays alive in single-pane mode. Added a 'Dashboard Interactions (Manual)' checklist to docs/testing.md covering single-click, ↑/↓ (including no-selection seeding), Return/Space, double-click, right-click context menu, and modal keyboard contract. No unit test added: each fix is a SwiftUI / NSTableView focus + gesture composition issue not reachable from TaskWorkflowModel. Manual smoke against the user's real workspace passed on 2026-05-13 across all six interaction classes.",
       "notes": "PR #62 squash-merged into feature/mac-prototype on 2026-05-14 as `665b48d` after two adversarial review passes. Issue #61 closed. Manual smoke against the user's real workspace passed across all six interaction classes (single-click select; ↑/↓ tracking including no-selection seed; Return/Space/double-click/right-click context menu all open the action modal; modal Return + Space fire the focused action button; focus reclaimed after sidebar collapse)."
+    },
+    {
+      "id": "app-icon",
+      "title": "Ship v0 app icon in the bundled .app",
+      "status": "passed",
+      "priority": "should",
+      "evidence": "PR #66 squash-merged into feature/mac-prototype as `e126bf9` on 2026-05-14. Drops `Resources/AppIcon.icns` (all 10 modern OSType chunks present: ic04/05/07/08/09/10/11/12/13/14, covering 16/32/128/256/512 @1x/@2x plus 1024×1024 ic10) plus `AppIcon-1024.png` and `AppIcon.appiconset/` as the icon source of truth; `Scripts/build_app_bundle.sh` copies the icns into `Contents/Resources/AppIcon.icns` and fails fast if the source asset is missing; `Sources/AgendumMac/Info.plist.template` declares `CFBundleIconFile=AppIcon` (canonical legacy path; macOS resolves both `AppIcon` and `AppIcon.icns`). Local validation: `bash Scripts/build_app_bundle.sh` clean (build 70); built `.build/Agendum.app/Contents/Resources/AppIcon.icns` present at 673684 bytes; `PlistBuddy -c \"Print :CFBundleIconFile\"` resolves to `AppIcon`; `open .build/Agendum.app` launched with the new icon rendered in the Dock. GitHub Actions Test passed on PR #66 head. Reviewer audit pass (✅ on icns content, plist wiring, build script, repo layout, built bundle, DMG flow; ⚠ Tahoe Icon Composer flagged as follow-up only) reported clean.",
+      "notes": "Repo-size impact ~1 MB binaries, no LFS needed. `Resources/AppIcon.appiconset/` is currently dead weight from the build script's perspective — kept as source of truth for re-rolling the icns and as a future Icon Composer/Xcode ingestion point. Tahoe (macOS 26+) Icon Composer + `CFBundleIconName` + compiled `Assets.car` follow-up filed as issue #67 (post-MVP polish, not urgent — current `LSMinimumSystemVersion=14.0` keeps the legacy `.icns` path correct for our shipping target)."
     },
     {
       "id": "app-packaging-release",
