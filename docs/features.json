@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project": "agendum-mac",
-  "updated_at": "2026-05-13",
+  "updated_at": "2026-05-14",
   "active_goal": "Industry-standards-following Swift macOS app (possibly OSS) that does what the ../agendum CLI does — viewer for my GitHub stuff — with native architecture: app-owned GRDB SQLite, no Python at runtime, Apple-canonical SwiftUI/Observation/structured-concurrency. Speed-run port per the 2026-05-09 plan revision and 2026-05-10 scope refinement.",
   "features": [
     {
@@ -135,10 +135,10 @@
     {
       "id": "speed-run-s5-onboarding",
       "title": "S5: Onboarding & first-run polish",
-      "status": "in_progress",
+      "status": "passed",
       "priority": "must",
       "evidence": "PR #63 from codex/s5-onboarding-polish against feature/mac-prototype on 2026-05-13. Implements (1) WorkspaceConfig.materializeDefaultIfMissing + WorkspaceConfig.save (engine APIs; .save is preserved as future-proofed dead code for now, no UI consumer) with four new WorkspaceConfigTests (96 sync tests total); (2) gh auth unauthenticated banner pinned above the dashboard via safeAreaInset, with copy-to-clipboard button for the literal 'gh auth login' command — auto-dismisses when DashboardModel.auth.authenticated flips true; (3) one-shot first-run welcome sheet gated on @AppStorage('agendum.firstRunCompleted'), triggered only when AgendumMacApp.init had to materialize a brand-new base config.toml; welcome copy points users at the sidebar workspace switcher + the gh auth login command. The Settings UI (Workspace tab) was deliberately dropped at user request during 2026-05-13 smoke — org scoping is handled by the sidebar workspace switcher, and the user did not want a settings editor for orgs/repos/interval/seen_delay at this stage. The existing pre-S5 Diagnostics Settings panel stays untouched. Manual smoke against the user's real workspace, 2026-05-13: Test 1 (fresh first-run) PASSED — welcome sheet appeared on launch after `rm ~/.agendum/config.toml && defaults delete com.danseely.agendum-mac agendum.firstRunCompleted`; default config.toml materialized to disk with orgs=[]/repos=[]/exclude_repos=[]/interval=120/seen_delay=3.",
-      "notes": "Status stays in_progress until the remaining smoke flows pass: Test 2 (gh auth unauthenticated banner appearance + copy-to-clipboard) and Test 3 (banner auto-dismiss after gh auth login). Settings round-trip test from the original plan is no longer applicable — Settings UI was dropped. Outstanding work: finish the auth-banner smoke flows; flip status to passed with appended evidence."
+      "notes": "PR #63 squash-merged into feature/mac-prototype on 2026-05-14 as `461ad9f` after a fresh adversarial review pass and conflict-resolving rebase against the post-#62 base. All three live smoke flows passed on 2026-05-13 / 14: fresh first-run materialization + welcome sheet; gh-auth banner appearance + copy-to-clipboard; banner clears on Refresh (and on Sync via the conditional auth re-fetch in DashboardModel.forceSync). Settings UI was scope-cut during smoke."
     },
     {
       "id": "c1-store-schema",
@@ -159,10 +159,10 @@
     {
       "id": "fix-task-row-selection",
       "title": "Restore single-click task row selection (issue #61)",
-      "status": "in_progress",
+      "status": "passed",
       "priority": "should",
       "evidence": "Branch codex/fix-task-row-selection on feature/mac-prototype HEAD 71184cf. Replaced the per-row .simultaneousGesture(TapGesture(count: 2)) with the canonical macOS-13+ API List.contextMenu(forSelectionType: TaskItem.ID.self, menu:, primaryAction:) at the list level. primaryAction fires on double-click and Return without intercepting single-click selection because it lives on the List, not on each row. Layered four UX improvements surfaced during the 2026-05-13 live smoke: (1) modal action buttons now bind @FocusState (focusedAction) and auto-focus the first action; modal-level .onKeyPress(.return) routes Return to whichever action button has keyboard focus so Return and Space behave symmetrically (macOS reserves Return for .defaultAction by default — bordered buttons only respond to Space). (2) ↑ and ↓ on the dashboard list seed selection with the first visible task when nothing is selected so the first arrow keystroke is useful; subsequent presses fall through to List's native navigation. (3) The task list claims keyboard focus on dashboard .onAppear via @FocusState (taskListFocused), so arrows reach the list before the user explicitly clicks into it. (4) When columnVisibility changes to .detailOnly (sidebar collapsed), focus is reclaimed for the list so keyboard navigation stays alive in single-pane mode. Added a 'Dashboard Interactions (Manual)' checklist to docs/testing.md covering single-click, ↑/↓ (including no-selection seeding), Return/Space, double-click, right-click context menu, and modal keyboard contract. No unit test added: each fix is a SwiftUI / NSTableView focus + gesture composition issue not reachable from TaskWorkflowModel. Manual smoke against the user's real workspace passed on 2026-05-13 across all six interaction classes.",
-      "notes": "Pending: PR #62 merge. Manual smoke flows all green on 2026-05-13 against the user's real workspace: single-click selects + highlights; ↑/↓ tracks selection; Return / Space / double-click / right-click → 'Open actions…' all open the action modal; modal Return + Space activate the focused action button; ↑/↓ with no current selection seeds the top row (works after clicking below the list to deselect AND after hiding the sidebar — focus is reclaimed automatically). Flip to passed after PR #62 merges into feature/mac-prototype."
+      "notes": "PR #62 squash-merged into feature/mac-prototype on 2026-05-14 as `665b48d` after two adversarial review passes. Issue #61 closed. Manual smoke against the user's real workspace passed across all six interaction classes (single-click select; ↑/↓ tracking including no-selection seed; Return/Space/double-click/right-click context menu all open the action modal; modal Return + Space fire the focused action button; focus reclaimed after sidebar collapse)."
     }
   ]
 }
