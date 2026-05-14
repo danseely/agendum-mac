@@ -1,0 +1,88 @@
+{
+  "data": {
+    "repository": {
+      "isArchived": false,
+      "openIssues": {
+        "nodes": [
+          {
+            "number": 42,
+            "title": "Bug: nav drawer flickers",
+            "url": "https://github.com/acme/widget/issues/42",
+            "state": "OPEN",
+            "createdAt": "2026-05-01T10:00:00Z",
+            "labels": { "nodes": [{"name": "bug"}, {"name": "ui"}] },
+            "timelineItems": {
+              "nodes": [
+                {"subject": {"url": "https://github.com/acme/widget/pull/99"}}
+              ]
+            }
+          }
+        ]
+      },
+      "closedIssues": {
+        "nodes": [
+          {"number": 30, "url": "https://github.com/acme/widget/issues/30", "state": "CLOSED"}
+        ]
+      },
+      "authoredPRs": {
+        "nodes": [
+          {
+            "number": 99,
+            "title": "Fix nav drawer flicker",
+            "url": "https://github.com/acme/widget/pull/99",
+            "state": "OPEN",
+            "isDraft": false,
+            "createdAt": "2026-05-05T12:00:00Z",
+            "headRefName": "fix-nav-drawer",
+            "author": {"login": "danseely"},
+            "reviewDecision": null,
+            "reviewRequests": {"totalCount": 2},
+            "commits": {
+              "nodes": [
+                {"commit": {"committedDate": "2026-05-06T09:30:00Z"}}
+              ]
+            },
+            "reviews": {
+              "nodes": [
+                {
+                  "id": "REVIEW_1",
+                  "state": "COMMENTED",
+                  "submittedAt": "2026-05-05T15:00:00Z",
+                  "author": {"login": "octocat"}
+                }
+              ]
+            },
+            "reviewThreads": {
+              "nodes": [
+                {
+                  "isResolved": false,
+                  "isOutdated": false,
+                  "comments": {
+                    "nodes": [
+                      {
+                        "createdAt": "2026-05-05T15:00:00Z",
+                        "pullRequestReview": {"id": "REVIEW_1"},
+                        "author": {"login": "octocat"}
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "labels": {"nodes": [{"name": "frontend"}]}
+          }
+        ]
+      },
+      "mergedPRs": {
+        "nodes": [
+          {"number": 88, "url": "https://github.com/acme/widget/pull/88", "state": "MERGED", "author": {"login": "danseely"}}
+        ]
+      },
+      "closedPRs": {
+        "nodes": [
+          {"number": 77, "url": "https://github.com/acme/widget/pull/77", "state": "CLOSED", "author": {"login": "danseely"}}
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,184 @@
+{
+  "version": 1,
+  "project": "agendum-mac",
+  "updated_at": "2026-05-14T18:50Z",
+  "active_goal": "Industry-standards-following Swift macOS app (possibly OSS) that does what the ../agendum CLI does — viewer for my GitHub stuff — with native architecture: app-owned GRDB SQLite, no Python at runtime, Apple-canonical SwiftUI/Observation/structured-concurrency. Speed-run port per the 2026-05-09 plan revision and 2026-05-10 scope refinement.",
+  "features": [
+    {
+      "id": "a1-observable",
+      "title": "Migrate BackendStatusModel to @Observable",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #27 merged via PR #28 into feature/mac-prototype on 2026-05-03; validation recorded in docs/status.md.",
+      "notes": "Part of architecture modernization epic #24."
+    },
+    {
+      "id": "a2-os-logger",
+      "title": "Adopt os.Logger across Swift targets",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #29 merged via PR #30 into feature/mac-prototype on 2026-05-04; validation recorded in docs/status.md.",
+      "notes": "Subsystem com.danseely.agendum-mac with backend/workflow/ui categories."
+    },
+    {
+      "id": "b1-vendor-engine",
+      "title": "Fork and vendor Python engine into Backend/agendum_engine",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #31 merged via PR #32 into feature/mac-prototype on 2026-05-05; sibling-isolation validation recorded in docs/status.md.",
+      "notes": "Retired sibling-checkout dependency."
+    },
+    {
+      "id": "b2-status-derivation",
+      "title": "Shadow-port pure GitHub status derivation to Swift with parity fixtures",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #33 merged via PR #34 into feature/mac-prototype on 2026-05-06; shared Python/Swift parity fixtures added.",
+      "notes": "Runtime dispatch remains Python until later backend-engine slices consume Swift implementation."
+    },
+    {
+      "id": "a4-platform-seams",
+      "title": "Move AppKit and UserNotifications default seams into executable target",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #35 merged via PR #36 into feature/mac-prototype on 2026-05-06; A4 validation recorded in docs/status.md.",
+      "notes": "Feature target keeps pure closure seams and test-safe defaults."
+    },
+    {
+      "id": "a5-module-rename",
+      "title": "Rename AgendumMacCore to AgendumBackend and AgendumMacWorkflow to AgendumFeature",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #37 closed as completed; PR #38 merged into feature/mac-prototype on 2026-05-07 as squash commit 6f6d388. Local validation passed: swift build, swift test --enable-code-coverage, Python unittest discover, Python coverage 499/540 lines (92.4%), swift run smoke, strict build-surface stale grep, docs audit, jq, and git diff --check. GitHub Actions Test passed on PR #38.",
+      "notes": "Type names stayed unchanged."
+    },
+    {
+      "id": "a3-scene-storage",
+      "title": "Persist selection, sidebar visibility, and filter state with @SceneStorage",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #40 closed as completed; PR #41 merged into feature/mac-prototype on 2026-05-08 as squash commit 0650976. Local validation passed: swift build, swift test --enable-code-coverage (121 XCTest tests plus 7 Swift Testing tests), Python unittest discover (68 tests), Python coverage 499/540 lines (92.4%), swift run startup smoke, jq, git diff --check. GitHub Actions Test passed on PR #41. Manual bundle smoke found and fixed sidebar selection and filter/source/page-size persistence across launches; adversarial follow-up fixed fallback overwrite risk for restored default scenes.",
+      "notes": "Residual split-view column-width persistence is layout polish, not A3 state-restoration scope."
+    },
+    {
+      "id": "a-visual-list-dashboard",
+      "title": "Realign Mac dashboard around terminal-style sectioned task list",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #42 closed as completed; PR #43 merged into feature/mac-prototype on 2026-05-08 as squash commit d516b86. Local implementation on codex/visual-layout-direction passed: swift build; swift build --target AgendumMac; swift test --filter AgendumFeatureTests.TaskWorkflowModelTests (111 XCTest tests before review fix); swift test --enable-code-coverage (126 XCTest tests plus 7 Swift Testing tests before review fix); Python unittest discover (68 tests); Python coverage 499/540 lines (92.4%); Scripts/build_app_bundle.sh; bundle existence/executable checks; plutil -lint; swift run AgendumMac launch smoke; jq; git diff --check. PR review fix for stale hidden-task selection/action targeting passed: swift build --target AgendumMac; focused visible-section lookup test; swift test --enable-code-coverage (127 XCTest tests plus 7 Swift Testing tests); git diff --check. Adversarial F1 repo fallback fix passed: swift test --filter TaskWorkflowModelTests (114 XCTest tests); swift build --target AgendumMac; git diff --check. GitHub Actions Test passed on PR #43 merge head.",
+      "notes": "Default source is All; Issues and Manual are separate sections; task actions are in a focused sheet opened from the selected row; status/section colors mirror ../agendum/src/agendum/widgets.py."
+    },
+    {
+      "id": "c2-task-store",
+      "title": "TaskStore actor + TaskStoreProviding protocol seam",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #48 closed; PR #49 merged into feature/mac-prototype on 2026-05-09 as squash commit b33e8d6 after four adversarial review passes. Final validation: swift build; swift test --enable-code-coverage (129 XCTest + 36 Swift Testing tests, 18 of which are TaskStoreTests); Python unittest 68 tests; swift run smoke; git diff --check; GitHub Actions Test passed (1m33s). Review fixes across four passes: Task leak in observe fixed via onTermination cancellation; markSeen sets seen + last_seen_at + updated_at to match Python update_task; sort order changed to seen ASC, updated_at DESC, id DESC to match Python get_active_tasks; limit clamped to 1..200; terminal statuses (merged/closed/done) excluded by default; timestamps emitted in Python-compatible yyyy-MM-dd'T'HH:mm:ss.SSSSSS+00:00 format so Swift- and Python-written rows sort lexicographically together.",
+      "notes": "Foundation for the speed-run port. S1 will route BackendStatusModel directly through TaskStore for reads/mutations/manual create."
+    },
+    {
+      "id": "c3-store-reads",
+      "title": "Wire dashboard reads through TaskStoreProviding (old plan)",
+      "status": "dropped",
+      "priority": "must",
+      "evidence": "Superseded by 2026-05-09 speed-run plan revision. C3 was the bridge slice that assumed Python sync would keep writing to SQLite while Swift took over reads — that requires a Python-process observation strategy (IPC vs file-system watcher vs polling) which is non-trivial plumbing. The speed-run plan tears Python out wholesale, so the bridge is never built. Equivalent app-side wiring is folded into S1.",
+      "notes": "Tracked replacement: speed-run-port S1."
+    },
+    {
+      "id": "c-native-store",
+      "title": "Add native GRDB-backed data store",
+      "status": "in_progress",
+      "priority": "must",
+      "evidence": "C1 (PR #45, c9cebde) and C2 (PR #49, b33e8d6) merged into feature/mac-prototype. C3/C4 (dashboard reads + mutations) folded into speed-run S1. C5 (Application Support relocation) deferred to post-MVP per the 2026-05-09 plan revision.",
+      "notes": "Tracked by epic #26 (body to be updated to reflect speed-run sequence)."
+    },
+    {
+      "id": "speed-run-port",
+      "title": "Speed-run port: tear Python out, ship MVP viewer (industry-standards Mac app)",
+      "status": "in_progress",
+      "priority": "must",
+      "evidence": "Captured in 2026-05-09 plan revision and 2026-05-10 scope refinement. Sequence: S0 (write docs/syncer-spec.md), S1 (BackendStatusModel direct → TaskStore), S2 (URLSession transport + concurrent-fetch helper), S3+S4 merged (faithful syncer port minus /notifications overlay + module reshape + helper bridge deletion = MVP gate), S5 (onboarding & first-run polish). Source of truth: ../agendum/src/agendum/ (original CLI), NOT Backend/agendum_engine/ (vendored fork that doubled with mac-specific complexity). North star: industry-standards-following Mac app, possibly OSS — opportunistic refactoring is in-scope through MVP.",
+      "notes": "Deferred to post-MVP: B4 (native OAuth, keep gh CLI dep through MVP), C5 (DB relocation), A6 (polish), filesystem deletion of Backend/agendum_engine/, OSS-readiness (LICENSE, README, contributor guide). Multi-workspace UI stays for MVP per 2026-05-10 (user actively switches workspaces)."
+    },
+    {
+      "id": "speed-run-s0-syncer-spec",
+      "title": "S0: Write docs/syncer-spec.md from ../agendum/ source",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "PR #53 squash-merged into feature/mac-prototype as 8d6b329 on 2026-05-09. 416 LOC + 22 LOC review fixes. Adversarial review surfaced 4 critical findings (C1 race-update field set, C2 idempotency wording, C3 to_update mutation note, M6 asymmetric URL rewriting in notification overlay) plus 5 major findings (M1-M5: author filter callout, qualifying_reviews state semantics, defensive timeline access, close-eligibility ordering, status/title unconditional comparison). All fixed in-spec; new parity-test fixture cases added in §9.",
+      "notes": "Behavior contract for the syncer port. Source of truth is ../agendum/src/agendum/, NOT Backend/agendum_engine/."
+    },
+    {
+      "id": "speed-run-s1-app-store",
+      "title": "S1: BackendStatusModel direct → TaskStore (subsumes old C3+C4+B3-app)",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #54 closed; PR #55 squash-merged into feature/mac-prototype as ffad547 on 2026-05-10 after a two-pass adversarial review. Final validation: swift build clean; swift test --enable-code-coverage (130 XCTest + 53 Swift Testing); Python unittest 68 tests; swift run smoke; git diff --check; GitHub Actions Test passed (2m4s). Changes: TaskStore.init(path:) → DatabasePool with WAL config; new TaskStore methods updateTaskStatus/removeTask/createManualTask/searchTasks; TaskStoreProviding gains the four new methods; BackendStatusModel gets a TaskStoreFactory and lazy requireStore(); helper still owns auth/sync/workspace/diagnostics. Round-1 fixes: parent dir creation + chmod 0o600 (matches Python init_db); searchTasks haystack at TaskRecord level (gh_repo/tags/gh_url/gh_author_name now searchable); friendly storeNotReady error mapping. Round-2 fixes: searchTasks candidate set unbounded (was capped at 200, would silently miss matches in large workspaces); perTaskAvailable now gated on isLoading (closes the workspace-switch race); tags JSON-fallback matches Python _normalize_tags for non-array values.",
+      "notes": "Helper still owns auth/sync/workspace/diagnostics until S3. Deferred residuals: C1 (MainActor blocking on first lazy store init — needs cold-start benchmark), M1/M3/M4/M6."
+    },
+    {
+      "id": "speed-run-s2-github-transport",
+      "title": "S2: Native GitHub transport (URLSession + concurrent-fetch)",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "PR #57 squash-merged into feature/mac-prototype as 77feb8d on 2026-05-11 after two adversarial review cycles. New AgendumGitHub module: GitHubClient actor + GhCLITokenProvider + AsyncSemaphore + Codable response types + the two GraphQL queries copied verbatim from ../agendum/src/agendum/gh.py. Cycle-1 fixes (3 critical, 6 major): AsyncSemaphore cancellation leak (withTaskCancellationHandler + UUID-keyed waiters); GHNodes/GHCommits null→empty decode; AnyEncodable+RawJSON replaced with typed GraphQLVariable enum (Bool-dispatch + nested-value bugs eliminated); discoverReviewPRs `ok` semantics aligned with Python (empty results keep ok=true; only caught transport errors flip false); partial-success errors surfaced via (data, partialErrors) tuple; gh subprocess 10s deadline via runProcessWithDeadline + TimeoutWatchdog; 429 / 403+Retry-After surface as .rateLimited; 401 retry replays POST body. Cycle-2: zero critical/major findings → early exit. Final validation: swift build; swift test (130 XCTest + 81 Swift Testing, 28 in AgendumGitHubTests); Python unittest 68 tests; swift run smoke; git diff --check; GitHub Actions Test passed (3m2s). Follow-up on codex/s3-s4-app-cutover addressed deferred minors R2-1/R2-2/R2-3/R2-5/R2-6/R2-7/R2-8 with focused AgendumGitHubTests coverage.",
+      "notes": "Only R2-4 POST redirect handling remains deferred from the S2 minor list. See docs/project-state.md §'S2 Deferred Minors'."
+    },
+    {
+      "id": "speed-run-s3-s4-sync-and-cutover",
+      "title": "S3+S4: Swift sync engine + cutover + module reshape (MVP gate)",
+      "status": "in_progress",
+      "priority": "must",
+      "evidence": "PR #58 foundation checkpoint merges codex/s3-s4-sync-and-cutover into feature/mac-prototype with implemented checkpoints: ef4da01 (module setup + diff_tasks port + B2 module move), 8542c3b (ResponseMapping +16 tests), 73aa675 (ApplyDiff +16 tests), 5764f83 (RepoFetcher +11 tests), 3725f23 + review fixes (ReviewFetcher +11 tests; adversarial loop fixed API Search URL fallback and no-org defensive reviewFetchOK=false), 2026-05-12 full PR review fixes (tri-state UpdatePatch/changedColumns for SQL NULL writes; open PR/issue empty-label mappings now keep tags present to clear stale labels), and CI coverage-build fix. PR #59 merged codex/s3-s4-workspace-config into feature/mac-prototype as b1c5d3e with WorkspaceConfig.swift and 14 WorkspaceConfigTests, SyncEngine.swift and 8 SyncEngineTests, and pre-cutover review fixes: AgendumModel target split so AgendumSync no longer depends on AgendumFeature, namespace config seeding parity, current-user auth throw normalization, and real TaskStore idempotency/timestamp preservation. PR #60 (ready-for-review on 2026-05-13) from codex/s3-s4-app-cutover to feature/mac-prototype implements the helper-free app runtime and module reshape: new AgendumAppServices target composes NativeDashboardService; DashboardModel.forceSync reaches SyncEngine; workspace/auth/sync status are native Swift; AgendumBackend target, AgendumBackendClient, BackendClientError, AgendumTask, Backend/agendum_backend_helper.py, Backend/agendum_backend/helper.py, and helper Swift/Python tests are removed from Sources/Tests/Package.swift. Follow-up fixes make Workspace.dbPath/configPath real absolute paths for TaskStore, not display-style ~/ paths, harden AgendumGitHub transport per the S2 minor list, remove the obsolete helper coverage script/CI step, record thrown native sync startup failures as retryable sync errors, propagate thrown native sync error state through DashboardModel.forceSync, and add CI gates for docs/features.json plus stale helper/runtime references. Validation passed after cycle-2 fixes: swift build; swift test --filter AgendumAppServicesTests (5 XCTest); swift test --filter AgendumGitHubTests (38 Swift Testing); swift test --filter AgendumFeatureTests (109 XCTest plus 6 Swift Testing); swift test --filter AgendumFeatureTests.TaskWorkflowModelTests/testForceSyncThrownFailureRefreshesSyncErrorState; swift test --enable-code-coverage (115 XCTest plus 177 Swift Testing tests in 14 suites); Python unittest discover (7 parity tests); Scripts/build_app_bundle.sh (0.1.0+dev build 65); jq empty docs/features.json; git diff --check; stale helper/runtime grep returned no matches in Sources Tests Package.swift; stale helper coverage grep returned no matches in .github Scripts docs/testing.md Package.swift Sources Tests. PR #60 GitHub Actions Test passed after cycle-1 fixes (2m33s) and after cycle-2 fixes (2m29s and a later 3m07s run at head 46d1d47). 2026-05-13 live-workspace smoke (Scripts/build_app_bundle.sh build, `open .build/Agendum.app`, real ~/.agendum workspace): auth label rendered the user's account; force-sync transitioned idle->running->idle and re-enabled UI; `ps -ef | grep agendum` confirmed zero Mac-app-spawned Python (only unrelated agendum-mcp daemons from sibling repo); idempotent second sync produced no churn; the only finding was a pre-existing single-click selection bug in Sources/AgendumMac/AgendumMacApp.swift introduced by commit d516b86 (well before PR #60) and filed as issue #61. MVP gate (zero Python in-process in the running app) achieved.",
+      "notes": "PR #60 marked ready-for-review on 2026-05-13. S3+S4 stays in_progress until merged on explicit user instruction; then mark passed and start S5. Issue #61 (task row single-click selection) is post-MVP polish and does not block this PR."
+    },
+    {
+      "id": "speed-run-s5-onboarding",
+      "title": "S5: Onboarding & first-run polish",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "PR #63 from codex/s5-onboarding-polish against feature/mac-prototype on 2026-05-13. Implements (1) WorkspaceConfig.materializeDefaultIfMissing + WorkspaceConfig.save (engine APIs; .save is preserved as future-proofed dead code for now, no UI consumer) with four new WorkspaceConfigTests (96 sync tests total); (2) gh auth unauthenticated banner pinned above the dashboard via safeAreaInset, with copy-to-clipboard button for the literal 'gh auth login' command — auto-dismisses when DashboardModel.auth.authenticated flips true; (3) one-shot first-run welcome sheet gated on @AppStorage('agendum.firstRunCompleted'), triggered only when AgendumMacApp.init had to materialize a brand-new base config.toml; welcome copy points users at the sidebar workspace switcher + the gh auth login command. The Settings UI (Workspace tab) was deliberately dropped at user request during 2026-05-13 smoke — org scoping is handled by the sidebar workspace switcher, and the user did not want a settings editor for orgs/repos/interval/seen_delay at this stage. The existing pre-S5 Diagnostics Settings panel stays untouched. Manual smoke against the user's real workspace, 2026-05-13: Test 1 (fresh first-run) PASSED — welcome sheet appeared on launch after `rm ~/.agendum/config.toml && defaults delete com.danseely.agendum-mac agendum.firstRunCompleted`; default config.toml materialized to disk with orgs=[]/repos=[]/exclude_repos=[]/interval=120/seen_delay=3.",
+      "notes": "PR #63 squash-merged into feature/mac-prototype on 2026-05-14 as `461ad9f` after a fresh adversarial review pass and conflict-resolving rebase against the post-#62 base. All three live smoke flows passed on 2026-05-13 / 14: fresh first-run materialization + welcome sheet; gh-auth banner appearance + copy-to-clipboard; banner clears on Refresh (and on Sync via the conditional auth re-fetch in DashboardModel.forceSync). Settings UI was scope-cut during smoke."
+    },
+    {
+      "id": "c1-store-schema",
+      "title": "Add AgendumMacStore target on GRDB with TaskRecord schema",
+      "status": "passed",
+      "priority": "must",
+      "evidence": "Issue #44 completed by PR #45, merged into feature/mac-prototype as squash commit c9cebde. Local branch codex/c1-grdb-store-schema added Package.swift GRDB dependency resolved to 7.10.0, Package.resolved, Sources/AgendumMacStore/Schema.swift, and Tests/AgendumMacStoreTests/TaskRecordTests.swift. Validation passed: swift build; swift test --filter AgendumMacStoreTests; swift test --enable-code-coverage; swift run AgendumMac launch smoke; jq; git diff --check; GitHub Actions Test passed on PR #45. Adversarial review fixes added legacy gh_node_id column migration coverage, stronger schema/index tests, non-optional timestamp construction, a persistence guard against writing nil required timestamps, nullable seen reads, and repeatable active-status cleanup.",
+      "notes": "No runtime dashboard wiring. C2 must use DatabaseSchema.prepare(_:) and cover nullable seen / nullable legacy timestamps in record-to-domain mapping tests."
+    },
+    {
+      "id": "b-python-zero",
+      "title": "Remove Python helper runtime and replace backend engine with Swift services",
+      "status": "in_progress",
+      "priority": "must",
+      "evidence": "B1 (vendor) and B2 (status-derivation port + parity fixtures) merged. Remaining work folded into the 2026-05-09 speed-run plan: S1 subsumes app-side helper command paths and most of B3; S2 subsumes GitHub transport (preparatory for old B5); S3 subsumes the syncer port (most of old B5); S4 subsumes B6 (delete the bridge). B4 (native OAuth) deferred to post-MVP.",
+      "notes": "Tracked by epic #25 (body to be updated to reflect speed-run sequence)."
+    },
+    {
+      "id": "fix-task-row-selection",
+      "title": "Restore single-click task row selection (issue #61)",
+      "status": "passed",
+      "priority": "should",
+      "evidence": "Branch codex/fix-task-row-selection on feature/mac-prototype HEAD 71184cf. Replaced the per-row .simultaneousGesture(TapGesture(count: 2)) with the canonical macOS-13+ API List.contextMenu(forSelectionType: TaskItem.ID.self, menu:, primaryAction:) at the list level. primaryAction fires on double-click and Return without intercepting single-click selection because it lives on the List, not on each row. Layered four UX improvements surfaced during the 2026-05-13 live smoke: (1) modal action buttons now bind @FocusState (focusedAction) and auto-focus the first action; modal-level .onKeyPress(.return) routes Return to whichever action button has keyboard focus so Return and Space behave symmetrically (macOS reserves Return for .defaultAction by default — bordered buttons only respond to Space). (2) ↑ and ↓ on the dashboard list seed selection with the first visible task when nothing is selected so the first arrow keystroke is useful; subsequent presses fall through to List's native navigation. (3) The task list claims keyboard focus on dashboard .onAppear via @FocusState (taskListFocused), so arrows reach the list before the user explicitly clicks into it. (4) When columnVisibility changes to .detailOnly (sidebar collapsed), focus is reclaimed for the list so keyboard navigation stays alive in single-pane mode. Added a 'Dashboard Interactions (Manual)' checklist to docs/testing.md covering single-click, ↑/↓ (including no-selection seeding), Return/Space, double-click, right-click context menu, and modal keyboard contract. No unit test added: each fix is a SwiftUI / NSTableView focus + gesture composition issue not reachable from TaskWorkflowModel. Manual smoke against the user's real workspace passed on 2026-05-13 across all six interaction classes.",
+      "notes": "PR #62 squash-merged into feature/mac-prototype on 2026-05-14 as `665b48d` after two adversarial review passes. Issue #61 closed. Manual smoke against the user's real workspace passed across all six interaction classes (single-click select; ↑/↓ tracking including no-selection seed; Return/Space/double-click/right-click context menu all open the action modal; modal Return + Space fire the focused action button; focus reclaimed after sidebar collapse)."
+    },
+    {
+      "id": "app-icon",
+      "title": "Ship v0 app icon in the bundled .app",
+      "status": "passed",
+      "priority": "should",
+      "evidence": "PR #66 squash-merged into feature/mac-prototype as `e126bf9` on 2026-05-14. Drops `Resources/AppIcon.icns` (all 10 modern OSType chunks present: ic04/05/07/08/09/10/11/12/13/14, covering 16/32/128/256/512 @1x/@2x plus 1024×1024 ic10) plus `AppIcon-1024.png` and `AppIcon.appiconset/` as the icon source of truth; `Scripts/build_app_bundle.sh` copies the icns into `Contents/Resources/AppIcon.icns` and fails fast if the source asset is missing; `Sources/AgendumMac/Info.plist.template` declares `CFBundleIconFile=AppIcon` (canonical legacy path; macOS resolves both `AppIcon` and `AppIcon.icns`). Local validation: `bash Scripts/build_app_bundle.sh` clean (build 70); built `.build/Agendum.app/Contents/Resources/AppIcon.icns` present at 673684 bytes; `PlistBuddy -c \"Print :CFBundleIconFile\"` resolves to `AppIcon`; `open .build/Agendum.app` launched with the new icon rendered in the Dock. GitHub Actions Test passed on PR #66 head. Reviewer audit pass (✅ on icns content, plist wiring, build script, repo layout, built bundle, DMG flow; ⚠ Tahoe Icon Composer flagged as follow-up only) reported clean.",
+      "notes": "Repo-size impact ~1 MB binaries, no LFS needed. `Resources/AppIcon.appiconset/` is currently dead weight from the build script's perspective — kept as source of truth for re-rolling the icns and as a future Icon Composer/Xcode ingestion point. Tahoe (macOS 26+) Icon Composer + `CFBundleIconName` + compiled `Assets.car` follow-up filed as issue #67 (post-MVP polish, not urgent — current `LSMinimumSystemVersion=14.0` keeps the legacy `.icns` path correct for our shipping target)."
+    },
+    {
+      "id": "app-packaging-release",
+      "title": "Package the app into a DMG and ship via GitHub Releases on main pushes",
+      "status": "in_progress",
+      "priority": "should",
+      "evidence": "Branch codex/app-packaging-release off feature/mac-prototype HEAD 326cf47. Adds Scripts/build_dmg.sh (hdiutil UDZO compressed DMG built from .build/Agendum.app with a drag-target /Applications symlink, version pulled from CFBundleShortVersionString, sidecar Agendum-<version>.dmg.sha256, trap-based staging-dir cleanup on every exit), Scripts/verify_dmg.sh (mount, SHA256 match, .app + /Applications symlink presence, Info.plist plutil lint, CFBundleExecutable executable bit, trap-based cleanup using resolved /private/tmp path to handle macOS symlink), and .github/workflows/release.yml (runs-on macos-14 pinned, fetch-depth 0 for git describe, swift build/test, python parity, build app bundle, build DMG, verify DMG, actions/upload-artifact safety net for the DMG + .sha256 before release, gh release create --prerelease against the v0.1.0-dev.<short-sha> tag pinned to the exact GITHUB_SHA (not the main branch ref) with the DMG + .sha256 attached, idempotent on re-run, concurrency group release-main, set -euo pipefail consistent across all run blocks). Code signing, notarization, and hardened runtime deliberately deferred to a later slice when audience widens; release notes document the right-click-Open / xattr -dr com.apple.quarantine workaround. Local validation passed (two runs through after adversarial review fixes): swift build -c release; Scripts/build_app_bundle.sh produced .build/Agendum.app version 0.1.0+dev (build 68 then 69); Scripts/build_dmg.sh produced .build/Agendum-0.1.0+dev.dmg (2.6 MB) + sidecar SHA256; Scripts/verify_dmg.sh all checks pass; staging dir is reaped between runs; manual smoke launched the app from the DMG-mounted location via `open <mount>/Agendum.app` to confirm the staged binary boots; mount/unmount left no leftover state. Two bugs fixed during local smoke / review: (a) the verify script's cleanup trap initially checked the /tmp path but macOS reports mounts at /private/tmp, fixed by resolving with `pwd -P` and always attempting detach; (b) the release create initially passed `--target main` which could re-resolve to a moved branch ref between checkout and release, fixed by pinning to GITHUB_SHA. Adversarial review pass closed four review-recommended changes (artifact safety net, macos-14 runner pin, staging trap, GITHUB_SHA pin) plus nit-level consistency cleanups.",
+      "notes": "PR pending. Workflow targets main but main is still README-only — the release workflow won't actually fire until feature/mac-prototype is graduated to main (PR #2). Once that happens, every push to main produces a prerelease at v0.1.0-dev.<short-sha>. Flip to passed after PR merges into feature/mac-prototype AND the first end-to-end CI release succeeds (the latter requires main graduation)."
+    }
+  ]
+}
