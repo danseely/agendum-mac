@@ -14,7 +14,7 @@ Agendum is a personal-use tool for one developer's daily GitHub workflow. It is 
 
 - Working software, used daily by its author.
 - Personal-use prototype. Ad-hoc signed but not Developer-ID signed or notarized. No telemetry, no auto-update.
-- No `LICENSE` file yet. Open-source readiness (license, contribution guide, signed builds) is a follow-up, not a promise.
+- Licensed under [Apache-2.0](LICENSE). Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 - Born as a Swift-native rewrite of a sibling Python terminal CLI. The Mac app stands on its own — no Python, no helper process, no sibling checkout at runtime.
 
 ## Requirements
@@ -149,5 +149,10 @@ Builds are ad-hoc signed in the build script but not Developer-ID signed or nota
 
 ## Further reading
 
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — branch conventions, validation gates, and how to send a PR.
 - [`docs/project-state.md`](docs/project-state.md) — current planning state and what's in flight.
 - [`docs/syncer-spec.md`](docs/syncer-spec.md) — behavior contract for the sync engine. If syncer behavior surprises you, this is the source of truth.
+
+## License
+
+Apache-2.0. See [`LICENSE`](LICENSE).
