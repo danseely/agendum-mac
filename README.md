@@ -1,15 +1,19 @@
 # Agendum
 
+<a href="https://github.com/danseely/agendum-mac/releases/latest"><img src="Resources/AppIcon-1024.png" width="128" alt="Agendum app icon — download the latest release" align="left"></a>
+
 A native macOS viewer for your GitHub work: pull requests you authored, reviews requested of you, issues, and a small set of manual tasks. One window, one inbox, kept fresh by a background syncer.
 
 Agendum is a personal-use tool for one developer's daily GitHub workflow. It is working software, not a sketch — but it has not been hardened for general distribution. Treat it accordingly.
+
+<br clear="left">
 
 <!-- TODO: screenshot -->
 
 ## Status
 
 - Working software, used daily by its author.
-- Personal-use prototype. No code-signing, no notarization, no telemetry, no auto-update.
+- Personal-use prototype. Ad-hoc signed but not Developer-ID signed or notarized. No telemetry, no auto-update.
 - No `LICENSE` file yet. Open-source readiness (license, contribution guide, signed builds) is a follow-up, not a promise.
 - Born as a Swift-native rewrite of a sibling Python terminal CLI. The Mac app stands on its own — no Python, no helper process, no sibling checkout at runtime.
 
@@ -21,7 +25,7 @@ Agendum is a personal-use tool for one developer's daily GitHub workflow. It is 
 
 ## Install (prebuilt DMG)
 
-Every push to `main` publishes an unsigned, unnotarized DMG as a GitHub prerelease tagged `v0.1.0-dev.<short-sha>`.
+Every push to `main` publishes a DMG as a GitHub prerelease tagged `v0.1.0-dev.<short-sha>`. Builds are ad-hoc signed (so macOS shows the standard "unidentified developer" dialog rather than the dead-end "is damaged" dialog) but not Developer-ID signed or notarized.
 
 1. Grab the latest DMG from the [Releases page](../../releases) — pick the newest `Agendum-*.dmg`.
 2. Open the DMG and drag **Agendum** into **Applications**.
@@ -141,7 +145,7 @@ The released app bundle is assembled by `Scripts/build_app_bundle.sh` from `Sour
 4. `Scripts/verify_dmg.sh` smoke-tests the artifact.
 5. A GitHub prerelease tagged `v0.1.0-dev.<short-sha>` is created with the DMG and checksum attached.
 
-Builds are unsigned and unnotarized by design — distribution polish is deferred until the app graduates beyond personal use.
+Builds are ad-hoc signed in the build script but not Developer-ID signed or notarized — full distribution polish is deferred until the app graduates beyond personal use.
 
 ## Further reading
 
